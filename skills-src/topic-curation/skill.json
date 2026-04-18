@@ -1,0 +1,7 @@
+{
+  "name": "topic-curation",
+  "description": "Use when the user wants to create or refine a tracked topic through natural language, or asks for important information, ongoing tracking, or a briefing about an area that is not yet a configured topic.",
+  "display_name": "Topic Curation",
+  "short_description": "Turn broad tracking intent into a durable topic configuration workflow.",
+  "default_prompt": "Create or refine a tracked topic from a natural-language request."
+}
