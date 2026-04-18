@@ -1,0 +1,8 @@
+{
+  "name": "source-curation",
+  "description": "Use when the user wants to add, remove, or refine sources for a configured topic after the briefing intent is already clear.",
+  "display_name": "Source Curation",
+  "short_description": "Turn confirmed source intent into sources.json updates under the RSS-only rule.",
+  "default_prompt": "Refine sources for a configured Skrya topic.",
+  "allow_implicit_invocation": true
+}

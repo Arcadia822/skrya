@@ -1,3 +1,0 @@
-display_name: Request Curation
-short_description: Turn topic feedback into durable brief.json language.
-default_prompt: Refine the request layer for one configured topic.

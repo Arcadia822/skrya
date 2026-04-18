@@ -1,0 +1,8 @@
+{
+  "name": "topic-curation",
+  "description": "Use when the user wants to create a new topic, adjust an existing topic, refine what kinds of brief items matter, exclude certain kinds of items, or update topic sources through natural language.",
+  "display_name": "Topic Curation",
+  "short_description": "Turn broad tracking intent into a durable topic configuration workflow.",
+  "default_prompt": "Create or refine a tracked topic from a natural-language request.",
+  "allow_implicit_invocation": true
+}

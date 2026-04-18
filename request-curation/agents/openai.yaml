@@ -1,0 +1,6 @@
+interface:
+  display_name: Request Curation
+  short_description: Turn one-off digest feedback into durable brief.json preferences.
+  default_prompt: Refine a configured topic's durable briefing preferences.
+policy:
+  allow_implicit_invocation: true

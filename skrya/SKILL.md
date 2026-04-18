@@ -1,0 +1,74 @@
+---
+name: skrya
+description: Use when the user needs topic-driven briefing workflows, durable topic configuration, or follow-up event analysis inside the Skrya workspace.
+---
+<!-- AUTO-GENERATED from SKILL.md.tmpl; regenerate with `python -m skrya_orchestrator.main build-skill-pack --root . --host all` -->
+
+# Skrya
+
+Use Skrya for topic-driven briefing workflows in this repository.
+
+Skrya is an umbrella skill pack. Route requests to the bundled skills that best fit the user's intent:
+
+- `topic-curation` for new ongoing tracking requests, broad topic setup, or natural-language topic changes
+- `request-curation` for durable `brief.json` preference changes inside an existing topic
+- `source-curation` for confirmed `sources.json` changes after topic intent is already clear
+- `digest` for ranked daily briefings for a configured topic
+- `deep-analysis` for a deeper breakdown of one digest item or one specific event
+
+## Global Rules
+
+- Topic-scoped work requires an explicit `topic-id`.
+- If the user wants tracking or a briefing for some company, industry, market, product category, or theme without an existing `topic-id`, start with `topic-curation`.
+- Distinguish recurring ongoing tracking from one-off research before doing any collection work.
+- If the user's real need is recurring tracking, do not satisfy it with one-off research or an immediate digest in chat.
+- For recurring workflows, prefer setting up or proposing automation first, then offer a test run.
+- Treat "help me collect", "help me follow", "keep me updated", and similar phrasing as likely ongoing tracking unless the user clearly asks for one-off research.
+- Prefer real data by default.
+- Default user-facing output language is Chinese.
+- Do not show source lists, request ids, or internal debug fields in normal output.
+- Preserve enough traceability to return sources later if the user asks.
+- If the user replies with only a digest item number and the current topic is known, treat that as a `deep-analysis` continuation request.
+
+## Ongoing Tracking Journey
+
+When the user sounds like they want recurring tracking rather than one-off research:
+
+- route through `topic-curation` first and keep the interaction in setup mode
+- confirm the durable topic intent before any crawl or digest run
+- after the topic intent is clear, discuss recurring automation before producing results
+- adapt the next step to the current agent's automation capability instead of hard-coding a specific host name
+- if the current agent is automation-capable, ask whether the user wants the recurring digest created and what time it should run
+- if the current agent is user-mediated for automation, explicitly suggest creating a recurring automation and give the user a ready-to-send prompt
+- if the current agent is non-automation, say that automation is unavailable in this environment and still give the user a ready-to-send prompt they can use elsewhere
+- after configuration and automation handling, ask whether the user wants a test run now
+- keep the test run as a separate explicit decision instead of assuming it or hiding it inside the automation prompt
+- do not jump straight into a test run or a digest unless the user says yes
+
+Use one-off research behavior only when the user clearly wants a single immediate answer rather than a recurring workflow.
+
+## Repository Shape
+
+Use these files and directories as the durable skill-pack layout:
+
+- `SKILL.md.tmpl` and `skill-pack.json` are the source of truth for the umbrella skill.
+- `<skill>/SKILL.md.tmpl` and `<skill>/skill.json` are the source of truth for bundled subskills.
+- Generated `SKILL.md` files and `agents/openai.yaml` metadata live beside their templates so the repository can be installed directly as a skill pack.
+- `prompt-templates/` contains thin host prompt packs.
+- `.skrya/hosts/` contains generated host-specific prompt-pack artifacts at runtime and should not be treated as source of truth.
+
+## Topic Defaults
+
+Use the topic files under `topics/<topic-id>/` as the durable configuration surface:
+
+- `topic.json`
+- `brief.json`
+- `sources.json`
+- `digest.md`
+- `deep-analysis.md`
+
+Use `runs/<topic-id>/` for generated digest and analysis artifacts.
+
+## Source Disclosure
+
+By default, keep source references hidden in user-facing output. If the user asks for sources for a digest item or analysis, return the relevant source list for that specific item.

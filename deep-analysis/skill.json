@@ -1,0 +1,8 @@
+{
+  "name": "deep-analysis",
+  "description": "Use when the user wants to continue from a digest item, asks for a deeper event breakdown, or replies with a visible digest number for a configured topic.",
+  "display_name": "Deep Analysis",
+  "short_description": "Break down one digest event with hidden-by-default source traceability.",
+  "default_prompt": "Analyze one digest item or one specific topic event more deeply.",
+  "allow_implicit_invocation": true
+}

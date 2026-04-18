@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "src"))
+
+from skrya_orchestrator.main import main
+
+
+if __name__ == "__main__":
+    sys.argv = ["skrya", "install-skill-pack", "--root", str(ROOT), *sys.argv[1:]]
+    raise SystemExit(main())

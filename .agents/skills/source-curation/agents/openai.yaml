@@ -1,3 +1,0 @@
-display_name: Source Curation
-short_description: Curate RSS-connectable sources for one topic.
-default_prompt: Review and update sources for a configured topic.

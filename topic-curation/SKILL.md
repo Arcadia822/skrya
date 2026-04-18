@@ -1,0 +1,154 @@
+---
+name: topic-curation
+description: Use when the user wants to create a new topic, adjust an existing topic, refine what kinds of brief items matter, exclude certain kinds of items, or update topic sources through natural language.
+---
+<!-- AUTO-GENERATED from topic-curation/SKILL.md.tmpl; regenerate with `python -m skrya_orchestrator.main build-skill-pack --root . --host all` -->
+
+# Topic Curation
+
+Handle the full user journey for creating or iterating a topic through natural language.
+
+This skill is the single entry point for topic configuration work.
+If the user asks for "important information" about some not-yet-configured area, treat that as a `topic-curation` request first, not as a direct `digest` request.
+This includes requests about some company, industry, market, product category, or theme that is not yet configured as a topic.
+
+## Read First
+
+For a known topic, read:
+
+- `topics/<topic-id>/topic.json`
+- `topics/<topic-id>/brief.json`
+- `topics/<topic-id>/sources.json`
+- `topics/<topic-id>/digest.md`
+
+For a new topic idea with no confirmed `topic-id` yet:
+
+- read `AGENTS.md`, `CLAUDE.md`, or the equivalent repository instruction file
+- inspect `topics/` to avoid collisions and to follow existing naming patterns
+
+Also inherit applicable workspace defaults from the repository instruction file.
+
+## Core Rule
+
+First clarify the durable briefing intent the user wants to keep seeing, then translate that into stable configuration language. Confirm the proposed wording before creating or changing topic files.
+
+Do not make the user speak in config format.
+Do not create a new topic shell before the briefing intent is clear enough.
+Do not answer a broad unconfigured-topic info request with a direct digest first.
+Do not jump straight into running a digest when the user appears to want ongoing tracking.
+
+## Tracking vs One-Off
+
+Separate these two cases early:
+
+- ongoing tracking: the user wants recurring updates, a standing brief, or durable monitoring
+- one-off research: the user wants one immediate answer right now and does not need a standing topic
+
+If the request is ambiguous, prefer treating it as ongoing tracking first and clarify from there.
+Phrases like "collect updates", "follow", "track", "keep me posted", and "regularly" should push you toward ongoing tracking.
+
+For ongoing tracking, keep the conversation in setup mode until topic intent is confirmed, automation is handled, and the user chooses whether to do a test run.
+
+## What This Skill Owns
+
+This skill may:
+
+- help the user create a new topic
+- help the user refine an existing topic
+- translate user feedback into durable configuration wording
+- update `brief.json`
+- update `digest.md` when ranking or exclusion rules need to change
+- recommend source candidates and update `sources.json` after confirmation
+
+This skill does not implement crawling or adapter logic.
+
+## Source Feasibility Rule
+
+- sources with RSS are connectable
+- sources without RSS are not connectable for now
+
+## Intent Types
+
+Map natural-language user input into one or more of these intent types:
+
+- new topic creation
+- add a new tracked angle
+- narrow topic scope
+- exclude a kind of item from future digests
+- adjust ranking preference
+- update topic sources
+- ask for important information on an unconfigured area
+
+Never treat a single digest item number as a literal config primitive.
+Infer the underlying preference and rewrite that into stable configuration language.
+
+## Required Behavior
+
+1. Decide whether this is a new topic or an iteration of an existing topic.
+2. If it is a new topic, clarify the user's briefing intent before creating any files.
+3. If it is an existing topic, read the current config and interpret the user's request as a change to that config.
+4. Translate the user's words into durable configuration text.
+5. Show the user the proposed config change in concise natural Chinese.
+6. Ask for confirmation before writing any file.
+7. After confirmation, create or update the minimum necessary files.
+8. Only discuss sources after the topic intent is clear enough to guide source choice.
+9. When recommending sources, explain fit in terms of the confirmed topic intent.
+10. Confirm source additions or removals before writing `sources.json`.
+11. If the user wants ongoing tracking, discuss recurring digest automation before producing any digest output.
+12. After the topic is configured, ask whether the user wants a test run instead of running it automatically.
+
+## Automation Behavior
+
+For ongoing tracking, a recurring digest is the default target experience.
+
+- First classify the current agent into one of these capability modes:
+  - automation-capable: the agent can create or update automation itself after user confirmation
+  - user-mediated: the agent cannot create automation autonomously here, but can guide the user with a ready-to-send prompt
+  - non-automation: the agent has no usable automation path in the current environment
+- In automation-capable mode, ask whether the user wants the recurring digest created and what time it should run.
+- In user-mediated mode, explicitly suggest the recurring automation step and give the user a ready-to-send prompt.
+- In non-automation mode, say clearly that automation is unavailable in this environment and still provide a ready-to-send prompt the user can use in a more capable agent later.
+- After the automation step is settled, ask separately whether the user wants a test run now.
+- Do not hide the test run decision inside the automation prompt.
+- Do not assume the user wants a test run.
+- Do not present collected results in chat as if that replaces the recurring workflow the user asked for.
+
+## File Strategy
+
+Prefer these write targets:
+
+- `topic.json` for new topic identity
+- `brief.json` for durable tracking requests
+- `digest.md` for ranking, exclusion, and digest judgment rules
+- `sources.json` for confirmed RSS-connectable sources
+
+Prefer the smallest config change that matches the user's intent.
+
+## Conversation Shape
+
+Keep the interaction practical and short:
+
+- accept the user's language as-is
+- infer the underlying lasting preference
+- rewrite it into config-ready wording
+- ask for confirmation
+- then write files
+- then handle automation or scheduling
+- then ask whether the user wants a test run now
+
+## New Topic Creation
+
+For a new topic:
+
+- do not create the topic immediately after hearing only a broad subject
+- first clarify what kinds of brief items the user wants
+- once the intent is clear, propose a `topic-id`, topic name, and initial request set
+- after confirmation, create the topic directory and initial files
+
+## Existing Topic Iteration
+
+For an existing topic:
+
+- assume the user is expressing a configuration preference, not asking to manually edit raw files
+- convert one-off examples into stable rules
+- if the user points at a digest item, infer the category or ranking logic behind the complaint

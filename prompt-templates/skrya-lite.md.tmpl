@@ -5,8 +5,8 @@ Injected into a `{{HOST_NAME}}` coding session for small, bounded work in this r
 ## Working Rules
 
 1. Read `{{INSTRUCTION_FILE}}` and the relevant local docs before editing.
-2. If the task changes skill behavior, edit `skills-src/` and `prompt-templates/`, not the generated copies under `{{SKILL_ROOT}}`.
-3. When generated agent assets change, run `python -m skrya_orchestrator.main build-agent-assets --root . --host all`.
+2. If the task changes skill behavior, edit `skill-pack.json`, `SKILL.md.tmpl`, the root skill directories, and `prompt-templates/`, not runtime artifacts under `.skrya/`.
+3. When skill-pack content changes, run `python -m skrya_orchestrator.main build-skill-pack --root . --host all`.
 4. Keep topic-scoped work tied to an explicit `topic-id`.
 5. Report what changed, what was regenerated, and what you verified.
 

@@ -1,0 +1,7 @@
+interface:
+  display_name: Topic Curation
+  short_description: Turn broad tracking intent into a durable topic configuration
+    workflow.
+  default_prompt: Create or refine a tracked topic from a natural-language request.
+policy:
+  allow_implicit_invocation: true

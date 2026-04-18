@@ -9,6 +9,9 @@ description = "Topic-driven briefing workspace for digest and deep analysis flow
 requires-python = ">=3.10"
 dependencies = ["PyYAML>=6.0"]
 
+[project.scripts]
+skrya = "skrya_orchestrator.main:console_main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 

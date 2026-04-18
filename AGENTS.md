@@ -2,6 +2,8 @@
 
 This workspace is topic-driven.
 
+## Topic Rules
+
 - Any topic-scoped task must use an explicit `topic-id`.
 - Topic files live under `topics/<topic-id>/`.
 - For topic digest work, default to reading:
@@ -47,6 +49,15 @@ This workspace is topic-driven.
 - In that case, first clarify the user's crawling or tracking request rather than producing an immediate digest.
 - For a new topic, first clarify the user's real briefing intent before creating any topic files.
 - Convert the user's natural-language request into stable configuration language, then confirm that wording before writing files.
+- Distinguish recurring tracking from one-off research before doing any collection work.
+- If the user appears to want recurring tracking, do not satisfy that with a one-off answer in chat.
+- After the topic intent is confirmed, prefer proposing or creating recurring automation before any digest output.
+- Decide the next step from the current agent's automation capability rather than from a hard-coded host name.
+- If the current agent can create automation after confirmation, proactively ask whether to create the daily digest task and what time it should run.
+- If the current agent cannot create automation directly but can guide the user, explicitly suggest creating it and give the user a ready-to-send prompt.
+- If the current agent has no automation path in the environment, say so clearly and still provide a ready-to-send prompt for a more capable agent.
+- After configuration and automation handling, ask whether the user wants a test run instead of running the digest automatically.
+- Keep the test run as a separate explicit yes/no decision instead of silently bundling it into the automation prompt.
 - Prefer updating `brief.json` first. Update `digest.md` when the user is really changing ranking or exclusion logic rather than adding one more tracked angle.
 - Only move into source curation after the topic intent is clear enough to guide source choice.
 - Source recommendations should be explained in terms of how well they serve the confirmed topic intent.
@@ -54,12 +65,13 @@ This workspace is topic-driven.
 - Do not write unconfirmed source candidates into `sources.json`.
 - Do not skip straight to digest generation or one-off research when the user's real need is to define a new ongoing tracking topic.
 
-## Agent Asset Defaults
+## Skill Pack Defaults
 
-- `skills-src/` is the source of truth for agent-facing skills.
+- `skill-pack.json` and `SKILL.md.tmpl` are the source of truth for the umbrella `skrya` skill.
+- `<skill>/skill.json` and `<skill>/SKILL.md.tmpl` are the source of truth for bundled skills.
+- Generated `SKILL.md` files and `agents/openai.yaml` files are checked in beside their templates so the repository can be installed directly as a skill pack.
 - `prompt-templates/` is the source of truth for `skrya-lite`, `skrya-full`, and `skrya-plan`.
-- `skills/`, `.agents/skills/`, `.claude/skills/`, `.openclaw/skills/`, and `agent-hosts/` are generated artifacts.
-- If a task changes skill wording, host packaging, or prompt-pack behavior, update the source templates first, then run `python -m skrya_orchestrator.main build-agent-assets --root . --host all`.
+- `.skrya/hosts/` is generated runtime packaging output and is not source of truth.
+- If a task changes skill wording, host packaging, or prompt-pack behavior, update the source templates first, then run `python -m skrya_orchestrator.main build-skill-pack --root . --host all`.
 - Keep `topic-curation` as the broad entrypoint for user-facing topic configuration requests.
 - Use `request-curation` for durable `brief.json` preference changes and `source-curation` for confirmed `sources.json` changes after topic intent is clear.
-

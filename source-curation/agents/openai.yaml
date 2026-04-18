@@ -1,0 +1,7 @@
+interface:
+  display_name: Source Curation
+  short_description: Turn confirmed source intent into sources.json updates under
+    the RSS-only rule.
+  default_prompt: Refine sources for a configured Skrya topic.
+policy:
+  allow_implicit_invocation: true

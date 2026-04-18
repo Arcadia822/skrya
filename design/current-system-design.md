@@ -1,31 +1,93 @@
-# Skrya 当前系统设计
+# Skrya Current System Design
 
-## 文档目的
+## Purpose
 
-这份文档描述 `skrya` 当前已经落地的系统设计，重点回答三件事：
+Skrya is a topic-driven briefing workspace with an installable skill-pack surface.
 
-1. 这个项目现在是什么。
-2. 目录和能力是怎么组织的。
-3. Agent-facing 资产是如何从 source-of-truth 生成出来的。
+It serves two jobs at once:
 
-## 项目定位
+1. A runtime workspace for digest and deep-analysis generation.
+2. A repository-native skill pack that an agent can install and use directly.
 
-`skrya` 是一个 `topic-driven` 的信息采集与分析工作区。
+## Current Model
 
-它不是传统资讯后台，也不是单纯的 RSS 阅读器。当前目标是：
+The repository is the skill pack.
 
-- 围绕显式指定的 `topic-id`
-- 优先使用真实数据
-- 产出中文 digest
-- 允许用户基于 digest 编号继续做单事件深入分析
+### Runtime Intelligence
 
-第一条已经跑通的话题是 `k-entertainment`，但系统架构从一开始就是多 topic 可扩展的。
+Runtime digest and analysis behavior lives in:
 
-## 当前目录模型
+- `src/skrya_orchestrator/intelligence.py`
+- `src/skrya_orchestrator/main.py`
 
-### 主题配置
+That layer owns:
 
-`topics/<topic-id>/` 下默认包含：
+- topic file loading
+- event ranking
+- digest rendering
+- deep-analysis resolution
+- source lookup for on-demand disclosure
+
+### Skill-Pack Surface
+
+The repository root exposes:
+
+- `skill-pack.json`
+- `SKILL.md.tmpl`
+- generated `SKILL.md`
+- generated `agents/openai.yaml`
+- generated `skrya/SKILL.md`
+- generated `skrya/agents/openai.yaml`
+
+Each bundled skill lives in its own root directory:
+
+- `topic-curation/`
+- `request-curation/`
+- `source-curation/`
+- `digest/`
+- `deep-analysis/`
+
+Each skill directory contains:
+
+- `skill.json`
+- `SKILL.md.tmpl`
+- generated `SKILL.md`
+- generated `agents/openai.yaml`
+
+This lets the repo behave like gstack-style installable skill packs: after cloning into an agent skill directory, the agent can discover the umbrella skill and the bundled subskills without first generating workspace-only copies.
+
+The extra `skrya/` directory exists for GitHub installers that only install subdirectories containing `SKILL.md`. It mirrors the umbrella skill so a user can say "install arcadia822/skrya" and still get the global `skrya` entry even if the installer ignores the repo root.
+
+### Prompt Packs
+
+Host prompt-pack templates live in `prompt-templates/`.
+
+Generated host artifacts are written under:
+
+- `.skrya/hosts/workspace/`
+- `.skrya/hosts/codex/`
+- `.skrya/hosts/claude/`
+- `.skrya/hosts/openclaw/`
+
+These are runtime artifacts only. They are not source of truth and are ignored by git.
+
+## Installation Model
+
+Skrya now supports two install shapes:
+
+1. Clone directly into a global skill directory such as `~/.codex/skills/skrya`
+2. Clone anywhere, then run `install-skill-pack` or `setup` to install globally
+
+The installer builds the prompt-pack artifacts and then installs the repository into the host skill directory. It prefers a symlink and falls back to a copy when symlinks are unavailable.
+
+For hosts like Codex, installation now happens in two layers:
+
+1. install the repo as the main global `skrya` skill
+2. install each bundled skill as its own namespaced global skill entry such as `skrya-digest`, preferably as a symlink into the installed `skrya` repo
+
+## Topic Files
+
+Durable topic configuration remains under `topics/<topic-id>/`:
 
 - `topic.json`
 - `brief.json`
@@ -33,84 +95,17 @@
 - `digest.md`
 - `deep-analysis.md`
 
-### 运行产物
+Generated outputs remain under `runs/<topic-id>/`.
 
-`runs/<topic-id>/` 下默认包含：
+## Main Architectural Shift
 
-- `latest-digest.md`
-- `latest-digest-events.json`
-- `deep-analysis-<number>.md`
+The previous model treated the repository as a source workspace that generated other host-facing skill trees such as `skills/`, `.agents/skills/`, `.claude/skills/`, and `.openclaw/skills/`.
 
-### 核心代码
+The current model treats the repository itself as the installable runtime skill tree.
 
-当前核心执行逻辑主要在：
+That means:
 
-- `src/skrya_orchestrator/intelligence.py`
-- `src/skrya_orchestrator/main.py`
-- `src/skrya_orchestrator/agent_assets.py`
-
-也就是：
-
-- 本地 digest / deep-analysis CLI
-- agent asset builder
-
-## Skill 与宿主组织
-
-### Source Of Truth
-
-Agent-facing 文案的真相源位于：
-
-- `skills-src/`
-- `prompt-templates/`
-
-每个 skill source 目录包含：
-
-- `skill.json`
-- `SKILL.md.tmpl`
-
-### 生成结果
-
-生成命令：
-
-```powershell
-python -m skrya_orchestrator.main build-agent-assets --root . --host all
-```
-
-会刷新这些目录：
-
-- `skills/`
-- `.agents/skills/`
-- `.claude/skills/`
-- `.openclaw/skills/`
-- `agent-hosts/`
-
-### 宿主支持策略
-
-第一版先支持 4 个宿主输出：
-
-- `workspace`
-- `codex`
-- `claude`
-- `openclaw`
-
-当前的宿主适配策略保持轻量：
-
-- 统一 skill source
-- 统一 prompt pack source
-- 不同宿主只改输出路径、指令文件名和 metadata 生成方式
-
-这样做的目的，是先把“同一套方法论可以被多个 agent 消费”这件事跑通，再考虑更复杂的宿主适配。
-
-## 工作流分层
-
-工作流现在可以理解成三层：
-
-1. `topic-curation`：接住广义追踪请求
-2. `request-curation` / `source-curation`：把配置意图沉淀为 durable topic files
-3. `digest` / `deep-analysis`：把 topic 转成可消费的日常输出
-
-这种分层让人和 agent 都更容易判断：
-
-- 现在是在定义 topic，还是在消费 topic
-- 这次改动该写 `brief.json`、`sources.json`，还是只需要生成新的 digest
-
+- no checked-in duplicated host skill directories
+- no separate `skills-src/` authoring tree
+- source templates and generated runtime docs live together
+- host-specific packaging is pushed down into `.skrya/hosts/` and the installer

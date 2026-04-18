@@ -1,23 +1,45 @@
 # Skrya
 
-Skrya 是一个 `topic-driven briefing workspace`。
+Skrya is a topic-driven briefing workspace that is now packaged as an installable skill pack.
 
-它不是泛资讯后台，也不是简单的信息源列表，而是围绕显式的 `topic-id` 持续追踪主题，生成可继续追问的中文 digest，并支持按 digest 编号继续做单事件深挖。
+The repository itself is the skill pack:
 
-## 仓库结构
+- `skill-pack.json` and `SKILL.md.tmpl` define the umbrella `skrya` skill.
+- Each root skill directory such as `topic-curation/` or `digest/` defines one bundled skill.
+- Generated `SKILL.md` files and `agents/openai.yaml` metadata are checked in beside their templates so an agent can use the pack immediately after installation.
+- `skrya/` is a generated installer-facing umbrella skill directory for GitHub installers that only scan subdirectories for installable skills.
+- Host-specific prompt-pack artifacts are generated under `.skrya/hosts/` at build time and are not source of truth.
 
-核心目录：
+## Core Workflow
 
-- `topics/<topic-id>/`：主题配置与判断标准
-- `runs/<topic-id>/`：最近一次 digest 和分析产物
-- `skills-src/`：agent skill 的 source-of-truth
-- `skills/`：workspace 默认生成出来的 skill 产物
-- `prompt-templates/`：`skrya-lite` / `skrya-full` / `skrya-plan` 的源模板
-- `agent-hosts/`：面向不同宿主生成出来的 prompt pack
-- `design/`：系统设计、样例和规范文档
-- `src/skrya_orchestrator/`：本地 CLI、digest/deep-analysis 逻辑和 agent asset builder
+Skrya's bundled skills are:
 
-一个标准 topic 默认包含这些文件：
+- `topic-curation`
+- `request-curation`
+- `source-curation`
+- `digest`
+- `deep-analysis`
+
+Use `topic-curation` as the broad entry point whenever the user wants ongoing tracking or a briefing for some company, industry, market, product category, or theme without first naming an existing configured `topic-id`.
+
+## Repository Structure
+
+- `skill-pack.json`: umbrella skill metadata
+- `SKILL.md.tmpl`: umbrella skill template
+- `<skill>/skill.json`: metadata for a bundled skill
+- `<skill>/SKILL.md.tmpl`: source template for a bundled skill
+- `<skill>/SKILL.md`: generated runtime skill doc
+- `<skill>/agents/openai.yaml`: generated OpenAI metadata
+- `skrya/`: generated installer-facing umbrella skill directory
+- `prompt-templates/`: source templates for `skrya-lite`, `skrya-full`, and `skrya-plan`
+- `.skrya/hosts/`: generated host-specific prompt packs
+- `topics/<topic-id>/`: durable topic configuration
+- `runs/<topic-id>/`: generated digest and deep-analysis output
+- `src/skrya_orchestrator/`: CLI, runtime intelligence, build, and install logic
+
+## Topic Files
+
+Each topic typically includes:
 
 - `topic.json`
 - `brief.json`
@@ -25,90 +47,97 @@ Skrya 是一个 `topic-driven briefing workspace`。
 - `digest.md`
 - `deep-analysis.md`
 
-## 快速开始
+## Install
 
-安装：
+### Option 1: Clone directly into the agent skill directory
+
+For Codex:
 
 ```powershell
+git clone https://github.com/your-org/skrya.git $HOME/.codex/skills/skrya
+cd $HOME/.codex/skills/skrya
 python -m pip install -e .
+python -m skrya_orchestrator.main build-skill-pack --root . --host codex
 ```
 
-生成某个 topic 的 digest：
+Because the repository already contains the generated root and bundled `SKILL.md` files, cloning into the final skill location is enough for direct discovery.
+
+### Option 2: Clone anywhere, then install globally
+
+```powershell
+git clone https://github.com/your-org/skrya.git D:\work\skrya
+cd D:\work\skrya
+python -m pip install -e .
+python -m skrya_orchestrator.main install-skill-pack --root . --host codex
+```
+
+There is also a convenience wrapper:
+
+```powershell
+./setup.ps1 --host codex
+```
+
+On Unix-like shells:
+
+```bash
+./setup --host codex
+```
+
+`install-skill-pack` builds the runtime pack, generates host prompt artifacts, and then installs Skrya into the selected global skill directory. It prefers a symlink and falls back to a copy if symlinks are unavailable.
+
+For Codex-style installs, Skrya now follows a gstack-like split:
+
+- the repo is installed as the main global `skrya` skill
+- bundled skills such as `digest`, `deep-analysis`, and `topic-curation` are also installed into the same global skills root as namespaced entries like `skrya-digest`
+- those bundled entries prefer symlinks back into the installed `skrya` repo and fall back to copies if symlinks are unavailable
+
+## Build
+
+Regenerate the checked-in runtime skill docs and the runtime host prompt artifacts:
+
+```powershell
+python -m skrya_orchestrator.main build-skill-pack --root . --host all
+```
+
+`build-agent-assets` remains as a backward-compatible alias, but `build-skill-pack` is the primary command now.
+
+## Digest And Analysis Commands
+
+Generate a digest:
 
 ```powershell
 python -m skrya_orchestrator.main digest --topic k-entertainment --root .
 ```
 
-基于 digest 编号继续深挖：
+Continue with a deep analysis:
 
 ```powershell
 python -m skrya_orchestrator.main deep-analysis --topic k-entertainment --event-number 3 --root .
 ```
 
-重新生成多宿主 agent 资产：
+## Source Of Truth
 
-```powershell
-python -m skrya_orchestrator.main build-agent-assets --root . --host all
-```
+If you need to change agent-facing behavior:
 
-运行后会在 `runs/<topic-id>/` 下生成：
+1. Edit `skill-pack.json` and `SKILL.md.tmpl` for the umbrella skill.
+2. Edit `<skill>/skill.json` and `<skill>/SKILL.md.tmpl` for bundled skills.
+3. Edit `prompt-templates/` for host prompt packs.
+4. Run `python -m skrya_orchestrator.main build-skill-pack --root . --host all`.
+5. Update tests and docs with the behavior change.
 
-- `latest-digest.md`
-- `latest-digest-events.json`
-- `deep-analysis-<number>.md`
+Do not hand-edit `.skrya/hosts/` or treat it as source of truth.
 
-## Skill 组织方式
+## Design Docs
 
-当前核心 skill 拆成 5 个职责单元：
-
-- `topic-curation`：用户面对的总入口，负责把广义追踪需求收束成可执行 topic
-- `request-curation`：把“以后多看什么、少看什么”的反馈沉淀到 `brief.json`
-- `source-curation`：在 topic intent 已经清楚后，决定哪些 RSS 信源应进入 `sources.json`
-- `digest`：把 topic 当前值得看的事件整理成编号 digest
-- `deep-analysis`：围绕 digest 项目编号继续做单事件深挖
-
-其中 `topic-curation` 仍然是广义入口；`request-curation` 和 `source-curation` 是更窄的职责层，便于不同 agent 清楚各自边界。
-
-## Source Of Truth 与生成物
-
-如果你要修改 agent 能力，不要直接手改生成产物。
-
-- 编辑 `skills-src/` 和 `prompt-templates/`
-- 运行 `build-agent-assets`
-- 让生成器刷新这些目录：
-  - `skills/`
-  - `.agents/skills/`
-  - `.claude/skills/`
-  - `.openclaw/skills/`
-  - `agent-hosts/`
-
-这套结构的目标，是让 Codex、Claude Code、OpenClaw 一类宿主都能消费同一份 Skrya 方法论，而不是各自维护一份会漂移的 prompt。
-
-## 工作方式
-
-这套工作区默认遵循这些产品约束：
-
-- 任何 topic 相关任务都必须显式指定 `topic-id`
-- 默认优先使用真实数据
-- 默认输出中文
-- 正常输出里不内联 source list
-- digest 里的每条内容都用统一编号，方便用户直接回复数字继续分析
-
-如果用户还没有现成 topic，而是先说“帮我持续跟踪某个公司、行业或主题”，应该先走 `topic-curation`，把长期追踪意图澄清清楚，再去生成 digest。
-
-## 设计文档
-
-如果你要快速理解系统边界，优先看这些文件：
+Helpful docs for understanding the current model:
 
 - [current-system-design.md](D:/Documents/skrya/design/current-system-design.md)
 - [core-skills-spec.md](D:/Documents/skrya/design/core-skills-spec.md)
-- [digest-spec.md](D:/Documents/skrya/design/digest-spec.md)
-- [deep-analysis-spec.md](D:/Documents/skrya/design/deep-analysis-spec.md)
-- [2026-04-18-skrya-agent-host-bridge-design.md](D:/Documents/skrya/docs/superpowers/specs/2026-04-18-skrya-agent-host-bridge-design.md)
+- [2026-04-18-skrya-installable-skill-pack-design.md](D:/Documents/skrya/docs/superpowers/specs/2026-04-18-skrya-installable-skill-pack-design.md)
+- [2026-04-18-skrya-installable-skill-pack.md](D:/Documents/skrya/docs/superpowers/plans/2026-04-18-skrya-installable-skill-pack.md)
 
-## 测试
+## Tests
 
 ```powershell
 python -m unittest discover -s tests -v
 ```
-

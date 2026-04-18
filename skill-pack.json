@@ -1,0 +1,8 @@
+{
+  "name": "skrya",
+  "description": "Use when the user needs topic-driven briefing workflows, durable topic configuration, or follow-up event analysis inside the Skrya workspace.",
+  "display_name": "skrya",
+  "short_description": "Topic-driven briefing skill pack with curation, digest, and deep-analysis workflows.",
+  "default_prompt": "Use $skrya to route this request to the right Skrya workflow.",
+  "allow_implicit_invocation": true
+}

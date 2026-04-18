@@ -1,0 +1,8 @@
+{
+  "name": "request-curation",
+  "description": "Use when the user wants to refine what kinds of items matter within an existing topic, add or remove tracked angles, or turn digest feedback into durable brief rules.",
+  "display_name": "Request Curation",
+  "short_description": "Turn one-off digest feedback into durable brief.json preferences.",
+  "default_prompt": "Refine a configured topic's durable briefing preferences.",
+  "allow_implicit_invocation": true
+}

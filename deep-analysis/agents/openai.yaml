@@ -1,0 +1,6 @@
+interface:
+  display_name: Deep Analysis
+  short_description: Break down one digest event with hidden-by-default source traceability.
+  default_prompt: Analyze one digest item or one specific topic event more deeply.
+policy:
+  allow_implicit_invocation: true

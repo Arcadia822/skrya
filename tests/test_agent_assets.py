@@ -5,7 +5,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
-from skrya_orchestrator.agent_assets import AssetBuilder
+from skrya_orchestrator.agent_assets import SkillPackBuilder, SkillPackInstaller
 from skrya_orchestrator.main import main
 
 
@@ -14,51 +14,65 @@ TEST_TEMP_ROOT = ROOT / "tmp" / "unit-tests"
 TEST_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
 
 
-class AgentAssetTests(unittest.TestCase):
-    def test_builder_generates_workspace_skills_and_metadata_from_source_templates(self) -> None:
-        root = self._make_root("agent-assets-workspace")
+class SkillPackTests(unittest.TestCase):
+    def test_builder_generates_root_and_bundled_skills_in_place(self) -> None:
+        root = self._make_root("skill-pack-runtime")
         self._copy_template_inputs(root)
 
-        written = AssetBuilder(root).build(output_root=root, host_name="workspace")
+        written = SkillPackBuilder(root).build(output_root=root, host_name="workspace")
 
-        self.assertIn(root / "skills" / "request-curation" / "SKILL.md", written)
-        self.assertIn(root / "skills" / "source-curation" / "SKILL.md", written)
-        digest_skill = root / "skills" / "digest" / "SKILL.md"
-        self.assertTrue(digest_skill.exists())
-        self.assertIn("Always require an explicit `topic-id`.", digest_skill.read_text(encoding="utf-8"))
-        digest_metadata = root / "skills" / "digest" / "agents" / "openai.yaml"
-        self.assertTrue(digest_metadata.exists())
-        self.assertIn("display_name: Digest", digest_metadata.read_text(encoding="utf-8"))
+        self.assertIn(root / "SKILL.md", written)
+        self.assertIn(root / "agents" / "openai.yaml", written)
+        self.assertIn(root / "skrya" / "SKILL.md", written)
+        self.assertIn(root / "skrya" / "agents" / "openai.yaml", written)
+        self.assertIn(root / "digest" / "SKILL.md", written)
+        self.assertTrue((root / "topic-curation" / "SKILL.md").exists())
+        self.assertTrue((root / "skrya" / "SKILL.md").exists())
+        self.assertIn("topic-curation", (root / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertIn("topic-curation", (root / "skrya" / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertIn("display_name: Digest", (root / "digest" / "agents" / "openai.yaml").read_text(encoding="utf-8"))
 
-    def test_builder_generates_host_specific_roots_and_prompt_packs(self) -> None:
-        root = self._make_root("agent-assets-hosts")
+    def test_builder_generates_host_prompts_under_dot_skrya(self) -> None:
+        root = self._make_root("skill-pack-hosts")
         self._copy_template_inputs(root)
 
-        written = AssetBuilder(root).build(output_root=root, host_name="all")
+        written = SkillPackBuilder(root).build(output_root=root, host_name="all")
 
-        self.assertIn(root / ".agents" / "skills" / "digest" / "SKILL.md", written)
-        self.assertIn(root / ".claude" / "skills" / "digest" / "SKILL.md", written)
-        self.assertIn(root / ".openclaw" / "skills" / "digest" / "SKILL.md", written)
-        self.assertTrue((root / "agent-hosts" / "codex" / "skrya-full-AGENTS.md").exists())
-        self.assertTrue((root / "agent-hosts" / "claude" / "skrya-lite-CLAUDE.md").exists())
-        self.assertTrue((root / "agent-hosts" / "openclaw" / "skrya-plan-AGENTS.md").exists())
+        self.assertIn(root / ".skrya" / "hosts" / "codex" / "prompts" / "skrya-full-AGENTS.md", written)
+        self.assertIn(root / ".skrya" / "hosts" / "claude" / "prompts" / "skrya-lite-CLAUDE.md", written)
+        self.assertIn(root / ".skrya" / "hosts" / "openclaw" / "prompts" / "skrya-plan-AGENTS.md", written)
 
-    def test_cli_build_agent_assets_command_supports_host_all(self) -> None:
-        root = self._make_root("agent-assets-cli")
+    def test_cli_build_skill_pack_command_supports_host_all(self) -> None:
+        root = self._make_root("skill-pack-cli")
         self._copy_template_inputs(root)
 
         stdout = io.StringIO()
-        with patch(
-            "sys.argv",
-            ["skrya", "build-agent-assets", "--root", str(root), "--host", "all"],
-        ):
+        with patch("sys.argv", ["skrya", "build-skill-pack", "--root", str(root), "--host", "all"]):
             with redirect_stdout(stdout):
                 exit_code = main()
 
         self.assertEqual(0, exit_code)
-        self.assertIn("Generated assets for host(s): all", stdout.getvalue())
-        self.assertTrue((root / "skills" / "topic-curation" / "SKILL.md").exists())
-        self.assertTrue((root / ".agents" / "skills" / "deep-analysis" / "SKILL.md").exists())
+        self.assertIn("Generated skill pack artifacts for host(s): all", stdout.getvalue())
+        self.assertTrue((root / "SKILL.md").exists())
+        self.assertTrue((root / "deep-analysis" / "SKILL.md").exists())
+
+    def test_cli_install_skill_pack_uses_symlink_or_copy_into_home(self) -> None:
+        root = self._make_root("skill-pack-install")
+        home = self._make_root("fake-home")
+        self._copy_template_inputs(root)
+        (home / ".codex").mkdir(parents=True, exist_ok=True)
+
+        with patch("pathlib.Path.home", return_value=home):
+            results = SkillPackInstaller(root).install(output_root=root, host_name="auto")
+
+        by_name = {result.skill_name: result for result in results}
+        self.assertIn("skrya", by_name)
+        self.assertIn("skrya-digest", by_name)
+        self.assertIn("skrya-topic-curation", by_name)
+        self.assertEqual("codex", by_name["skrya"].host)
+        self.assertTrue((home / ".codex" / "skills" / "skrya").exists())
+        self.assertTrue((home / ".codex" / "skills" / "skrya-digest").exists())
+        self.assertTrue((home / ".codex" / "skills" / "skrya-topic-curation").exists())
 
     @staticmethod
     def _make_root(name: str) -> Path:
@@ -69,8 +83,17 @@ class AgentAssetTests(unittest.TestCase):
 
     @staticmethod
     def _copy_template_inputs(root: Path) -> None:
-        shutil.copytree(ROOT / "skills-src", root / "skills-src")
+        for filename in ["skill-pack.json", "SKILL.md.tmpl", "README.md", "AGENTS.md"]:
+            shutil.copy2(ROOT / filename, root / filename)
         shutil.copytree(ROOT / "prompt-templates", root / "prompt-templates")
+        for skill_name in [
+            "deep-analysis",
+            "digest",
+            "request-curation",
+            "source-curation",
+            "topic-curation",
+        ]:
+            shutil.copytree(ROOT / skill_name, root / skill_name)
 
 
 if __name__ == "__main__":
