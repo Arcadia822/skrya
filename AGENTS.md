@@ -1,0 +1,65 @@
+# Skrya Workspace Defaults
+
+This workspace is topic-driven.
+
+- Any topic-scoped task must use an explicit `topic-id`.
+- Topic files live under `topics/<topic-id>/`.
+- For topic digest work, default to reading:
+  - `topics/<topic-id>/topic.json`
+  - `topics/<topic-id>/brief.json`
+  - `topics/<topic-id>/sources.json`
+  - `topics/<topic-id>/digest.md`
+- For topic deep analysis work, default to reading:
+  - `topics/<topic-id>/topic.json`
+  - `topics/<topic-id>/brief.json`
+  - `topics/<topic-id>/deep-analysis.md`
+
+## Data Defaults
+
+- Prefer real data by default.
+- Only fall back to sample data when real data is unavailable or the task is explicitly about debugging sample flows.
+
+## Output Defaults
+
+- Default output language is Chinese.
+- Do not show source lists in normal output.
+- Do not show internal debug fields, request ids, or implementation metadata in user-facing output.
+- Keep enough traceability so sources can be returned later if the user asks.
+
+## Digest Defaults
+
+- Use the `digest` skill when the user wants a topic digest or daily briefing.
+- Save the digest as a file under `runs/<topic-id>/latest-digest.md`.
+- Render every digest item as a numbered single paragraph.
+- Do not split the first few items into a special format.
+- End the digest with a natural follow-up line that invites the user to reply with a number for deeper analysis, without mentioning internal skill names.
+
+## Deep Analysis Defaults
+
+- Use the `deep-analysis` skill when the user wants to continue from a digest item or asks for a deeper event breakdown.
+- If the user replies with only a visible digest number, resolve it against the latest digest for the same topic.
+- Keep the analysis natural and source-hidden by default, but be ready to provide sources on request.
+
+## Topic Curation Defaults
+
+- Use the `topic-curation` skill when the user wants to create a new topic, adjust an existing topic, refine what kinds of brief items matter, exclude certain kinds of items, or update topic sources through natural language.
+- If the user asks for important information, a briefing, news tracking, or regular updates about some company, industry, market, product category, or theme without first naming an existing configured `topic-id`, route to `topic-curation` first instead of answering directly.
+- In that case, first clarify the user's crawling or tracking request rather than producing an immediate digest.
+- For a new topic, first clarify the user's real briefing intent before creating any topic files.
+- Convert the user's natural-language request into stable configuration language, then confirm that wording before writing files.
+- Prefer updating `brief.json` first. Update `digest.md` when the user is really changing ranking or exclusion logic rather than adding one more tracked angle.
+- Only move into source curation after the topic intent is clear enough to guide source choice.
+- Source recommendations should be explained in terms of how well they serve the confirmed topic intent.
+- Simplify source feasibility to this rule: sources with RSS can be connected, sources without RSS are not connectable for now.
+- Do not write unconfirmed source candidates into `sources.json`.
+- Do not skip straight to digest generation or one-off research when the user's real need is to define a new ongoing tracking topic.
+
+## Agent Asset Defaults
+
+- `skills-src/` is the source of truth for agent-facing skills.
+- `prompt-templates/` is the source of truth for `skrya-lite`, `skrya-full`, and `skrya-plan`.
+- `skills/`, `.agents/skills/`, `.claude/skills/`, `.openclaw/skills/`, and `agent-hosts/` are generated artifacts.
+- If a task changes skill wording, host packaging, or prompt-pack behavior, update the source templates first, then run `python -m skrya_orchestrator.main build-agent-assets --root . --host all`.
+- Keep `topic-curation` as the broad entrypoint for user-facing topic configuration requests.
+- Use `request-curation` for durable `brief.json` preference changes and `source-curation` for confirmed `sources.json` changes after topic intent is clear.
+

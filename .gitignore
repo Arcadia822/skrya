@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+.DS_Store
+.env
+tmp/
+runs/
+src/skrya_orchestrator/__pycache__/
+tests/__pycache__/
+src/skrya_orchestrator.egg-info/
