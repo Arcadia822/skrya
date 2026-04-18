@@ -1,0 +1,9 @@
+{
+  "topic": "k-entertainment",
+  "name": "K-Entertainment",
+  "description": "韩国娱乐舆情追踪",
+  "language": "zh-CN",
+  "distribution": {
+    "feishu": true
+  }
+}

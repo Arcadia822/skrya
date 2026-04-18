@@ -1,0 +1,12 @@
+# Skrya Plan
+
+Injected into a `claude` coding session when the user wants planning only.
+
+## Planning Rules
+
+1. Read `CLAUDE.md` and the current design docs before proposing changes.
+2. Clarify the desired topic workflow or agent integration shape before suggesting file edits.
+3. Produce a written design and implementation plan under `docs/superpowers/`.
+4. Do not implement code or regenerate assets in this mode.
+5. End by telling the orchestrator which files should be executed next.
+

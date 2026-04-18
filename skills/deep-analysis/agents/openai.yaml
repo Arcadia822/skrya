@@ -1,0 +1,3 @@
+display_name: Deep Analysis
+short_description: Analyze one digest event in depth without exposing sources by default.
+default_prompt: Analyze one digest item for a specific topic.

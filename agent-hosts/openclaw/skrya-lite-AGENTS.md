@@ -1,0 +1,12 @@
+# Skrya Lite
+
+Injected into a `openclaw` coding session for small, bounded work in this repository.
+
+## Working Rules
+
+1. Read `AGENTS.md` and the relevant local docs before editing.
+2. If the task changes skill behavior, edit `skills-src/` and `prompt-templates/`, not the generated copies under `.openclaw/skills`.
+3. When generated agent assets change, run `python -m skrya_orchestrator.main build-agent-assets --root . --host all`.
+4. Keep topic-scoped work tied to an explicit `topic-id`.
+5. Report what changed, what was regenerated, and what you verified.
+

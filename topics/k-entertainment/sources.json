@@ -1,0 +1,44 @@
+{
+  "sources": [
+    {
+      "id": "soompi-main",
+      "name": "Soompi Main Feed",
+      "type": "rss",
+      "enabled": true,
+      "url": "https://www.soompi.com/feed",
+      "adapter": "rss"
+    },
+    {
+      "id": "soompi-celeb",
+      "name": "Soompi Celeb Feed",
+      "type": "rss",
+      "enabled": true,
+      "url": "https://www.soompi.com/category/celeb/feed",
+      "adapter": "rss"
+    },
+    {
+      "id": "soompi-music",
+      "name": "Soompi Music Feed",
+      "type": "rss",
+      "enabled": true,
+      "url": "https://www.soompi.com/category/music/feed",
+      "adapter": "rss"
+    },
+    {
+      "id": "koreaboo-main",
+      "name": "Koreaboo Main Feed",
+      "type": "rss",
+      "enabled": true,
+      "url": "https://www.koreaboo.com/feed/",
+      "adapter": "rss"
+    },
+    {
+      "id": "nme-asia-music",
+      "name": "NME Asia Music Feed",
+      "type": "rss",
+      "enabled": true,
+      "url": "https://www.nme.com/en_asia/music/feed",
+      "adapter": "rss"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "digest",
+  "description": "Use when the user wants a ranked daily briefing for a configured topic, asks what matters today for that topic, or wants a chat-friendly digest without inline source lists.",
+  "display_name": "Digest",
+  "short_description": "Create a ranked topic digest without exposing debug fields by default.",
+  "default_prompt": "Generate today's digest for a specific topic."
+}

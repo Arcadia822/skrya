@@ -1,0 +1,7 @@
+{
+  "name": "deep-analysis",
+  "description": "Use when the user wants deeper analysis of a digest item for a configured topic, replies with a digest number, or asks what really happened in a specific tracked event.",
+  "display_name": "Deep Analysis",
+  "short_description": "Analyze one digest event in depth without exposing sources by default.",
+  "default_prompt": "Analyze one digest item for a specific topic."
+}
