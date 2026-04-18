@@ -9,3 +9,6 @@ build/
 .env
 tmp/
 runs/
+src/skrya_orchestrator/__pycache__/
+tests/__pycache__/
+src/skrya_orchestrator.egg-info/
