@@ -1,14 +1,14 @@
 ---
 name: digest
-description: Use when the user wants a ranked daily briefing for a configured topic, asks what matters today for that topic, or wants a chat-friendly digest without inline source lists.
+description: Use when the user wants a ranked daily briefing for a configured topic, asks what matters today for that topic, or wants a chat-friendly digest without inline source lists. Trigger for Chinese requests like "今天有什么重要", "给我今日简报", "跑一次日报", or "看看这个主题今天发生了什么".
 ---
 <!-- AUTO-GENERATED from digest/SKILL.md.tmpl; regenerate with `python -m skrya_orchestrator.main build-skill-pack --root . --host all` -->
 
 # Digest
 
-Generate a topic-level digest for a specific `topic-id`.
+Generate a topic-level digest for a resolved Skrya topic.
 
-Always require an explicit `topic-id`.
+Always resolve an explicit internal `topic-id` before reading files, but do not ask nontechnical users for raw ids when a natural topic name can be mapped.
 
 ## Read First
 
@@ -20,6 +20,7 @@ Read these files before drafting the digest:
 - `topics/<topic-id>/digest.md`
 
 If available, also read the latest event candidates or prior digest artifacts for that topic.
+When runtime retrieval was used, consume only normalized `skrya.ingest.v1` artifacts under `runs/<topic-id>/ingest/`. Do not consume raw provider output directly.
 
 Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or the equivalent repository instruction file.
 
@@ -32,12 +33,13 @@ Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or
 - Render every event as a numbered single paragraph so the user can reply with a number to request deeper analysis.
 - Keep the tone concise, calm, and readable in chat.
 - Save the digest to the workspace run directory.
+- File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
 - End with a natural sentence that tells the user they can reply with a number to continue.
 
 ## Required Behavior
 
 1. Load topic configuration and topic-specific digest guidance.
-2. Consume the available normalized items or event candidates.
+2. Consume the available normalized `skrya.ingest.v1` items or event candidates.
 3. Remove obvious duplicates and low-value fragments.
 4. Rank events using the topic brief and digest standard.
 5. Write every event as a single-paragraph numbered item with stable visible numbers.

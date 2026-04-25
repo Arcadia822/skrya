@@ -1,6 +1,6 @@
 ---
 name: request-curation
-description: Use when the user wants to refine what kinds of items matter within an existing topic, add or remove tracked angles, or turn digest feedback into durable brief rules.
+description: Use when the user wants to refine what kinds of items matter within an existing topic, add or remove tracked angles, or turn digest feedback into durable brief rules. Trigger for Chinese feedback like "这条以后少推", "这类以后多推", "加上价格变化", or "别再推这种".
 ---
 <!-- AUTO-GENERATED from request-curation/SKILL.md.tmpl; regenerate with `python -m skrya_orchestrator.main build-skill-pack --root . --host all` -->
 
@@ -8,7 +8,7 @@ description: Use when the user wants to refine what kinds of items matter within
 
 Translate user feedback about what should matter in a configured topic into durable request language.
 
-Always require an explicit `topic-id`.
+Always resolve an explicit internal `topic-id` before reading or writing files, but do not ask nontechnical users for raw ids when a natural topic name can be mapped.
 
 ## Read First
 
@@ -47,6 +47,7 @@ Convert one-off user feedback into durable `brief.json` request language instead
 
 - Keep the conversation natural and short.
 - Do not expose internal debug fields or config jargon unless needed.
+- File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
 - Preserve the user's intent, but normalize the language into stable configuration text.
 
 ## Success Criteria

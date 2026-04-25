@@ -1,6 +1,6 @@
 ---
 name: skrya
-description: Use when the user needs topic-driven briefing workflows, durable topic configuration, or follow-up event analysis inside the Skrya workspace.
+description: Use when the user needs topic-driven briefing workflows, durable topic configuration, or follow-up event analysis inside the Skrya workspace. Trigger for Chinese requests like "每天帮我关注", "持续跟踪", "定期简报", or "今天有什么重要".
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl; regenerate with `python -m skrya_orchestrator.main build-skill-pack --root . --host all` -->
 
@@ -18,7 +18,8 @@ Skrya is an umbrella skill pack. Route requests to the bundled skills that best 
 
 ## Global Rules
 
-- Topic-scoped work requires an explicit `topic-id`.
+- Topic-scoped work requires the agent to resolve an explicit internal `topic-id` before reading or writing files.
+- Do not ask nontechnical users for raw `topic-id` values. Ask for or confirm the natural topic name instead, then map it to the internal `topic-id` yourself.
 - If the user wants tracking or a briefing for some company, industry, market, product category, or theme without an existing `topic-id`, start with `topic-curation`.
 - Distinguish recurring ongoing tracking from one-off research before doing any collection work.
 - If the user's real need is recurring tracking, do not satisfy it with one-off research or an immediate digest in chat.
@@ -29,6 +30,27 @@ Skrya is an umbrella skill pack. Route requests to the bundled skills that best 
 - Do not show source lists, request ids, or internal debug fields in normal output.
 - Preserve enough traceability to return sources later if the user asks.
 - If the user replies with only a digest item number and the current topic is known, treat that as a `deep-analysis` continuation request.
+
+## End-User Front Door
+
+When the user is not technical, behave like a briefing assistant rather than a repository operator:
+
+- let the user describe the area in everyday language
+- translate that into topic intent, tracked angles, sources, and schedule internally
+- explain only the next human decision the user needs to make
+- use words like "关注主题", "每日简报", "自动接入", and "试跑一次"
+- avoid exposing terms such as raw `topic-id`, `brief.json`, `sources.json`, RSS, request ids, or skill names unless the user asks for implementation details
+
+## External Retrieval Providers
+
+When a user or runtime mentions a third-party retrieval skill such as `agent-reach`, treat it as a temporary runtime provider.
+
+- Durable topic configuration must depend on capabilities, not third-party skill names.
+- Use capability names such as `web_search`, `news_search`, `site_search`, `social_search`, and `document_fetch`.
+- Store provider-neutral source entries as `runtime-retrieval` sources.
+- Do not save the provider name as a required durable source dependency.
+- Provider names may appear only in runtime ingest artifacts under `runs/<topic-id>/ingest/` for traceability.
+- Before digest generation, normalize provider output into `skrya.ingest.v1`; do not let digest or deep-analysis consume raw provider text directly.
 
 ## Ongoing Tracking Journey
 
@@ -59,7 +81,7 @@ Use these files and directories as the durable skill-pack layout:
 
 ## Topic Defaults
 
-Use the topic files under `topics/<topic-id>/` as the durable configuration surface:
+Use the topic files under `topics/<topic-id>/` as the durable configuration surface after the internal `topic-id` is resolved:
 
 - `topic.json`
 - `brief.json`

@@ -2,7 +2,7 @@
 
 Translate user feedback about what should matter in a configured topic into durable request language.
 
-Always require an explicit `topic-id`.
+Always resolve an explicit internal `topic-id` before reading or writing files, but do not ask nontechnical users for raw ids when a natural topic name can be mapped.
 
 ## Read First
 
@@ -41,6 +41,7 @@ Convert one-off user feedback into durable `brief.json` request language instead
 
 - Keep the conversation natural and short.
 - Do not expose internal debug fields or config jargon unless needed.
+- File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
 - Preserve the user's intent, but normalize the language into stable configuration text.
 
 ## Success Criteria

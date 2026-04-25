@@ -4,7 +4,8 @@ This workspace is topic-driven.
 
 ## Topic Rules
 
-- Any topic-scoped task must use an explicit `topic-id`.
+- Any topic-scoped task must resolve an explicit internal `topic-id` before reading or writing files.
+- Do not ask nontechnical users for raw `topic-id` values when a natural topic name can be mapped or confirmed.
 - Topic files live under `topics/<topic-id>/`.
 - For topic digest work, default to reading:
   - `topics/<topic-id>/topic.json`
@@ -61,7 +62,10 @@ This workspace is topic-driven.
 - Prefer updating `brief.json` first. Update `digest.md` when the user is really changing ranking or exclusion logic rather than adding one more tracked angle.
 - Only move into source curation after the topic intent is clear enough to guide source choice.
 - Source recommendations should be explained in terms of how well they serve the confirmed topic intent.
-- Simplify source feasibility to this rule: sources with RSS can be connected, sources without RSS are not connectable for now.
+- Simplify source feasibility internally to this rule: sources with RSS can be connected, sources without RSS are not connectable for now.
+- In user-facing output, describe this as whether a source can be 自动接入 or is 暂时不能自动接入; do not make the user reason about RSS.
+- If a source depends on a third-party retrieval skill such as `agent-reach`, store only provider-neutral runtime retrieval capabilities in durable config, not the third-party skill name.
+- Third-party provider names may appear in runtime ingest artifacts under `runs/<topic-id>/ingest/` for traceability.
 - Do not write unconfirmed source candidates into `sources.json`.
 - Do not skip straight to digest generation or one-off research when the user's real need is to define a new ongoing tracking topic.
 
@@ -70,7 +74,7 @@ This workspace is topic-driven.
 - `skill-pack.json` and `SKILL.md.tmpl` are the source of truth for the umbrella `skrya` skill.
 - `<skill>/skill.json` and `<skill>/SKILL.md.tmpl` are the source of truth for bundled skills.
 - Generated `SKILL.md` files and `agents/openai.yaml` files are checked in beside their templates so the repository can be installed directly as a skill pack.
-- `prompt-templates/` is the source of truth for `skrya-lite`, `skrya-full`, and `skrya-plan`.
+- `prompt-templates/` is the source of truth for `skrya-lite`, `skrya-full`, `skrya-plan`, and `skrya-user`.
 - `.skrya/hosts/` is generated runtime packaging output and is not source of truth.
 - If a task changes skill wording, host packaging, or prompt-pack behavior, update the source templates first, then run `python -m skrya_orchestrator.main build-skill-pack --root . --host all`.
 - Keep `topic-curation` as the broad entrypoint for user-facing topic configuration requests.

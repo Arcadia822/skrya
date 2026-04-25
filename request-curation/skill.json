@@ -1,6 +1,6 @@
 {
   "name": "request-curation",
-  "description": "Use when the user wants to refine what kinds of items matter within an existing topic, add or remove tracked angles, or turn digest feedback into durable brief rules.",
+  "description": "Use when the user wants to refine what kinds of items matter within an existing topic, add or remove tracked angles, or turn digest feedback into durable brief rules. Trigger for Chinese feedback like \"这条以后少推\", \"这类以后多推\", \"加上价格变化\", or \"别再推这种\".",
   "display_name": "Request Curation",
   "short_description": "Turn one-off digest feedback into durable brief.json preferences.",
   "default_prompt": "Refine a configured topic's durable briefing preferences.",

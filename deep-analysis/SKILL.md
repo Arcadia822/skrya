@@ -1,14 +1,14 @@
 ---
 name: deep-analysis
-description: Use when the user wants to continue from a digest item, asks for a deeper event breakdown, or replies with a visible digest number for a configured topic.
+description: Use when the user wants to continue from a digest item, asks for a deeper event breakdown, or replies with a visible digest number for a configured topic. Trigger for Chinese requests like "展开第 3 条", "这个详细说说", "继续分析 2", or "这件事可信吗".
 ---
 <!-- AUTO-GENERATED from deep-analysis/SKILL.md.tmpl; regenerate with `python -m skrya_orchestrator.main build-skill-pack --root . --host all` -->
 
 # Deep Analysis
 
-Analyze one specific event for a specific `topic-id`.
+Analyze one specific event for a resolved Skrya topic.
 
-Always require an explicit `topic-id`.
+Always resolve an explicit internal `topic-id` before reading files, but do not ask nontechnical users for raw ids when the current topic or natural topic name is clear.
 
 ## Read First
 
@@ -39,6 +39,7 @@ If the user only replies with a number in an ongoing digest thread, treat that a
 - Focus on event understanding, not article summarization.
 - Keep the tone analytical and natural, not templated.
 - Be explicit about uncertainty.
+- File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
 
 ## Required Behavior
 

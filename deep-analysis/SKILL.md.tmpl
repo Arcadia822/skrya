@@ -1,8 +1,8 @@
 # Deep Analysis
 
-Analyze one specific event for a specific `topic-id`.
+Analyze one specific event for a resolved Skrya topic.
 
-Always require an explicit `topic-id`.
+Always resolve an explicit internal `topic-id` before reading files, but do not ask nontechnical users for raw ids when the current topic or natural topic name is clear.
 
 ## Read First
 
@@ -33,6 +33,7 @@ If the user only replies with a number in an ongoing digest thread, treat that a
 - Focus on event understanding, not article summarization.
 - Keep the tone analytical and natural, not templated.
 - Be explicit about uncertainty.
+- File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
 
 ## Required Behavior
 

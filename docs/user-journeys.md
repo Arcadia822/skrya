@@ -1,82 +1,100 @@
-# Skrya User Journeys
+# 用户旅程
 
-These journeys define the expected user-facing behavior for any skill-capable agent.
-The key split is not the product name of the agent, but the automation capability available in the current environment.
+这些旅程定义了支持 Skrya 的 agent 面向普通用户时应该怎么行动。关键差异不是 agent 的产品名称，而是当前环境有没有创建自动化任务的能力。
 
-## Capability Modes
+## 能力模式
 
-- `automation-capable`: the agent can create or update automation itself after user confirmation.
-- `user-mediated`: the agent cannot create automation itself here, but can hand the user a ready-to-send prompt.
-- `non-automation`: the agent has no usable automation path in the current environment.
+- `automation-capable`：agent 可以在用户确认后直接创建或更新自动化任务。
+- `user-mediated`：agent 不能直接创建自动化任务，但可以给用户一段可复制给其他 agent 的提示词。
+- `non-automation`：当前环境没有可用的自动化路径。
 
-## Journey 1: New Ongoing Tracking Request
+## 旅程 1：新的长期追踪请求
 
-User says: `帮我收集 LLM 实时资讯`
+用户说：
 
-Expected flow:
+```text
+帮我收集 LLM 实时资讯
+```
 
-1. Recognize this as likely ongoing tracking, not one-off research.
-2. Clarify the durable brief intent in natural language.
-3. Propose a topic shape and confirm the wording before writing files.
-4. Move to the automation step before any digest output.
-5. If the agent is `automation-capable`, ask whether to create the recurring digest and what time it should run.
-6. If the agent is `user-mediated`, give the user a ready-to-send automation prompt.
-7. If the agent is `non-automation`, explain that automation is unavailable here and still give the user a prompt they can use elsewhere.
-8. Ask separately whether the user wants a test run now.
-9. Only run the test digest if the user says yes.
+期望流程：
 
-Not acceptable:
+1. 先判断这是长期追踪，而不是一次性搜索。
+2. 用自然语言澄清用户真正想看的信息类型。
+3. 给出稳定的话题描述，并在写入配置前让用户确认。
+4. 在输出任何日报前，先处理自动化问题。
+5. 如果 agent 可以创建自动化，询问是否创建每日简报任务以及运行时间。
+6. 如果 agent 不能直接创建自动化，给出一段可直接转发的自动化创建提示词。
+7. 单独询问用户现在是否要试跑一次。
+8. 只有用户明确同意后，才运行测试日报。
 
-- immediately searching and dumping results in chat
-- treating source collection as the final user outcome
-- hiding the test run decision inside the automation prompt
-- running a digest before the user confirms a test run
+不应该：
 
-## Journey 2: New Ongoing Tracking With Direct Automation Support
+- 直接搜索并把结果倾倒在聊天里
+- 把“找来源”当成最终成果
+- 把试跑决定藏在自动化提示词里
+- 在用户确认试跑前生成 digest
 
-User says: `以后每天帮我跟踪 AI 浏览器 的最新动态`
+## 旅程 2：有直接自动化能力
 
-Expected flow:
+用户说：
 
-1. Treat the request as standing tracking by default.
-2. Clarify what kinds of updates matter.
-3. Confirm the durable topic wording.
-4. Ask whether to create the recurring daily digest task and what time it should run.
-5. After the automation decision, ask whether the user wants a test run now.
-6. Only run the test digest after an explicit yes.
+```text
+以后每天帮我跟踪 AI 浏览器的最新动态
+```
 
-## Journey 3: New Ongoing Tracking Without Direct Automation Support
+期望流程：
 
-User says: `以后每天帮我跟踪 AI 浏览器 的最新动态`
+1. 默认理解为持续追踪。
+2. 澄清哪些动态值得进入简报。
+3. 确认长期 topic 表述。
+4. 询问是否创建每日 digest 任务，以及每天几点运行。
+5. 自动化决定处理完以后，再询问是否现在试跑。
+6. 只有用户明确同意后，才运行测试 digest。
 
-Expected flow:
+## 旅程 3：没有直接自动化能力
 
-1. Treat the request as standing tracking by default.
-2. Clarify what kinds of updates matter.
-3. Confirm the durable topic wording.
-4. Explain whether the current agent is `user-mediated` or `non-automation`.
-5. Give the user a ready-to-send automation prompt if direct creation is unavailable.
-6. Ask whether the user wants a test run now.
-7. Only run the test digest after an explicit yes.
+用户说：
 
-## Journey 4: One-Off Research Request
+```text
+以后每天帮我跟踪 AI 浏览器的最新动态
+```
 
-User says: `现在帮我总结一下今天 LLM 圈最重要的三件事`
+期望流程：
 
-Expected flow:
+1. 默认理解为持续追踪。
+2. 澄清哪些动态值得进入简报。
+3. 确认长期 topic 表述。
+4. 说明当前环境属于 `user-mediated` 还是 `non-automation`。
+5. 如果不能直接创建自动化，给出一段可发送给更合适 agent 的提示词。
+6. 单独询问是否现在试跑。
+7. 只有用户明确同意后，才运行测试 digest。
 
-1. Recognize this as one-off research rather than recurring tracking.
-2. Answer directly without forcing topic setup.
-3. Optionally suggest that Skrya can turn this into a recurring topic if the user wants daily updates.
+## 旅程 4：一次性研究
 
-## Journey 5: Existing Topic Expansion
+用户说：
 
-User says: `把 llm-news 这个 topic 再加上模型 API 定价变化`
+```text
+现在帮我总结一下今天 LLM 圈最重要的三件事
+```
 
-Expected flow:
+期望流程：
 
-1. Read the existing topic configuration.
-2. Rewrite the request into a durable `brief.json` style preference.
-3. Confirm the wording before writing files.
-4. Preserve the existing automation plan if one already exists.
-5. Ask whether the user wants a fresh test run after the change.
+1. 判断这是一次性研究，而不是长期追踪。
+2. 直接回答，不强制创建 topic。
+3. 可以顺带提示：如果用户希望每天追踪，Skrya 可以把它变成长期 topic。
+
+## 旅程 5：扩展已有 topic
+
+用户说：
+
+```text
+把 AI 浏览器这个话题再加上模型 API 定价变化
+```
+
+期望流程：
+
+1. 先解析用户说的是哪个已有 topic。
+2. 把请求改写成稳定的 `brief.json` 偏好语言。
+3. 写入前确认这段表述。
+4. 保留已有自动化计划。
+5. 修改后再询问是否需要试跑一次。

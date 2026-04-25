@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from .agent_assets import SkillPackBuilder, SkillPackInstaller
+from .ingest import IngestService
 from .intelligence import IntelligenceService
 
 
@@ -24,6 +26,18 @@ def build_parser() -> argparse.ArgumentParser:
     analysis_parser.add_argument("--event-number", required=True, type=int, help="Visible digest event number")
     analysis_parser.add_argument("--root", default=".", help="Workspace root")
 
+    retrieval_parser = subparsers.add_parser("retrieval-request")
+    retrieval_parser.add_argument("--topic", required=True, help="Topic id or topic name")
+    retrieval_parser.add_argument("--root", default=".", help="Workspace root")
+    retrieval_parser.add_argument("--since", default=None, help="Optional ISO lower bound")
+    retrieval_parser.add_argument("--until", default=None, help="Optional ISO upper bound")
+
+    ingest_parser = subparsers.add_parser("ingest")
+    ingest_parser.add_argument("--topic", required=True, help="Topic id or topic name")
+    ingest_parser.add_argument("--root", default=".", help="Workspace root")
+    ingest_parser.add_argument("--file", required=True, help="Path to skrya.ingest.v1 JSON")
+    ingest_parser.add_argument("--raw-file", default=None, help="Optional raw provider output file")
+
     build_parser = subparsers.add_parser("build-skill-pack")
     build_parser.add_argument("--root", default=".", help="Workspace root")
     build_parser.add_argument(
@@ -31,15 +45,6 @@ def build_parser() -> argparse.ArgumentParser:
         default="all",
         choices=BUILD_HOST_CHOICES,
         help="Which host prompt packs to generate",
-    )
-
-    legacy_build_parser = subparsers.add_parser("build-agent-assets")
-    legacy_build_parser.add_argument("--root", default=".", help="Workspace root")
-    legacy_build_parser.add_argument(
-        "--host",
-        default="all",
-        choices=BUILD_HOST_CHOICES,
-        help="Backward-compatible alias for build-skill-pack",
     )
 
     install_parser = subparsers.add_parser("install-skill-pack")
@@ -70,7 +75,19 @@ def main() -> int:
         print(result.markdown, end="")
         return 0
 
-    if args.command in {"build-skill-pack", "build-agent-assets"}:
+    if args.command == "retrieval-request":
+        request = IngestService(root).build_retrieval_request(args.topic, since=args.since, until=args.until)
+        print(json.dumps(request, ensure_ascii=False, indent=2))
+        return 0
+
+    if args.command == "ingest":
+        payload = json.loads(Path(args.file).read_text(encoding="utf-8"))
+        raw_text = Path(args.raw_file).read_text(encoding="utf-8") if args.raw_file else None
+        result = IngestService(root).record_ingest_result(args.topic, payload, raw_text=raw_text)
+        print(f"Recorded ingest: {result.latest_path}")
+        return 0
+
+    if args.command == "build-skill-pack":
         SkillPackBuilder(root).build(output_root=root, host_name=args.host)
         print(f"Generated skill pack artifacts for host(s): {args.host}")
         return 0

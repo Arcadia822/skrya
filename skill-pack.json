@@ -1,8 +1,8 @@
 {
   "name": "skrya",
-  "description": "Use when the user needs topic-driven briefing workflows, durable topic configuration, or follow-up event analysis inside the Skrya workspace.",
+  "description": "Use when the user needs topic-driven briefing workflows, durable topic configuration, or follow-up event analysis inside the Skrya workspace. Trigger for Chinese requests like \"每天帮我关注\", \"持续跟踪\", \"定期简报\", or \"今天有什么重要\".",
   "display_name": "skrya",
   "short_description": "Topic-driven briefing skill pack with curation, digest, and deep-analysis workflows.",
-  "default_prompt": "Use $skrya to route this request to the right Skrya workflow.",
+  "default_prompt": "告诉我你想持续关注什么，我会先帮你确认重点，再建立或更新这个 Skrya 话题。",
   "allow_implicit_invocation": true
 }

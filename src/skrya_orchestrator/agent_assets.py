@@ -322,6 +322,3 @@ class SkillPackInstaller:
     @staticmethod
     def _link_name(skill_name: str) -> str:
         return f"{SKILL_LINK_PREFIX}{skill_name}"
-
-
-AssetBuilder = SkillPackBuilder

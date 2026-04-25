@@ -1,6 +1,6 @@
 ---
 name: topic-curation
-description: Use when the user wants to create a new topic, adjust an existing topic, refine what kinds of brief items matter, exclude certain kinds of items, or update topic sources through natural language.
+description: Use when the user wants to create a new topic, adjust an existing topic, refine what kinds of brief items matter, exclude certain kinds of items, or update topic sources through natural language. Trigger for Chinese requests like "持续跟踪", "以后每天帮我看", "定期简报", or "帮我关注这个领域".
 ---
 <!-- AUTO-GENERATED from topic-curation/SKILL.md.tmpl; regenerate with `python -m skrya_orchestrator.main build-skill-pack --root . --host all` -->
 
@@ -27,6 +27,12 @@ For a new topic idea with no confirmed `topic-id` yet:
 - inspect `topics/` to avoid collisions and to follow existing naming patterns
 
 Also inherit applicable workspace defaults from the repository instruction file.
+
+## User-Facing Topic Names
+
+Topic-scoped work must resolve an internal `topic-id` before reading or writing files, but do not ask nontechnical users for raw `topic-id` values.
+Ask for the plain-language topic name or describe the inferred topic back to the user, then map it to an existing topic or propose a new internal id yourself.
+Only show the internal id when it helps confirm a newly created durable topic, and label it as an internal name.
 
 ## Core Rule
 
@@ -64,8 +70,10 @@ This skill does not implement crawling or adapter logic.
 
 ## Source Feasibility Rule
 
-- sources with RSS are connectable
-- sources without RSS are not connectable for now
+- internally, sources with RSS are connectable
+- internally, sources without RSS are not connectable for now
+- user-facing wording should say whether a source can be "自动接入" or is "暂时不能自动接入"; do not make the user reason about RSS
+- runtime search/fetch channels should be written as provider-neutral `runtime-retrieval` capability sources rather than third-party skill names
 
 ## Intent Types
 
@@ -120,7 +128,7 @@ Prefer these write targets:
 - `topic.json` for new topic identity
 - `brief.json` for durable tracking requests
 - `digest.md` for ranking, exclusion, and digest judgment rules
-- `sources.json` for confirmed RSS-connectable sources
+- `sources.json` for confirmed RSS sources and `runtime-retrieval` capability sources
 
 Prefer the smallest config change that matches the user's intent.
 
@@ -135,6 +143,8 @@ Keep the interaction practical and short:
 - then write files
 - then handle automation or scheduling
 - then ask whether the user wants a test run now
+
+File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
 
 ## New Topic Creation
 

@@ -1,6 +1,6 @@
 {
   "name": "deep-analysis",
-  "description": "Use when the user wants to continue from a digest item, asks for a deeper event breakdown, or replies with a visible digest number for a configured topic.",
+  "description": "Use when the user wants to continue from a digest item, asks for a deeper event breakdown, or replies with a visible digest number for a configured topic. Trigger for Chinese requests like \"展开第 3 条\", \"这个详细说说\", \"继续分析 2\", or \"这件事可信吗\".",
   "display_name": "Deep Analysis",
   "short_description": "Break down one digest event with hidden-by-default source traceability.",
   "default_prompt": "Analyze one digest item or one specific topic event more deeply.",

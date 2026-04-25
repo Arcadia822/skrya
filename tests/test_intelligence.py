@@ -34,6 +34,117 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertTrue(digest.digest_path.exists())
         self.assertTrue(digest.artifact_path.exists())
 
+    def test_generate_digest_resolves_topic_name_for_nontechnical_users(self) -> None:
+        root = self._make_root("digest-topic-name")
+        self._write_topic(root)
+        self._write_sample_events(root)
+
+        service = IntelligenceService(root)
+        digest = service.generate_digest("韩国娱乐舆情追踪")
+
+        self.assertIn("1. 某女团练习生出圈片段从 INS 扩散到韩媒", digest.markdown)
+        self.assertEqual(root / "runs" / "k-entertainment" / "latest-digest.md", digest.digest_path)
+
+    def test_live_sources_do_not_fall_back_to_sample_events_when_empty(self) -> None:
+        root = self._make_root("live-empty-no-sample-fallback")
+        self._write_topic(root)
+        self._write_sample_events(root)
+        topic_dir = root / "topics" / "k-entertainment"
+        (topic_dir / "sources.json").write_text(
+            json.dumps(
+                {
+                    "sources": [
+                        {
+                            "id": "empty-feed",
+                            "name": "Empty Feed",
+                            "type": "rss",
+                            "enabled": True,
+                            "url": "https://feed.test/empty.xml",
+                            "adapter": "rss",
+                        }
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        empty_rss = """<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0"><channel><title>Empty Feed</title></channel></rss>
+"""
+
+        service = IntelligenceService(root, fetcher=lambda url: empty_rss)
+        digest = service.generate_digest("k-entertainment", prefer_live=True)
+
+        self.assertIn("暂时没有抓到足够新的真实内容", digest.markdown)
+        self.assertNotIn("某女团练习生出圈片段", digest.markdown)
+
+    def test_generate_digest_ranks_events_using_brief_and_value_signals(self) -> None:
+        root = self._make_root("digest-ranking")
+        self._write_topic(root)
+        topic_dir = root / "topics" / "k-entertainment"
+        (topic_dir / "brief.json").write_text(
+            json.dumps(
+                {
+                    "requests": [
+                        {
+                            "req": "REQ-001",
+                            "content": "优先看合约终止、法律进展、判刑和公司回应这类会继续发酵的事件。",
+                        }
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        events = [
+            {
+                "key": "watch-list",
+                "title": "5 Chae Jong Hyeop K-Dramas To Add To Your Watch List",
+                "headline_summary": "A lightweight viewing guide with no new event movement.",
+                "list_summary": "",
+                "analysis_title": "Watch list",
+                "analysis_body": "A viewing guide.",
+                "sources": ["https://source.test/watch-list"],
+            },
+            {
+                "key": "contract",
+                "title": "Chen, Baekhyun, And Xiumin Reportedly Notify INB100 Of Contract Termination",
+                "headline_summary": "The members requested clarification regarding unpaid settlements and contract termination.",
+                "list_summary": "",
+                "analysis_title": "Contract termination",
+                "analysis_body": "A formal notice has moved the dispute into company-level conflict.",
+                "sources": ["https://source.test/contract"],
+            },
+            {
+                "key": "deepfake",
+                "title": "SM Entertainment Provides Update As Deepfake Offenders Receive Prison Sentences",
+                "headline_summary": "The agency shared legal progress as offenders receive prison sentences.",
+                "list_summary": "",
+                "analysis_title": "Deepfake legal update",
+                "analysis_body": "Legal action has produced a concrete court outcome.",
+                "sources": [
+                    "https://source.test/deepfake-1",
+                    "https://source.test/deepfake-2",
+                ],
+            },
+        ]
+        (topic_dir / "sample-events.json").write_text(json.dumps(events, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        translator = lambda text: {
+            events[0]["title"]: "5 部值得加入片单的蔡钟协韩剧",
+            events[0]["headline_summary"]: "一篇轻量片单，没有新的事件进展。",
+            events[1]["title"]: "CBX 向 INB100 发出合约终止通知",
+            events[1]["headline_summary"]: "成员要求说明未结算款项和合约终止问题。",
+            events[2]["title"]: "SM 公布深伪犯罪法律进展并出现判刑结果",
+            events[2]["headline_summary"]: "公司披露法律进展，涉案者已收到刑期。",
+        }.get(text, text)
+
+        service = IntelligenceService(root, translator=translator)
+        digest = service.generate_digest("k-entertainment")
+
+        self.assertLess(digest.markdown.index("1. SM 公布深伪犯罪法律进展"), digest.markdown.index("3. 5 部值得加入片单"))
+        self.assertLess(digest.markdown.index("2. CBX 向 INB100 发出合约终止通知"), digest.markdown.index("3. 5 部值得加入片单"))
+
     def test_deep_analysis_resolves_digest_item_number_and_hides_sources_by_default(self) -> None:
         root = self._make_root("deep-analysis")
         self._write_topic(root)
@@ -42,10 +153,14 @@ class IntelligenceServiceTests(unittest.TestCase):
         service = IntelligenceService(root)
         service.generate_digest("k-entertainment")
 
-        analysis = service.generate_deep_analysis("k-entertainment", event_number=3)
+        analysis = service.generate_deep_analysis("k-entertainment", event_number=2)
 
         self.assertIn("某演员与新剧选角争议升温", analysis.markdown)
         self.assertIn("媒体报道和社媒情绪开始出现明显分叉", analysis.markdown)
+        self.assertIn("简要结论", analysis.markdown)
+        self.assertIn("已知事实", analysis.markdown)
+        self.assertIn("不确定性", analysis.markdown)
+        self.assertIn("接下来观察", analysis.markdown)
         self.assertNotIn("中文判断：", analysis.markdown)
         self.assertNotIn("https://source.test", analysis.markdown)
 
@@ -57,7 +172,7 @@ class IntelligenceServiceTests(unittest.TestCase):
         service = IntelligenceService(root)
         service.generate_digest("k-entertainment")
 
-        sources = service.get_event_sources("k-entertainment", event_number=3)
+        sources = service.get_event_sources("k-entertainment", event_number=2)
 
         self.assertEqual(
             [
@@ -138,10 +253,10 @@ class IntelligenceServiceTests(unittest.TestCase):
         service = IntelligenceService(root, fetcher=lambda url: rss, translator=translator)
         digest = service.generate_digest("k-entertainment", prefer_live=True)
 
-        self.assertIn("1. 新人组合预告片开始升温", digest.markdown)
+        self.assertIn("新人组合预告片开始升温", digest.markdown)
         self.assertNotIn("### 1.", digest.markdown)
         self.assertIn("预告片正在粉丝社区快速扩散。", digest.markdown)
-        self.assertIn("演员选角争议持续升温", digest.markdown)
+        self.assertIn("1. 演员选角争议持续升温", digest.markdown)
         self.assertIn("如果你要继续，我可以直接对其中任意一条做深入分析，你回复编号就行。", digest.markdown)
         self.assertNotIn("https://feed.test/rookie-teaser", digest.markdown)
         self.assertNotIn("Continue reading", digest.markdown)
