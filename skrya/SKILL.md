@@ -15,6 +15,7 @@ Skrya is an umbrella skill pack. Route requests to the bundled skills that best 
 - `source-curation` for confirmed `sources.json` changes after topic intent is already clear
 - `digest` for ranked daily briefings for a configured topic
 - `deep-analysis` for a deeper breakdown of one digest item or one specific event
+- `event-thread` behavior is handled inside topic and digest workflows when a continuing event needs a stable timeline
 
 ## Global Rules
 
@@ -30,6 +31,20 @@ Skrya is an umbrella skill pack. Route requests to the bundled skills that best 
 - Do not show source lists, request ids, or internal debug fields in normal output.
 - Preserve enough traceability to return sources later if the user asks.
 - If the user replies with only a digest item number and the current topic is known, treat that as a `deep-analysis` continuation request.
+
+## Conversation Memory
+
+Treat repeated user feedback as topic state, not disposable chat.
+
+- `A <numbers>` means route those visible digest numbers to deep analysis.
+- `B <numbers> <name/intent>` means propose or update an event-thread seed in `event-thread-seeds.json` after confirmation.
+- `C <numbers/reason>` means route to request curation and translate the feedback into durable topic memory.
+- If the user says "这个很重要", convert it into a watchpoint, tracked angle, or ranking preference.
+- If the user asks "为什么没有 X", run 漏报诊断: check latest digest, ingest artifact, source coverage, query terms, and ranking rules before proposing a config or source update.
+- Clarify ambiguous shorthand entities once. For ambiguous shorthand entities such as "李", confirm the real entity and relationship, then store the stable name, aliases, and watchpoints.
+- Resolve "按照前述要求生成今日简报" against the active topic; if the active topic is not clear, ask a short confirmation before generating.
+- Treat repeated identical instructions as duplicate continuation, not a request to create a second topic or rerun the same task blindly.
+- For long-running provenance or 溯源 work, give staged progress updates and say exactly which source, query, or evidence gap is blocking completion.
 
 ## End-User Front Door
 

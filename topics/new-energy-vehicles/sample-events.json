@@ -1,0 +1,35 @@
+[
+  {
+    "key": "byd-flash-charge-cities",
+    "title": "比亚迪闪充站首批落地城市名单开始清晰，讨论从发布概念转向建设兑现",
+    "headline_summary": "这条线开始从产品能力展示推进到具体站点和城市铺设进度，用户终于能判断它是不是会真正成为补能网络的一部分，而不只是发布会上的能力宣讲。",
+    "list_summary": "比亚迪闪充站的看点开始从概念发布转向站点落地和城市覆盖是否兑现。",
+    "analysis_title": "比亚迪闪充站首批城市落地进度",
+    "analysis_body": "这类进展最适合被续写进同一条持续事件线，因为用户真正关心的是它有没有一路从发布走到落地和扩张。",
+    "sources": [
+      "https://example.com/byd-flash-charge-cities"
+    ]
+  },
+  {
+    "key": "byd-flash-charge-test",
+    "title": "媒体开始出现比亚迪闪充站实测补能效率报道，体验讨论升温",
+    "headline_summary": "事件已经不再只是站点有没有，而是进入真实体验能否支撑宣传口径的阶段。对这条线来说，这是决定它后续还值不值得持续跟的重要信号。",
+    "list_summary": "比亚迪闪充站开始出现实测补能效率报道，讨论重点转向用户真实体验。",
+    "analysis_title": "比亚迪闪充站实测反馈出现",
+    "analysis_body": "如果同类报道持续增加，agent 应该把它当成同一条事件线的新节点，而不是重新起一个独立主题。",
+    "sources": [
+      "https://example.com/byd-flash-charge-test"
+    ]
+  },
+  {
+    "key": "catl-grid-storage",
+    "title": "宁德时代发布新的储能协同方案，开始影响新能源汽车补能基础设施讨论",
+    "headline_summary": "这条消息和比亚迪闪充站不属于同一条持续事件线，但仍然是新能源汽车 topic 下值得关注的基础设施信号。它能帮助示例 topic 保持“topic 大于 event-thread”的边界。",
+    "list_summary": "宁德时代新的储能协同方案，让补能基础设施讨论出现新的产业链变量。",
+    "analysis_title": "宁德时代储能协同方案",
+    "analysis_body": "这个例子用于说明：同一个 topic 里可以同时存在多个重要方向，但只有持续发展的那一条才应该沉淀为 event-thread。",
+    "sources": [
+      "https://example.com/catl-grid-storage"
+    ]
+  }
+]

@@ -21,6 +21,7 @@ Read these files before drafting the digest:
 
 If available, also read the latest event candidates or prior digest artifacts for that topic.
 When runtime retrieval was used, consume only normalized `skrya.ingest.v1` artifacts under `runs/<topic-id>/ingest/`. Do not consume raw provider output directly.
+When event-thread seeds exist, use them to surface continuing event-line updates and preserve durable topic memory.
 
 Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or the equivalent repository instruction file.
 
@@ -35,6 +36,7 @@ Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or
 - Save the digest to the workspace run directory.
 - File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
 - End with a natural sentence that tells the user they can reply with a number to continue.
+- When showing short feedback choices, make the durable routes clear: `A <numbers>` for deep analysis, `B <numbers> <name/intent>` for event-thread creation or updates, and `C <numbers/reason>` for durable topic memory changes.
 
 ## Required Behavior
 
@@ -46,7 +48,16 @@ Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or
 6. Keep the format uniform from the first item to the last.
 7. Save the digest markdown file under `runs/<topic-id>/latest-digest.md`.
 8. Preserve enough traceability so that if the user later asks for the source of an item, you can return the corresponding sources.
-9. End with a natural follow-up line that invites the user to reply with a number for deeper analysis.
+9. If a seeded event-thread matches today’s items, write a concise event-line update before the normal numbered items.
+10. End with a natural follow-up line that invites the user to reply with a number or A/B/C feedback for deeper analysis, event-thread updates, or request curation.
+
+## Feedback Handling
+
+- `A <numbers>` routes the selected digest items to deep analysis.
+- `B <numbers> <name/intent>` means the user wants a continuing event line; propose a stable event-thread seed before writing it.
+- `C <numbers/reason>` means the user is adjusting durable topic memory; route to request curation instead of answering only in chat.
+- If the user asks "为什么没有 X", do not regenerate blindly; start missed-item diagnosis through request curation.
+- If the user says "这个很重要", treat it as a durable ranking or watchpoint update, not a compliment to the current answer.
 
 ## Ranking Heuristics
 

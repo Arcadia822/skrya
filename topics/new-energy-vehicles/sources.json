@@ -1,0 +1,25 @@
+{
+  "sources": [
+    {
+      "id": "public-web-nev",
+      "name": "公开网页检索",
+      "type": "runtime-retrieval",
+      "enabled": true,
+      "capabilities": [
+        "web_search",
+        "news_search"
+      ],
+      "binding": "runtime",
+      "queries": [
+        "新能源汽车 超充站 落地",
+        "比亚迪 闪充站 城市"
+      ],
+      "recency_hours": 48,
+      "languages": [
+        "zh-CN",
+        "en"
+      ],
+      "max_items": 30
+    }
+  ]
+}

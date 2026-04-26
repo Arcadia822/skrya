@@ -20,11 +20,21 @@ def build_parser() -> argparse.ArgumentParser:
     digest_parser = subparsers.add_parser("digest")
     digest_parser.add_argument("--topic", required=True, help="Topic id")
     digest_parser.add_argument("--root", default=".", help="Workspace root")
+    digest_parser.add_argument("--sample", action="store_true", help="Use sample-events.json even when live sources exist")
 
     analysis_parser = subparsers.add_parser("deep-analysis")
     analysis_parser.add_argument("--topic", required=True, help="Topic id")
     analysis_parser.add_argument("--event-number", required=True, type=int, help="Visible digest event number")
     analysis_parser.add_argument("--root", default=".", help="Workspace root")
+
+    event_thread_parser = subparsers.add_parser("event-thread")
+    event_thread_parser.add_argument("--topic", required=True, help="Topic id or topic name")
+    event_thread_parser.add_argument("--thread", required=True, help="Event-thread id or visible name")
+    event_thread_parser.add_argument("--root", default=".", help="Workspace root")
+
+    refresh_event_threads_parser = subparsers.add_parser("refresh-event-threads")
+    refresh_event_threads_parser.add_argument("--topic", required=True, help="Topic id or topic name")
+    refresh_event_threads_parser.add_argument("--root", default=".", help="Workspace root")
 
     retrieval_parser = subparsers.add_parser("retrieval-request")
     retrieval_parser.add_argument("--topic", required=True, help="Topic id or topic name")
@@ -66,13 +76,23 @@ def main() -> int:
     service = IntelligenceService(root)
 
     if args.command == "digest":
-        result = service.generate_digest(args.topic)
+        result = service.generate_digest(args.topic, prefer_live=not args.sample)
         print(result.markdown, end="")
         return 0
 
     if args.command == "deep-analysis":
         result = service.generate_deep_analysis(args.topic, event_number=args.event_number)
         print(result.markdown, end="")
+        return 0
+
+    if args.command == "event-thread":
+        result = service.generate_event_thread_timeline(args.topic, thread_reference=args.thread)
+        print(result.markdown, end="")
+        return 0
+
+    if args.command == "refresh-event-threads":
+        result = service.refresh_event_threads(args.topic)
+        print(f"Refreshed event threads: {result.artifact_path}")
         return 0
 
     if args.command == "retrieval-request":

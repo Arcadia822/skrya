@@ -16,6 +16,46 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("install-skill-pack", content)
         self.assertIn(".skrya/hosts/", content)
         self.assertIn("setup", content)
+        self.assertIn("event-thread --topic", content)
+        self.assertIn("refresh-event-threads --topic", content)
+        self.assertIn("event-thread-seeds.json", content)
+        self.assertIn("topics/new-energy-vehicles/", content)
+
+    def test_new_energy_vehicles_topic_fixture_models_event_thread_journey(self) -> None:
+        topic_dir = ROOT / "topics" / "new-energy-vehicles"
+
+        topic = json.loads((topic_dir / "topic.json").read_text(encoding="utf-8"))
+        brief = json.loads((topic_dir / "brief.json").read_text(encoding="utf-8"))
+        sources = json.loads((topic_dir / "sources.json").read_text(encoding="utf-8"))
+        sample_events = json.loads((topic_dir / "sample-events.json").read_text(encoding="utf-8"))
+        seeds = json.loads((topic_dir / "event-thread-seeds.json").read_text(encoding="utf-8"))
+
+        self.assertEqual("new-energy-vehicles", topic["topic"])
+        self.assertEqual("新能源汽车", topic["name"])
+        self.assertIn("持续发酵的大事件", brief["requests"][2]["content"])
+        self.assertEqual("runtime-retrieval", sources["sources"][0]["type"])
+        self.assertIn("比亚迪闪充站", sample_events[0]["title"])
+        self.assertEqual("比亚迪闪充站", seeds["threads"][0]["name"])
+        self.assertIn("比亚迪兆瓦闪充站", seeds["threads"][0]["match_terms"])
+
+    def test_event_thread_docs_align_on_user_flow_and_runtime_artifacts(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        event_threads = (ROOT / "docs" / "event-threads.md").read_text(encoding="utf-8")
+        user_journeys = (ROOT / "docs" / "user-journeys.md").read_text(encoding="utf-8")
+
+        self.assertIn("帮我持续跟比亚迪闪充站这条线；以后有新进展就接着往下讲", readme)
+        self.assertIn("topics/new-energy-vehicles/event-thread-seeds.json", readme)
+        self.assertIn("runs/new-energy-vehicles/event-threads/latest-event-threads.json", readme)
+        self.assertIn('event-thread --topic new-energy-vehicles --thread "比亚迪闪充站"', readme)
+        self.assertIn("旅程 6：持续事件的时间线追踪", readme)
+        self.assertIn("旅程 6：持续事件的时间线追踪", event_threads)
+        self.assertIn("事件线更新不要压成一行泛泛而谈", event_threads)
+        self.assertIn("今天命中的简讯：1、2", event_threads)
+        self.assertIn("A. 详细分析指定今日简讯", event_threads)
+        self.assertIn("refresh-event-threads", event_threads)
+        self.assertIn("帮我持续跟比亚迪闪充站这条线；以后有新进展就接着往下讲", user_journeys)
+        self.assertIn("event-thread` seed", user_journeys)
+        self.assertIn("展开这条线", user_journeys)
 
     def test_agents_routes_unconfigured_topic_info_requests_to_topic_curation(self) -> None:
         content = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
@@ -89,6 +129,33 @@ class SkillContractTests(unittest.TestCase):
 
         self.assertIn("normalized `skrya.ingest.v1`", content)
         self.assertIn("Do not consume raw provider output directly", content)
+
+    def test_skills_route_digest_feedback_into_durable_topic_memory(self) -> None:
+        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        topic_curation = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
+        request_curation = (ROOT / "request-curation" / "SKILL.md").read_text(encoding="utf-8")
+        digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
+
+        for phrase in [
+            "A <numbers>",
+            "B <numbers>",
+            "C <numbers",
+            "event-thread-seeds.json",
+            "为什么没有",
+            "这个很重要",
+            "ambiguous shorthand entities",
+            "repeated identical instructions",
+            "long-running provenance",
+        ]:
+            self.assertIn(phrase, root_skill)
+
+        self.assertIn("clarify once, then store", topic_curation)
+        self.assertIn("active topic", topic_curation)
+        self.assertIn("漏报诊断", request_curation)
+        self.assertIn("check latest digest", request_curation)
+        self.assertIn("B <numbers>", digest)
+        self.assertIn("C <numbers", digest)
+        self.assertIn("durable topic memory", digest)
 
     def test_skill_descriptions_include_chinese_end_user_trigger_phrases(self) -> None:
         metadata = {

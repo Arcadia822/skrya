@@ -20,6 +20,7 @@ For a known topic, read:
 - `topics/<topic-id>/brief.json`
 - `topics/<topic-id>/sources.json`
 - `topics/<topic-id>/digest.md`
+- `topics/<topic-id>/event-thread-seeds.json` when continuing event lines are relevant
 
 For a new topic idea with no confirmed `topic-id` yet:
 
@@ -64,9 +65,20 @@ This skill may:
 - translate user feedback into durable configuration wording
 - update `brief.json`
 - update `digest.md` when ranking or exclusion rules need to change
+- propose or update event-thread seeds when the user wants a continuing event line
 - recommend source candidates and update `sources.json` after confirmation
 
 This skill does not implement crawling or adapter logic.
+
+## Topic Memory Rules
+
+Conversation context should become maintainable topic state.
+
+- If the user gives ambiguous shorthand entities, clarify once, then store the stable entity name, aliases, relationship, and watchpoints.
+- If the user says "这个很重要", rewrite it as a durable tracked angle, event-thread watchpoint, or ranking preference.
+- If the user says "按照前述要求生成今日简报", resolve the active topic from the conversation and current topic files; if more than one active topic is plausible, ask a short confirmation.
+- Treat repeated identical instructions as continuation or emphasis, not as a second topic creation request.
+- For B-style digest feedback such as `B <numbers> <name/intent>`, propose an event-thread seed with a stable name, aliases, match terms, summary, callback hint, and watchpoints.
 
 ## Source Feasibility Rule
 

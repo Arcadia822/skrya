@@ -27,7 +27,9 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertNotIn("Top 5 必看", digest.markdown)
         self.assertNotIn("今日观察", digest.markdown)
         self.assertNotIn("建议深挖", digest.markdown)
-        self.assertIn("如果你要继续，我可以直接对其中任意一条做深入分析，你回复编号就行。", digest.markdown)
+        self.assertIn("A. 详细分析指定今日简讯", digest.markdown)
+        self.assertIn("B. 创建新的事件线", digest.markdown)
+        self.assertIn("C. 对简讯和事件线的获取策略进行调整", digest.markdown)
         self.assertNotIn("$deep-analysis", digest.markdown)
         self.assertNotIn("REQ-001", digest.markdown)
         self.assertNotIn("https://source.test", digest.markdown)
@@ -182,6 +184,170 @@ class IntelligenceServiceTests(unittest.TestCase):
             sources,
         )
 
+    def test_event_thread_timeline_replays_runtime_artifact_without_showing_sources(self) -> None:
+        root = self._make_root("event-thread-timeline")
+        self._write_new_energy_topic(root)
+        self._write_byd_event_thread(root)
+
+        service = IntelligenceService(root)
+        timeline = service.generate_event_thread_timeline("新能源汽车", "比亚迪闪充站")
+
+        self.assertEqual(
+            root / "runs" / "new-energy-vehicles" / "event-threads" / "latest-event-threads.json",
+            timeline.artifact_path,
+        )
+        self.assertIn("# 比亚迪闪充站", timeline.markdown)
+        self.assertIn("**当前状态：** 持续跟进", timeline.markdown)
+        self.assertIn("2026-04-25 · 建线观察", timeline.markdown)
+        self.assertIn("2026-04-27 · 进展续写", timeline.markdown)
+        self.assertIn("关联日报：2。", timeline.markdown)
+        self.assertIn("关联日报：1, 4。", timeline.markdown)
+        self.assertIn("首批站点在哪些城市真正落地", timeline.markdown)
+        self.assertNotIn("https://example.com", timeline.markdown)
+        self.assertNotIn("byd-flash-charge-station", timeline.markdown)
+
+    def test_event_thread_timeline_accepts_alias_reference(self) -> None:
+        root = self._make_root("event-thread-alias")
+        self._write_new_energy_topic(root)
+        self._write_byd_event_thread(root)
+
+        service = IntelligenceService(root)
+        timeline = service.generate_event_thread_timeline("new-energy-vehicles", "BYD 闪充站")
+
+        self.assertIn("# 比亚迪闪充站", timeline.markdown)
+        self.assertIn("**续写判断：**", timeline.markdown)
+
+    def test_generate_digest_writes_detailed_event_thread_updates_when_items_match_seed(self) -> None:
+        root = self._make_root("event-thread-digest")
+        self._write_new_energy_topic(root)
+        self._write_byd_event_thread_seed(root)
+        sample_events = json.loads((ROOT / "topics" / "new-energy-vehicles" / "sample-events.json").read_text(encoding="utf-8"))
+        topic_dir = root / "topics" / "new-energy-vehicles"
+        (topic_dir / "sample-events.json").write_text(
+            json.dumps(sample_events, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        service = IntelligenceService(root)
+        digest = service.generate_digest("新能源汽车", prefer_live=False)
+
+        self.assertIn("## 事件线更新", digest.markdown)
+        self.assertIn("**比亚迪闪充站**", digest.markdown)
+        self.assertIn("今天命中的简讯：", digest.markdown)
+        self.assertIn("具体进展：", digest.markdown)
+        self.assertIn("后续看点：首批站点在哪些城市真正落地", digest.markdown)
+        self.assertLess(digest.markdown.index("## 事件线更新"), digest.markdown.index("## 今日简讯"))
+        self.assertIn("A. 详细分析指定今日简讯", digest.markdown)
+
+    def test_generate_digest_persists_event_thread_runtime_artifact_when_seed_matches(self) -> None:
+        root = self._make_root("event-thread-digest-runtime-artifact")
+        self._write_new_energy_topic(root)
+        self._write_byd_event_thread_seed(root)
+        sample_events = json.loads((ROOT / "topics" / "new-energy-vehicles" / "sample-events.json").read_text(encoding="utf-8"))
+        topic_dir = root / "topics" / "new-energy-vehicles"
+        (topic_dir / "sample-events.json").write_text(
+            json.dumps(sample_events, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        service = IntelligenceService(root)
+        service.generate_digest("新能源汽车", prefer_live=False)
+        timeline = service.generate_event_thread_timeline("新能源汽车", "比亚迪闪充站")
+
+        self.assertEqual(
+            root / "runs" / "new-energy-vehicles" / "event-threads" / "latest-event-threads.json",
+            timeline.artifact_path,
+        )
+        self.assertIn("# 比亚迪闪充站", timeline.markdown)
+        self.assertIn("关联日报：", timeline.markdown)
+
+    def test_refresh_event_threads_builds_runtime_artifact_from_seed_and_digest_events(self) -> None:
+        root = self._make_root("event-thread-refresh")
+        self._write_new_energy_topic(root)
+        self._write_byd_event_thread_seed(root)
+        self._write_byd_digest_event_index(
+            root,
+            items=[
+                {
+                    "number": 2,
+                    "title": "比亚迪闪充站从发布概念进入首批落地讨论",
+                    "analysis_title": "比亚迪闪充站从发布概念进入首批落地讨论",
+                    "analysis_body": "这条线开始从产品能力展示，推进到站点建设节奏、城市覆盖和补能体验是否可验证的讨论。",
+                    "sources": ["https://example.com/byd-flash-charge-launch"],
+                    "date": "2026-04-25",
+                },
+                {
+                    "number": 4,
+                    "title": "首批 BYD 闪充站城市名单开始清晰，媒体出现实测补能效率报道",
+                    "analysis_title": "首批 BYD 闪充站城市名单开始清晰，媒体出现实测补能效率报道",
+                    "analysis_body": "事件从概念热度转向建设兑现，用户开始能用同一条线回看是否真的铺开、体验是否站得住。",
+                    "sources": [
+                        "https://example.com/byd-flash-charge-cities",
+                        "https://example.com/byd-flash-charge-test",
+                    ],
+                    "date": "2026-04-27",
+                },
+            ],
+        )
+
+        service = IntelligenceService(root)
+        result = service.refresh_event_threads("新能源汽车")
+
+        self.assertEqual(
+            root / "runs" / "new-energy-vehicles" / "event-threads" / "latest-event-threads.json",
+            result.artifact_path,
+        )
+        thread = result.payload["threads"][0]
+        self.assertEqual("比亚迪闪充站", thread["name"])
+        self.assertEqual(["BYD 闪充站", "比亚迪兆瓦闪充站"], thread["aliases"])
+        self.assertEqual("active", thread["status"])
+        self.assertEqual(2, len(thread["timeline"]))
+        self.assertEqual("seed", thread["timeline"][0]["phase"])
+        self.assertEqual("update", thread["timeline"][1]["phase"])
+        self.assertEqual([2], thread["timeline"][0]["related_digest_numbers"])
+        self.assertEqual([4], thread["timeline"][1]["related_digest_numbers"])
+
+    def test_refresh_event_threads_preserves_existing_timeline_and_appends_new_progress(self) -> None:
+        root = self._make_root("event-thread-refresh-append")
+        self._write_new_energy_topic(root)
+        self._write_byd_event_thread_seed(root)
+        self._write_byd_event_thread(root)
+        payload = json.loads(
+            (root / "runs" / "new-energy-vehicles" / "event-threads" / "latest-event-threads.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        payload["threads"][0]["timeline"] = payload["threads"][0]["timeline"][:1]
+        (root / "runs" / "new-energy-vehicles" / "event-threads" / "latest-event-threads.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        self._write_byd_digest_event_index(
+            root,
+            items=[
+                {
+                    "number": 4,
+                    "title": "首批 BYD 闪充站城市名单开始清晰，媒体出现实测补能效率报道",
+                    "analysis_title": "首批 BYD 闪充站城市名单开始清晰，媒体出现实测补能效率报道",
+                    "analysis_body": "事件从概念热度转向建设兑现，用户开始能用同一条线回看是否真的铺开、体验是否站得住。",
+                    "sources": [
+                        "https://example.com/byd-flash-charge-cities",
+                        "https://example.com/byd-flash-charge-test",
+                    ],
+                    "date": "2026-04-27",
+                }
+            ],
+        )
+
+        service = IntelligenceService(root)
+        result = service.refresh_event_threads("new-energy-vehicles")
+
+        timeline = result.payload["threads"][0]["timeline"]
+        self.assertEqual(2, len(timeline))
+        self.assertEqual("2026-04-25", timeline[0]["date"])
+        self.assertEqual("2026-04-27", timeline[1]["date"])
+        self.assertEqual("update", timeline[1]["phase"])
+
     def test_generate_digest_fetches_real_rss_when_sample_events_are_absent(self) -> None:
         root = self._make_root("live-rss")
         topic_dir = root / "topics" / "k-entertainment"
@@ -257,7 +423,9 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertNotIn("### 1.", digest.markdown)
         self.assertIn("预告片正在粉丝社区快速扩散。", digest.markdown)
         self.assertIn("1. 演员选角争议持续升温", digest.markdown)
-        self.assertIn("如果你要继续，我可以直接对其中任意一条做深入分析，你回复编号就行。", digest.markdown)
+        self.assertIn("A. 详细分析指定今日简讯", digest.markdown)
+        self.assertIn("B. 创建新的事件线", digest.markdown)
+        self.assertIn("C. 对简讯和事件线的获取策略进行调整", digest.markdown)
         self.assertNotIn("https://feed.test/rookie-teaser", digest.markdown)
         self.assertNotIn("Continue reading", digest.markdown)
         self.assertNotIn("appeared first on", digest.markdown)
@@ -292,6 +460,63 @@ class IntelligenceServiceTests(unittest.TestCase):
         (topic_dir / "sources.json").write_text(json.dumps({"sources": []}, ensure_ascii=False), encoding="utf-8")
         (topic_dir / "digest.md").write_text("# Digest Standard", encoding="utf-8")
         (topic_dir / "deep-analysis.md").write_text("# Deep Analysis Standard", encoding="utf-8")
+
+    @staticmethod
+    def _write_new_energy_topic(root: Path) -> None:
+        topic_dir = root / "topics" / "new-energy-vehicles"
+        topic_dir.mkdir(parents=True)
+        (topic_dir / "topic.json").write_text(
+            json.dumps(
+                {
+                    "topic": "new-energy-vehicles",
+                    "name": "新能源汽车",
+                    "description": "新能源汽车",
+                    "language": "zh-CN",
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        (topic_dir / "brief.json").write_text(
+            json.dumps({"requests": [{"req": "REQ-001", "content": "追踪新能源汽车的重要动态"}]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (topic_dir / "sources.json").write_text(json.dumps({"sources": []}, ensure_ascii=False), encoding="utf-8")
+        (topic_dir / "digest.md").write_text("# Digest Standard", encoding="utf-8")
+        (topic_dir / "deep-analysis.md").write_text("# Deep Analysis Standard", encoding="utf-8")
+
+    @staticmethod
+    def _write_byd_event_thread(root: Path) -> None:
+        artifact_dir = root / "runs" / "new-energy-vehicles" / "event-threads"
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        example_path = ROOT / "docs" / "byd-flash-charge-event-thread.example.json"
+        payload = json.loads(example_path.read_text(encoding="utf-8"))
+        (artifact_dir / "latest-event-threads.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    @staticmethod
+    def _write_byd_event_thread_seed(root: Path) -> None:
+        topic_dir = root / "topics" / "new-energy-vehicles"
+        payload = json.loads((ROOT / "docs" / "byd-flash-charge-event-thread-seed.example.json").read_text(encoding="utf-8"))
+        (topic_dir / "event-thread-seeds.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    @staticmethod
+    def _write_byd_digest_event_index(root: Path, items: list[dict]) -> None:
+        artifact_dir = root / "runs" / "new-energy-vehicles"
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "topic": "new-energy-vehicles",
+            "items": items,
+        }
+        (artifact_dir / "latest-digest-events.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
     @staticmethod
     def _write_sample_events(root: Path) -> None:

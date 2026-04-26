@@ -19,6 +19,8 @@ If the user is reacting to ranking or exclusions in a recent digest, also read:
 
 - `topics/<topic-id>/digest.md`
 - `runs/<topic-id>/latest-digest.md` when available
+- `runs/<topic-id>/latest-digest-events.json` when available
+- `runs/<topic-id>/ingest/latest-ingest.json` when available
 
 Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or the equivalent repository instruction file.
 
@@ -29,10 +31,22 @@ Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or
 - the user wants to exclude a class of items from future digests
 - the user wants to rebalance what is ranked higher or lower
 - the user points at one digest item as an example of what should or should not be surfaced again
+- the user says "这个很重要"
+- the user asks "为什么没有 ..." or reports a missed item
 
 ## Core Rule
 
 Convert one-off user feedback into durable `brief.json` request language instead of copying the example literally.
+
+## Missed Item Feedback
+
+For "为什么没有 X", treat it as 漏报诊断 before editing anything:
+
+- check latest digest for whether X was present under another wording
+- check latest ingest artifact for whether X was collected but ranked out
+- check source coverage and runtime retrieval query terms for whether X could be collected
+- check ranking and exclusion rules for whether X was filtered or down-ranked
+- propose the smallest durable change to `brief.json`, `digest.md`, or sources after explaining the likely failure point
 
 ## Required Behavior
 
