@@ -25,15 +25,15 @@ This workspace is topic-driven.
 ## Output Defaults
 
 - Default output language is Chinese.
-- Do not show source lists in normal output.
+- Show compact source references in default daily digest output.
 - Do not show internal debug fields, request ids, or implementation metadata in user-facing output.
-- Keep enough traceability so sources can be returned later if the user asks.
+- Keep enough traceability so complete sources can be returned later if the user asks.
 
 ## Digest Defaults
 
 - Use the `digest` skill when the user wants a topic digest or daily briefing.
 - Save the digest as a file under `runs/<topic-id>/latest-digest.md`.
-- Render every digest item as a numbered single paragraph.
+- Render every digest item as a compact line box, with the number and title merged into the first line and source references after a blank separator line.
 - Do not split the first few items into a special format.
 - End the digest with a natural follow-up line that invites the user to reply with a number for deeper analysis, without mentioning internal skill names.
 
@@ -41,7 +41,7 @@ This workspace is topic-driven.
 
 - Use the `deep-analysis` skill when the user wants to continue from a digest item or asks for a deeper event breakdown.
 - If the user replies with only a visible digest number, resolve it against the latest digest for the same topic.
-- Keep the analysis natural and source-hidden by default, but be ready to provide sources on request.
+- Keep the analysis natural and concise by default, but be ready to provide complete sources on request.
 
 ## Topic Curation Defaults
 

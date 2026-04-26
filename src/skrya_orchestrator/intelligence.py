@@ -3,11 +3,14 @@ from __future__ import annotations
 import html
 import json
 import re
+import textwrap
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
 from .ingest import IngestService
 
@@ -50,8 +53,9 @@ class IntelligenceService:
         self._ensure_topic(topic_id)
         numbered_events = list(enumerate(events, start=1))
         event_thread_updates = self._build_digest_event_thread_updates(topic_id, numbered_events)
+        execution_time = datetime.now(ZoneInfo("Asia/Shanghai"))
 
-        lines: list[str] = ["# Digest", ""]
+        lines: list[str] = [self._build_digest_title(topic_id, execution_time), ""]
         if events:
             if event_thread_updates:
                 lines.append("## 事件线更新")
@@ -70,7 +74,14 @@ class IntelligenceService:
             lines.append("暂时没有抓到足够新的真实内容，先不拿样例数据冒充日报。你可以稍后再试，或者明确告诉我用样例做演示。")
             lines.append("")
 
-        lines.extend(self._build_digest_feedback_options())
+        lines.extend(
+            self._build_digest_system_prompt(
+                topic_id=topic_id,
+                execution_time=execution_time,
+                event_count=len(numbered_events),
+                event_thread_count=len(event_thread_updates),
+            )
+        )
 
         markdown = "\n".join(lines).strip() + "\n"
 
@@ -102,6 +113,59 @@ class IntelligenceService:
             digest_path=digest_path,
             artifact_path=event_index_path,
         )
+
+    def _build_digest_title(self, topic_id: str, execution_time: datetime) -> str:
+        topic_name = self._topic_display_name(topic_id)
+        return f"# {execution_time:%Y-%m-%d}｜{topic_name}｜每日简报"
+
+    def _topic_display_name(self, topic_id: str) -> str:
+        topic_path = self._root / "topics" / topic_id / "topic.json"
+        if not topic_path.exists():
+            return topic_id
+        metadata = json.loads(topic_path.read_text(encoding="utf-8"))
+        return str(metadata.get("name") or metadata.get("description") or topic_id)
+
+    def _build_digest_system_prompt(
+        self,
+        *,
+        topic_id: str,
+        execution_time: datetime,
+        event_count: int,
+        event_thread_count: int,
+    ) -> list[str]:
+        if event_count:
+            status = f"完成：生成 {event_count} 条简讯，更新 {event_thread_count} 条事件线。"
+        else:
+            status = "未抓到足够新的真实内容。"
+        return [
+            "---",
+            "",
+            "## 系统提示",
+            "",
+            f"- 执行时间：{execution_time:%Y-%m-%d %H:%M}（Asia/Shanghai）",
+            f"- 执行状态：{status}",
+            f"- 扫描时间范围：{self._scan_time_range_label(topic_id)}",
+            "- 可继续操作：",
+            "  - A. 详细分析指定今日简讯，例如：`A 3 5 12`。",
+            "  - B. 创建新的事件线，例如：`B 3 4 5 持续关注`。",
+            "  - C. 调整简讯和事件线的获取策略，例如：`C 6 7 我不喜欢，如果是 xxx 不要关注`。",
+        ]
+
+    def _scan_time_range_label(self, topic_id: str) -> str:
+        ingest_path = self._root / "runs" / topic_id / "ingest" / "latest-ingest.json"
+        if ingest_path.exists():
+            payload = json.loads(ingest_path.read_text(encoding="utf-8"))
+            fetched_times = [
+                str(item.get("fetched_at", "")).strip()
+                for item in payload.get("items", [])
+                if isinstance(item, dict) and str(item.get("fetched_at", "")).strip()
+            ]
+            if fetched_times:
+                return f"{min(fetched_times)} 至 {max(fetched_times)}"
+            retrieved_at = str(payload.get("retrieved_at", "")).strip()
+            if retrieved_at:
+                return f"截至 {retrieved_at} 的最近一轮检索"
+        return "最近 24 小时（默认）"
 
     def generate_deep_analysis(self, topic_id: str, event_number: int) -> DeepAnalysisResult:
         topic_id = self.resolve_topic_id(topic_id)
@@ -417,12 +481,6 @@ class IntelligenceService:
 
     def _build_digest_event_thread_update(self, definition: dict, matched_items: list[dict]) -> list[str]:
         name = self._to_chinese(str(definition.get("name") or "未命名事件线"))
-        related_numbers = "、".join(str(item.get("number")) for item in matched_items if item.get("number"))
-        titles = "；".join(
-            self._to_chinese(str(item.get("title", ""))).rstrip("。！？；：")
-            for item in matched_items[:3]
-            if str(item.get("title", "")).strip()
-        )
         summaries = " ".join(
             self._build_chinese_analysis(str(item.get("analysis_body") or item.get("analysis_title") or item.get("title") or ""))
             for item in matched_items[:2]
@@ -434,15 +492,16 @@ class IntelligenceService:
         )
 
         lines = [
-            f"**{name}**",
-            f"今天命中的简讯：{related_numbers}。{titles}。",
-            f"具体进展：{summaries}",
+            f"┌─ **【事件线】{name}**",
+            *self._build_box_content_lines(summaries),
+            "│",
         ]
         if watchpoints:
-            lines.append(f"后续看点：{watchpoints}。")
+            lines.extend(self._build_box_content_lines(f"后续看点：{watchpoints}。"))
         else:
             callback_hint = self._build_chinese_analysis(str(definition.get("callback_hint", "")))
-            lines.append(f"后续判断：{callback_hint}")
+            lines.extend(self._build_box_content_lines(f"后续判断：{callback_hint}"))
+        lines.append("└")
         return lines
 
     def _digest_event_index_item(self, number: int, event: dict) -> dict:
@@ -754,17 +813,41 @@ class IntelligenceService:
         title = self._translate_title(event["title"]).rstrip("。！？；：")
         summary_source = event["headline_summary"] or event["list_summary"] or event["title"]
         summary = self._build_chinese_brief(summary_source)
-        return f"{number}. {title}，{summary}"
+        sources = self._build_source_references(event.get("sources", []))
+        return "\n".join(
+            [
+                f"┌─ **【简讯{number}】{title}**",
+                *self._build_box_content_lines(summary),
+                "│",
+                f"│ 信源：{sources}",
+                "└",
+            ]
+        )
 
     @staticmethod
-    def _build_digest_feedback_options() -> list[str]:
-        return [
-            "你可以这样反馈：",
-            "",
-            "A. 详细分析指定今日简讯，例如：`A 3 5 12`。",
-            "B. 创建新的事件线。事件线是 topic 下持续追踪同一件事进展的时间线，例如：`B 3 4 5 持续关注`。",
-            "C. 对简讯和事件线的获取策略进行调整，例如：`C 6 7 我不喜欢，如果是 xxx 不要关注`。",
-        ]
+    def _build_box_content_lines(text: str, width: int = 48) -> list[str]:
+        text = " ".join(str(text).split())
+        if not text:
+            return ["│"]
+        wrapped = textwrap.wrap(
+            text,
+            width=width,
+            break_long_words=True,
+            break_on_hyphens=False,
+        )
+        return [f"│ {line}" for line in (wrapped or [text])]
+
+    def _build_source_references(self, sources: list[str]) -> str:
+        references = [self._format_source_reference(source) for source in sources if str(source).strip()]
+        return " ".join(references) if references else "暂无可展示信源"
+
+    def _format_source_reference(self, source: str) -> str:
+        source = str(source).strip()
+        parsed = urlparse(source)
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            label = parsed.netloc.removeprefix("www.")
+            return f"[{label}]({source})"
+        return source
 
     def _build_chinese_brief(self, text: str) -> str:
         text = " ".join(text.split())

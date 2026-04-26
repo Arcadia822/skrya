@@ -12,7 +12,7 @@ TEST_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 class IntelligenceServiceTests(unittest.TestCase):
-    def test_generate_digest_writes_all_items_as_single_paragraph_numbered_entries(self) -> None:
+    def test_generate_digest_writes_all_items_as_numbered_unicode_blocks(self) -> None:
         root = self._make_root("digest-output")
         self._write_topic(root)
         self._write_sample_events(root)
@@ -20,19 +20,28 @@ class IntelligenceServiceTests(unittest.TestCase):
         service = IntelligenceService(root)
         digest = service.generate_digest("k-entertainment")
 
-        self.assertIn("1. 某女团练习生出圈片段从 INS 扩散到韩媒", digest.markdown)
+        self.assertIn("｜K-Entertainment｜每日简报", digest.markdown)
+        self.assertIn("┌─ **【简讯1】", digest.markdown)
+        self.assertIn("某女团练习生出圈片段从 INS 扩散到韩媒", digest.markdown)
+        self.assertIn("\n│\n│ 信源：", digest.markdown)
         self.assertNotIn("### 1.", digest.markdown)
-        self.assertIn("6. 某男团成员个人账号更新引发造型讨论", digest.markdown)
+        self.assertIn("┌─ **【简讯6】", digest.markdown)
+        self.assertIn("某男团成员个人账号更新引发造型讨论", digest.markdown)
+        self.assertIn("│ 信源：[source.test](https://source.test/trainee-1)", digest.markdown)
         self.assertNotIn("中文导读：", digest.markdown)
         self.assertNotIn("Top 5 必看", digest.markdown)
         self.assertNotIn("今日观察", digest.markdown)
         self.assertNotIn("建议深挖", digest.markdown)
         self.assertIn("A. 详细分析指定今日简讯", digest.markdown)
         self.assertIn("B. 创建新的事件线", digest.markdown)
-        self.assertIn("C. 对简讯和事件线的获取策略进行调整", digest.markdown)
+        self.assertIn("---\n\n## 系统提示", digest.markdown)
+        self.assertIn("- 执行时间：", digest.markdown)
+        self.assertIn("- 执行状态：完成：生成 6 条简讯，更新 0 条事件线。", digest.markdown)
+        self.assertIn("- 扫描时间范围：最近 24 小时（默认）", digest.markdown)
+        self.assertIn("- 可继续操作：", digest.markdown)
+        self.assertIn("C. 调整简讯和事件线的获取策略", digest.markdown)
         self.assertNotIn("$deep-analysis", digest.markdown)
         self.assertNotIn("REQ-001", digest.markdown)
-        self.assertNotIn("https://source.test", digest.markdown)
         self.assertTrue(digest.digest_path.exists())
         self.assertTrue(digest.artifact_path.exists())
 
@@ -44,7 +53,8 @@ class IntelligenceServiceTests(unittest.TestCase):
         service = IntelligenceService(root)
         digest = service.generate_digest("韩国娱乐舆情追踪")
 
-        self.assertIn("1. 某女团练习生出圈片段从 INS 扩散到韩媒", digest.markdown)
+        self.assertIn("┌─ **【简讯1】", digest.markdown)
+        self.assertIn("某女团练习生出圈片段从 INS 扩散到韩媒", digest.markdown)
         self.assertEqual(root / "runs" / "k-entertainment" / "latest-digest.md", digest.digest_path)
 
     def test_live_sources_do_not_fall_back_to_sample_events_when_empty(self) -> None:
@@ -144,8 +154,9 @@ class IntelligenceServiceTests(unittest.TestCase):
         service = IntelligenceService(root, translator=translator)
         digest = service.generate_digest("k-entertainment")
 
-        self.assertLess(digest.markdown.index("1. SM 公布深伪犯罪法律进展"), digest.markdown.index("3. 5 部值得加入片单"))
-        self.assertLess(digest.markdown.index("2. CBX 向 INB100 发出合约终止通知"), digest.markdown.index("3. 5 部值得加入片单"))
+        self.assertLess(digest.markdown.index("┌─ **【简讯1】"), digest.markdown.index("┌─ **【简讯3】"))
+        self.assertLess(digest.markdown.index("SM 公布深伪犯罪法律进展"), digest.markdown.index("5 部值得加入片单"))
+        self.assertLess(digest.markdown.index("CBX 向 INB100 发出合约终止通知"), digest.markdown.index("5 部值得加入片单"))
 
     def test_deep_analysis_resolves_digest_item_number_and_hides_sources_by_default(self) -> None:
         root = self._make_root("deep-analysis")
@@ -232,12 +243,12 @@ class IntelligenceServiceTests(unittest.TestCase):
         digest = service.generate_digest("新能源汽车", prefer_live=False)
 
         self.assertIn("## 事件线更新", digest.markdown)
-        self.assertIn("**比亚迪闪充站**", digest.markdown)
-        self.assertIn("今天命中的简讯：", digest.markdown)
-        self.assertIn("具体进展：", digest.markdown)
-        self.assertIn("后续看点：首批站点在哪些城市真正落地", digest.markdown)
+        self.assertIn("┌─ **【事件线】比亚迪闪充站**", digest.markdown)
+        self.assertNotIn("今天命中的简讯：", digest.markdown)
+        self.assertIn("│ 后续看点：首批站点在哪些城市真正落地", digest.markdown)
         self.assertLess(digest.markdown.index("## 事件线更新"), digest.markdown.index("## 今日简讯"))
         self.assertIn("A. 详细分析指定今日简讯", digest.markdown)
+        self.assertIn("- 执行状态：完成：生成 3 条简讯，更新 1 条事件线。", digest.markdown)
 
     def test_generate_digest_persists_event_thread_runtime_artifact_when_seed_matches(self) -> None:
         root = self._make_root("event-thread-digest-runtime-artifact")
@@ -422,11 +433,12 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertIn("新人组合预告片开始升温", digest.markdown)
         self.assertNotIn("### 1.", digest.markdown)
         self.assertIn("预告片正在粉丝社区快速扩散。", digest.markdown)
-        self.assertIn("1. 演员选角争议持续升温", digest.markdown)
+        self.assertIn("┌─ **【简讯1】", digest.markdown)
+        self.assertIn("演员选角争议持续升温", digest.markdown)
         self.assertIn("A. 详细分析指定今日简讯", digest.markdown)
         self.assertIn("B. 创建新的事件线", digest.markdown)
-        self.assertIn("C. 对简讯和事件线的获取策略进行调整", digest.markdown)
-        self.assertNotIn("https://feed.test/rookie-teaser", digest.markdown)
+        self.assertIn("C. 调整简讯和事件线的获取策略", digest.markdown)
+        self.assertIn("│ 信源：[feed.test](https://feed.test/rookie-teaser)", digest.markdown)
         self.assertNotIn("Continue reading", digest.markdown)
         self.assertNotIn("appeared first on", digest.markdown)
 

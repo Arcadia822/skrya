@@ -83,8 +83,10 @@ class IngestServiceTests(unittest.TestCase):
 
         digest = IntelligenceService(root, translator=translator).generate_digest("AI Browser")
 
-        self.assertIn("1. Perplexity 更新 Comet 浏览器代理功能", digest.markdown)
+        self.assertIn("┌─ **【简讯1】", digest.markdown)
+        self.assertIn("Perplexity 更新 Comet 浏览器代理功能", digest.markdown)
         self.assertIn("Comet 增加了用于多步骤浏览任务的代理模式。", digest.markdown)
+        self.assertIn("│ 信源：[example.com](https://example.com/comet-agent)", digest.markdown)
         self.assertNotIn("样例浏览器新闻", digest.markdown)
 
     @staticmethod

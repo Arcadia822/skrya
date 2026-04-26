@@ -27,12 +27,16 @@ class MainIntelligenceCommandTests(unittest.TestCase):
 
         self.assertEqual(0, exit_code)
         output = stdout.getvalue()
-        self.assertIn("1. 某演员与新剧选角争议升温", output)
-        self.assertIn("2. 某女团练习生出圈片段从 INS 扩散到韩媒", output)
+        self.assertIn("┌─ **【简讯1】", output)
+        self.assertIn("某演员与新剧选角争议升温", output)
+        self.assertIn("┌─ **【简讯2】", output)
+        self.assertIn("某女团练习生出圈片段从 INS 扩散到韩媒", output)
+        self.assertIn("│ 信源：[source.test]", output)
         self.assertNotIn("### 1.", output)
         self.assertIn("A. 详细分析指定今日简讯", output)
         self.assertIn("B. 创建新的事件线", output)
-        self.assertIn("C. 对简讯和事件线的获取策略进行调整", output)
+        self.assertIn("## 系统提示", output)
+        self.assertIn("C. 调整简讯和事件线的获取策略", output)
 
     def test_digest_command_sample_mode_uses_fixture_events_for_demo_topic(self) -> None:
         root = self._make_root("cli-digest-sample")
@@ -49,7 +53,8 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         self.assertEqual(0, exit_code)
         output = stdout.getvalue()
         self.assertIn("## 事件线更新", output)
-        self.assertIn("**比亚迪闪充站**", output)
+        self.assertIn("┌─ **【事件线】比亚迪闪充站**", output)
+        self.assertNotIn("今天命中的简讯：", output)
         self.assertIn("## 今日简讯", output)
         self.assertTrue((root / "runs" / "new-energy-vehicles" / "latest-digest-events.json").exists())
         self.assertTrue(

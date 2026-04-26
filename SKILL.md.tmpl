@@ -22,8 +22,9 @@ Skrya is an umbrella skill pack. Route requests to the bundled skills that best 
 - Treat "help me collect", "help me follow", "keep me updated", and similar phrasing as likely ongoing tracking unless the user clearly asks for one-off research.
 - Prefer real data by default.
 - Default user-facing output language is Chinese.
-- Do not show source lists, request ids, or internal debug fields in normal output.
-- Preserve enough traceability to return sources later if the user asks.
+- Show compact source references in daily digest output, after a blank separator line inside each numbered line box.
+- Do not show request ids or internal debug fields in normal output.
+- Preserve enough traceability to return complete sources later if the user asks.
 - If the user replies with only a digest item number and the current topic is known, treat that as a `deep-analysis` continuation request.
 
 ## Conversation Memory
@@ -102,4 +103,4 @@ Use `runs/<topic-id>/` for generated digest and analysis artifacts.
 
 ## Source Disclosure
 
-By default, keep source references hidden in user-facing output. If the user asks for sources for a digest item or analysis, return the relevant source list for that specific item.
+Daily digest output should include compact source references for every item inside numbered line boxes. Longer analysis can keep source lists compact unless the user asks for full provenance. If the user asks for sources for a digest item or analysis, return the complete relevant source list for that specific item.

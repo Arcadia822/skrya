@@ -62,8 +62,8 @@ Current source feasibility rule:
 
 Rules:
 
-- every item is a single numbered paragraph
-- no inline source list
+- every item is a compact numbered line box
+- source references appear after a blank separator line inside each digest box
 - no special formatting for the top items
 - end with a natural invitation to reply with a number
 
