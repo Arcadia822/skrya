@@ -1,85 +1,121 @@
 # Skrya
 
-Skrya 是一个面向 agent 的多主题信息追踪与简报工作区。
+> Topic-driven briefing workspace for agent-native daily digests, source curation, and event follow-up.
 
-它不是传统 RSS 阅读器，也不是固定后台服务。Skrya 的核心思路是：把用户的自然语言关注需求，沉淀成可持续运行的 topic 配置，再由 agent 负责抓取、筛选、排序、生成日报和继续深挖。
+[![Python](https://img.shields.io/badge/Python-%E2%89%A53.10-3776ab.svg)](https://www.python.org)
+[![Agent Skill Pack](https://img.shields.io/badge/Agent_Skill_Pack-Skrya-0ea5e9.svg)](#核心能力)
+[![Tests](https://img.shields.io/badge/tests-unittest-10b981.svg)](#开发与测试)
+[![Host](https://img.shields.io/badge/hosts-Codex%20%7C%20Claude%20%7C%20OpenClaw-6b7280.svg)](#兼容宿主)
 
-> **一句话理解**：Skrya 把“帮我长期关注这类事”翻译成一套可复用、可自动化、可跨 agent 宿主迁移的 topic workflow。
+Skrya 是一个面向 agent 的多主题信息追踪与简报工作区。它把用户的自然语言关注需求，沉淀成可持续运行的 topic 配置，再由 agent 完成来源接入、事件筛选、日报生成、深度分析和持续事件线追踪。
 
-## 快速导航
+不是传统 RSS 阅读器，也不是固定后台服务。Skrya 更像一套可迁移的 briefing workflow：用户只说“以后每天帮我关注什么”，agent 负责把它变成可复用、可自动化、可跨宿主安装的配置和技能包。
 
-- [它解决什么问题](#它解决什么问题)
-- [适合的使用场景](#适合的使用场景)
-- [非技术用户怎么用](#非技术用户怎么用)
+---
+
+## 目录
+
+- [解决什么问题](#解决什么问题)
 - [核心能力](#核心能力)
+- [15 秒上手](#15-秒上手)
+- [日报输出示例](#日报输出示例)
 - [Topic 模型](#topic-模型)
-- [持续事件实体](#持续事件实体)
+- [持续事件线](#持续事件线)
 - [外部检索接口](#外部检索接口)
-- [兼容宿主与安装策略](#兼容宿主与安装策略)
 - [安装](#安装)
 - [常用命令](#常用命令)
 - [项目结构](#项目结构)
-- [Source of Truth](#source-of-truth)
 - [开发与测试](#开发与测试)
-- [设计文档](#设计文档)
+- [Source of Truth](#source-of-truth)
+- [GitHub 元信息建议](#github-元信息建议)
 
-## 它解决什么问题
+## 解决什么问题
 
-很多人不是缺信息源，而是缺一个稳定的判断层：
+信息追踪的痛点通常不是“没有信息源”，而是缺少稳定判断层：
 
-- 我到底要持续关注什么？
-- 今天这么多碎片里，哪些是真正值得看的事件？
-- 哪些内容只是重复转述、榜单、轻量讨论？
-- 如果某条值得深挖，它的来龙去脉、可信度和后续观察点是什么？
-
-Skrya 把这些工作拆成一套 agent-native workflow：用户只说人话，agent 负责把它翻译成长期可维护的 topic、source、digest 和 deep-analysis。
-
-## 适合的使用场景
-
-- 每天追踪某家公司、行业、产品类别或市场主题
-- 给非技术用户提供“每日重要事件”简报
-- 把一次性反馈沉淀成长期偏好，比如“这类以后少推”
-- 对日报中的某一条继续做事件分析
-- 在不同 agent 环境里复用同一套 topic 配置
-- 使用不稳定的第三方检索 skill，但不把项目绑定到这些 skill 上
-
-## 非技术用户怎么用
-
-用户不需要知道 topic id、RSS、JSON、skill 名称或检索工具细节。
-
-可以直接这样说：
-
-```text
-以后每天帮我关注 AI 浏览器有什么重要动态
-```
-
-```text
-我想持续看韩国娱乐圈这周真正值得跟的事件
-```
-
-```text
-这条以后少推，类似的轻量榜单不用放日报里
-```
-
-```text
-展开第 3 条，帮我判断这件事后面还值不值得看
-```
-
-agent 应该先确认用户真正想长期追踪的内容，再讨论是否创建每日自动简报，最后再问是否要试跑一次。
+| 常见问题 | Skrya 的处理方式 |
+| --- | --- |
+| 用户只会说“帮我关注这个方向” | `topic-curation` 把自然语言转成长期 topic 配置 |
+| 每天内容太碎，难判断重要性 | `digest` 按 topic 偏好筛选、排序、生成简报 |
+| 用户反馈只停留在聊天里 | `request-curation` 把“多推/少推/别推”写成持久偏好 |
+| 某件事连续发酵但每天标题都不同 | `event-thread` 把相关简讯串成持续事件线 |
+| 第三方检索工具不稳定 | `runtime-retrieval` 只记录能力，不绑定供应商名称 |
 
 ## 核心能力
 
-Skrya 当前包含五个 bundled skills：
-
 | Skill | 作用 |
 | --- | --- |
-| `topic-curation` | 把模糊关注需求整理成长期 topic，或调整现有 topic |
-| `request-curation` | 把“多推/少推/别推”这类反馈写成稳定偏好 |
-| `source-curation` | 管理可自动接入的信息渠道和检索能力 |
-| `digest` | 生成编号清晰、可继续追问的主题日报 |
-| `deep-analysis` | 对某个事件继续做脉络、可信度和后续观察分析 |
+| `topic-curation` | 创建或调整长期关注主题 |
+| `request-curation` | 把日报反馈沉淀成稳定偏好 |
+| `source-curation` | 管理自动接入来源和运行时检索能力 |
+| `digest` | 生成带信源、编号、系统提示的主题日报 |
+| `deep-analysis` | 对某条简讯做脉络、可信度和后续观察分析 |
 
-根 `skrya` skill 负责把用户请求路由到正确 workflow。
+根 `skrya` skill 负责把用户请求路由到正确 workflow。普通用户不需要知道这些 skill 名称；它们是 agent 的内部执行层。
+
+## 15 秒上手
+
+非技术用户可以直接这样说：
+
+```text
+以后每天帮我关注 AI 浏览器有什么重要动态。
+```
+
+```text
+这条以后少推，类似的轻量榜单不用放日报里。
+```
+
+```text
+展开第 3 条，帮我判断这件事后面还值不值得看。
+```
+
+```text
+帮我持续跟比亚迪闪充站这条线；以后有新进展就接着往下讲。
+```
+
+Agent 的默认流程：
+
+1. 先确认用户真正想长期追踪的内容。
+2. 把关注意图写入 topic 配置。
+3. 讨论是否创建每日自动简报。
+4. 用户确认后试跑一次日报。
+5. 后续把用户反馈沉淀成长期偏好。
+
+## 日报输出示例
+
+Skrya 的默认日报现在分为主体内容和系统提示。大标题包含执行日期和主题，简讯结束后用分割线进入系统提示区。
+
+```markdown
+# 2026-04-26｜新能源汽车｜每日简报
+
+## 事件线更新
+
+┌─ **【事件线】比亚迪闪充站**
+│ 这条线从发布会概念走到建设兑现，讨论重点已经变成站点是否真的铺开。
+│
+│ 后续看点：首批站点在哪些城市真正落地；真实补能效率是否被反复验证。
+└
+
+## 今日简讯
+
+┌─ **【简讯1】比亚迪闪充站首批落地城市名单开始清晰**
+│ 这条线开始从产品能力展示推进到具体站点和城市铺设进度。
+│
+│ 信源：[example.com](https://example.com/byd-flash-charge-cities)
+└
+
+---
+
+## 系统提示
+
+- 执行时间：2026-04-26 12:19（Asia/Shanghai）
+- 执行状态：完成：生成 3 条简讯，更新 1 条事件线。
+- 扫描时间范围：最近 24 小时（默认）
+- 可继续操作：
+  - A. 详细分析指定今日简讯，例如：`A 3 5 12`。
+  - B. 创建新的事件线，例如：`B 3 4 5 持续关注`。
+  - C. 调整简讯和事件线的获取策略，例如：`C 6 7 我不喜欢，如果是 xxx 不要关注`。
+```
 
 ## Topic 模型
 
@@ -92,59 +128,47 @@ topics/<topic-id>/
   sources.json
   digest.md
   deep-analysis.md
+  event-thread-seeds.json  # 可选
 ```
 
-其中：
+| 文件 | 用途 |
+| --- | --- |
+| `topic.json` | 主题身份、显示名和描述 |
+| `brief.json` | 用户真正关心什么 |
+| `sources.json` | 自动接入来源和运行时检索能力 |
+| `digest.md` | 日报排序、排除和呈现标准 |
+| `deep-analysis.md` | 深度分析判断标准 |
+| `event-thread-seeds.json` | 持续事件线的名称、别名和匹配边界 |
 
-- `topic.json` 保存主题身份和显示信息
-- `brief.json` 保存用户真正关心什么
-- `sources.json` 保存可自动接入的信息渠道
-- `digest.md` 保存日报排序和排除标准
-- `deep-analysis.md` 保存深度分析判断标准
+这些文件名默认不暴露给普通用户。它们是 agent 的执行细节，和许多执行细节一样，最好保持安静。
 
-正常用户不需要看到这些文件名；它们是 agent 内部执行细节。
+## 持续事件线
 
-## 持续事件实体
+`event-thread` 是位于 topic 之下、单条 digest item 之上的轻量实体，用来追踪会连续发展的事件。
 
-对于会连续发展的大事件，README 现在补充了一个**文档级定义**的轻量实体：`event-thread`，中文可称为**事件线**。
+典型流程：
 
-它位于 `topic` 之下、单条 digest item 之上，适合把围绕同一持续事件的多条简讯串起来，保留：
+1. 用户说：“新能源汽车这个 topic 里，帮我持续跟比亚迪闪充站这条线。”
+2. Agent 在 `topics/new-energy-vehicles/event-thread-seeds.json` 稳定这条线的名字、别名和匹配边界。
+3. 生成日报时，如果今日简讯命中 seed，Skrya 写出运行时事件线产物：`runs/new-energy-vehicles/event-threads/latest-event-threads.json`。
+4. 用户说“展开这条线”时，Skrya 按时间线回放。
 
-- 这条线为什么值得持续跟
-- 它最近一次推进到了哪里
-- 哪些新简讯应该续写到这条线，而不是重新开一条
-- 后续最该观察的 watchpoints 是什么
-
-一个最小用户流程可以这样理解：
-
-1. 用户说：“新能源汽车这个 topic 里，帮我持续跟比亚迪闪充站这条线；以后有新进展就接着往下讲。”
-2. agent 先在 `topics/new-energy-vehicles/event-thread-seeds.json` 里稳定这条线的名字、别名和匹配边界。
-3. 生成日报时如果命中这条 seed，Skrya 会同步写出运行时 `runs/new-energy-vehicles/event-threads/latest-event-threads.json`；也可以用 `refresh-event-threads --topic new-energy-vehicles --root .` 从最新 digest artifact 手动刷新。
-4. 当用户说“展开这条线”时，用 `event-thread --topic new-energy-vehicles --thread "比亚迪闪充站" --root .` 按时间线回放。
-
-如果日报命中事件线，不要只写一句笼统的“这条线有进展”。事件线更新应该占 2-4 行：先说命中了哪些今日简讯，再具体说明事实推进，最后给出后续看点。普通简讯仍然保留编号，方便用户用 `A 3 5 12`、`B 3 4 5 持续关注` 或 `C 6 7 我不喜欢，如果是 xxx 不要关注` 这类短指令继续反馈。
-
-推荐把它作为运行时产物落在：
+运行时产物：
 
 ```text
 runs/<topic-id>/event-threads/
   latest-event-threads.json
 ```
 
-如需稳定事件线的名字、边界和匹配提示，可以在 topic 目录下可选补一个轻量 seed 文件：
+参考示例：
 
-```text
-topics/<topic-id>/
-  event-thread-seeds.json
-```
-
-命名上优先使用用户会自然复述的事件名，例如在 `topic = 新能源汽车` 下，可以有 `event-thread = 比亚迪闪充站`。仓库里附了一个可直接参考的轻量 topic fixture：`topics/new-energy-vehicles/`，其中已经包含 `event-thread-seeds.json` 和示例 `sample-events.json`。完整设计、命名理由、seed 结构和示例见 [`docs/event-threads.md`](docs/event-threads.md)；如果想看 agent 面向普通用户时该怎么确认、续写和回放这条线，再看 [`docs/user-journeys.md`](docs/user-journeys.md) 里的“旅程 6：持续事件的时间线追踪”。
+- Fixture topic: `topics/new-energy-vehicles/`
+- 设计说明: [docs/event-threads.md](docs/event-threads.md)
+- 用户旅程: [docs/user-journeys.md](docs/user-journeys.md) 里的“旅程 6：持续事件的时间线追踪”
 
 ## 外部检索接口
 
-Skrya 支持使用第三方检索 skill，例如用户临时提供的 `agent-reach`。但 Skrya 不会把这些 skill 写成长期依赖。
-
-长期配置只记录能力：
+Skrya 支持使用第三方检索 skill，但不会把具体供应商写成长期依赖。长期配置只记录能力：
 
 - `web_search`
 - `news_search`
@@ -152,144 +176,124 @@ Skrya 支持使用第三方检索 skill，例如用户临时提供的 `agent-rea
 - `social_search`
 - `document_fetch`
 
-运行时流程是：
+运行流程：
 
-1. Skrya 生成 provider-neutral 的 `skrya.retrieval-request.v1`
-2. 当前 agent 选择可用检索工具执行
-3. agent 把结果归一化为 `skrya.ingest.v1`
-4. Skrya 只消费归一化 ingest，不直接消费第三方工具原始输出
+```text
+Skrya retrieval request
+  -> 当前 agent 选择可用检索工具
+  -> 归一化为 skrya.ingest.v1
+  -> digest 只消费归一化 ingest
+```
 
-运行产物写入：
+运行产物：
 
 ```text
 runs/<topic-id>/ingest/
   latest-ingest.json
-  raw/
   normalized/
+  raw/
 ```
 
-这样即使某个检索 skill 消失或换名，topic 配置仍然有效。
-
-## 兼容宿主与安装策略
-
-Skrya 的文档、模板和运行产物默认使用**通用 agent 语境**。只有在安装命令、提示词目录和宿主约定文件名上，才会出现 host-specific 差异。
-
-| 宿主 | 指令文件 | 全局安装 | 说明 |
-| --- | --- | --- | --- |
-| `workspace` | `AGENTS.md` | 不提供 | 用于在仓库内生成运行产物和提示词，不做全局安装 |
-| `codex` | `AGENTS.md` | 支持 | 兼容 `~/.codex/skills/` 目录结构 |
-| `claude` | `CLAUDE.md` | 支持 | 兼容 `~/.claude/skills/` 目录结构 |
-| `openclaw` | `AGENTS.md` | 支持 | 兼容 `~/.openclaw/skills/` 目录结构 |
-
-推荐记住两个命令：
-
-1. `build-skill-pack --host all`：在当前仓库里生成所有宿主所需产物。
-2. `install-skill-pack --host auto`：自动检测本机可用宿主并安装到对应全局目录。
+接口详情见 [docs/external-retrieval-interface.md](docs/external-retrieval-interface.md)。
 
 ## 安装
 
-如果你的 shell 没有 `python` 命令，请把下面的 `python` 替换成 `python3`。
+要求 Python 3.10+。如果本机没有 `python` 命令，请使用 `python3`。
 
-### 方式一：在仓库内生成全部 host 产物
+### 在仓库内生成全部 host 产物
 
 ```bash
-git clone https://github.com/arcadia822/skrya.git
+git clone https://github.com/Arcadia822/skrya.git
 cd skrya
-python -m pip install -e .
-python -m skrya_orchestrator.main build-skill-pack --root . --host all
+python3 -m pip install -e .
+python3 -m skrya_orchestrator.main build-skill-pack --root . --host all
 ```
 
-这会刷新以下运行产物：
-
-- 根和子 skill 的 `SKILL.md`
-- 根和子 skill 的 `agents/openai.yaml`
-- `.skrya/hosts/<host>/prompts/` 下的 host-specific prompt packs
-
-适合场景：
-
-- 你要修改模板或技能文案
-- 你要一次性为多个 agent 宿主打包
-- 你希望把仓库作为 source of truth，稍后再决定安装到哪个宿主
-
-### 方式二：自动安装到当前机器的默认宿主
+### 自动安装到当前机器的默认宿主
 
 ```bash
-git clone https://github.com/arcadia822/skrya.git
-cd skrya
-python -m pip install -e .
-python -m skrya_orchestrator.main install-skill-pack --root . --host auto
+python3 -m skrya_orchestrator.main install-skill-pack --root . --host auto
 ```
 
-`install-skill-pack` 会优先检测 `~/.codex`、`~/.claude`、`~/.openclaw`；如果都没检测到，默认回退到 `codex` 安装路径。安装时优先使用 symlink；如果系统不支持 symlink，会退回到复制安装。
+`install-skill-pack` 会检测 `~/.codex`、`~/.claude`、`~/.openclaw`。如果都不存在，默认回退到 Codex 安装路径。
 
-### 方式三：显式指定宿主
+### 显式指定宿主
 
 ```bash
-python -m skrya_orchestrator.main install-skill-pack --root . --host codex
-python -m skrya_orchestrator.main install-skill-pack --root . --host claude
-python -m skrya_orchestrator.main install-skill-pack --root . --host openclaw
+python3 -m skrya_orchestrator.main install-skill-pack --root . --host codex
+python3 -m skrya_orchestrator.main install-skill-pack --root . --host claude
+python3 -m skrya_orchestrator.main install-skill-pack --root . --host openclaw
 ```
 
-也可以用便捷脚本，效果等价于 `install-skill-pack --root .`：
-
-```powershell
-./setup.ps1 --host auto
-```
-
-Unix-like shell：
+便捷脚本：
 
 ```bash
 ./setup --host auto
 ```
 
+PowerShell:
+
+```powershell
+./setup.ps1 --host auto
+```
+
+## 兼容宿主
+
+| 宿主 | 指令文件 | 全局安装 | 说明 |
+| --- | --- | --- | --- |
+| `workspace` | `AGENTS.md` | 不提供 | 仓库内生成运行产物和提示词 |
+| `codex` | `AGENTS.md` | 支持 | 兼容 `~/.codex/skills/` |
+| `claude` | `CLAUDE.md` | 支持 | 兼容 `~/.claude/skills/` |
+| `openclaw` | `AGENTS.md` | 支持 | 兼容 `~/.openclaw/skills/` |
+
 ## 常用命令
 
 生成日报：
 
-```powershell
-python -m skrya_orchestrator.main digest --topic k-entertainment --root .
+```bash
+python3 -m skrya_orchestrator.main digest --topic k-entertainment --root .
 ```
 
-使用内置样例事件试跑示例 topic：
+使用内置样例试跑：
 
-```powershell
-python -m skrya_orchestrator.main digest --topic new-energy-vehicles --root . --sample
-```
-
-生成 provider-neutral 检索请求：
-
-```powershell
-python -m skrya_orchestrator.main retrieval-request --topic k-entertainment --root .
-```
-
-记录第三方检索工具归一化后的输出：
-
-```powershell
-python -m skrya_orchestrator.main ingest --topic k-entertainment --root . --file runs/k-entertainment/ingest/input.json
+```bash
+python3 -m skrya_orchestrator.main digest --topic new-energy-vehicles --root . --sample
 ```
 
 继续分析某条日报事件：
 
-```powershell
-python -m skrya_orchestrator.main deep-analysis --topic k-entertainment --event-number 3 --root .
+```bash
+python3 -m skrya_orchestrator.main deep-analysis --topic k-entertainment --event-number 3 --root .
 ```
 
-按时间线回放某条持续事件线：
+按时间线回放持续事件线：
 
-```powershell
-python -m skrya_orchestrator.main event-thread --topic new-energy-vehicles --thread "比亚迪闪充站" --root .
+```bash
+python3 -m skrya_orchestrator.main event-thread --topic new-energy-vehicles --thread "比亚迪闪充站" --root .
 ```
 
 根据最新 digest artifact 刷新事件线运行时产物：
 
-```powershell
-python -m skrya_orchestrator.main refresh-event-threads --topic new-energy-vehicles --root .
+```bash
+python3 -m skrya_orchestrator.main refresh-event-threads --topic new-energy-vehicles --root .
+```
+
+生成 provider-neutral 检索请求：
+
+```bash
+python3 -m skrya_orchestrator.main retrieval-request --topic k-entertainment --root .
+```
+
+记录归一化 ingest：
+
+```bash
+python3 -m skrya_orchestrator.main ingest --topic k-entertainment --root . --file runs/k-entertainment/ingest/input.json
 ```
 
 重建 skill pack：
 
-```powershell
-python -m skrya_orchestrator.main build-skill-pack --root . --host all
+```bash
+python3 -m skrya_orchestrator.main build-skill-pack --root . --host all
 ```
 
 ## 项目结构
@@ -314,33 +318,18 @@ python -m skrya_orchestrator.main build-skill-pack --root . --host all
   tests/                      # 单元测试和契约测试
 ```
 
-## Source of Truth
-
-如果你要改 agent-facing 行为，请改源模板，不要手改生成物：
-
-1. 根 skill：改 `skill-pack.json` 和 `SKILL.md.tmpl`
-2. 子 skill：改 `<skill>/skill.json` 和 `<skill>/SKILL.md.tmpl`
-3. host prompt：改 `prompt-templates/`
-4. 运行：
-
-```powershell
-python -m skrya_orchestrator.main build-skill-pack --root . --host all
-```
-
-`.skrya/hosts/`、`runs/`、`tmp/`、`__pycache__/`、`*.egg-info/` 都是运行或缓存产物，不是 source of truth。
-
 ## 开发与测试
 
 安装本地包：
 
-```powershell
-python -m pip install -e .
+```bash
+python3 -m pip install -e .
 ```
 
 运行测试：
 
-```powershell
-python -m unittest discover -s tests -v
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests
 ```
 
 当前测试覆盖：
@@ -348,19 +337,49 @@ python -m unittest discover -s tests -v
 - skill pack 生成和安装
 - topic 名称解析
 - digest 排序与输出格式
-- deep-analysis 编号解析和来源隐藏
+- deep-analysis 编号解析和来源按需披露
 - runtime retrieval / ingest 接口
 - skill 文档契约
+
+## Source of Truth
+
+如果要改 agent-facing 行为，请先改源模板，再运行构建命令：
+
+1. 根 skill：`skill-pack.json` 和 `SKILL.md.tmpl`
+2. 子 skill：`<skill>/skill.json` 和 `<skill>/SKILL.md.tmpl`
+3. host prompt：`prompt-templates/`
+4. 构建：
+
+```bash
+python3 -m skrya_orchestrator.main build-skill-pack --root . --host all
+```
+
+`.skrya/hosts/`、`runs/`、`tmp/`、`__pycache__/`、`*.egg-info/` 都是运行或缓存产物，不是 source of truth。
 
 ## 设计文档
 
 推荐先读：
 
-- [current-system-design.md](design/current-system-design.md)
-- [core-skills-spec.md](design/core-skills-spec.md)
-- [external-retrieval-interface.md](docs/external-retrieval-interface.md)
-- [event-threads.md](docs/event-threads.md)
-- [user-journeys.md](docs/user-journeys.md)
+- [design/current-system-design.md](design/current-system-design.md)
+- [design/core-skills-spec.md](design/core-skills-spec.md)
+- [design/digest-feedback-journey.md](design/digest-feedback-journey.md)
+- [docs/external-retrieval-interface.md](docs/external-retrieval-interface.md)
+- [docs/event-threads.md](docs/event-threads.md)
+- [docs/user-journeys.md](docs/user-journeys.md)
+
+## GitHub 元信息建议
+
+Repository description:
+
+```text
+Topic-driven briefing workspace for agent-native daily digests, source curation, and event follow-up
+```
+
+Topics:
+
+```text
+agent-skill, briefing, daily-digest, topic-tracking, python, codex, claude, openclaw, retrieval, knowledge-workflow
+```
 
 ## 贡献
 
@@ -370,7 +389,7 @@ python -m unittest discover -s tests -v
 - 新行为先补测试，尤其是 skill 契约测试
 - 改 skill 文案时先改模板，再运行 `build-skill-pack`
 - 不要把第三方检索 skill 写成 durable dependency
-- 不要把来源列表、request id、文件名等内部细节暴露给普通用户
+- 不要把 request id、内部文件名或抓取实现细节暴露给普通用户
 
 ## License
 
