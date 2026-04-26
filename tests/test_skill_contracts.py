@@ -15,6 +15,9 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("build-skill-pack", content)
         self.assertIn("install-skill-pack", content)
         self.assertIn(".skrya/hosts/", content)
+        self.assertIn("data-root", content)
+        self.assertIn("~/.skrya", content)
+        self.assertIn(".skrya/data", content)
         self.assertIn("setup", content)
         self.assertIn("event-thread --topic", content)
         self.assertIn("refresh-event-threads --topic", content)
@@ -44,8 +47,8 @@ class SkillContractTests(unittest.TestCase):
         user_journeys = (ROOT / "docs" / "user-journeys.md").read_text(encoding="utf-8")
 
         self.assertIn("帮我持续跟比亚迪闪充站这条线；以后有新进展就接着往下讲", readme)
-        self.assertIn("topics/new-energy-vehicles/event-thread-seeds.json", readme)
-        self.assertIn("runs/new-energy-vehicles/event-threads/latest-event-threads.json", readme)
+        self.assertIn("<skrya-data-root>/topics/new-energy-vehicles/event-thread-seeds.json", readme)
+        self.assertIn("<skrya-data-root>/runs/new-energy-vehicles/event-threads/latest-event-threads.json", readme)
         self.assertIn('event-thread --topic new-energy-vehicles --thread "比亚迪闪充站"', readme)
         self.assertIn("旅程 6：持续事件的时间线追踪", readme)
         self.assertIn("旅程 6：持续事件的时间线追踪", event_threads)
@@ -104,6 +107,18 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("capabilities, not third-party skill names", root_skill)
         self.assertIn("runtime-retrieval", source_curation)
         self.assertIn("do not save the provider name", source_curation)
+
+    def test_skills_resolve_data_root_before_topic_file_work(self) -> None:
+        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
+        topic_curation = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("Resolve the Skrya data root", root_skill)
+        self.assertIn("`~/.skrya`", root_skill)
+        self.assertIn("`.skrya/data`", root_skill)
+        self.assertIn("<skrya-data-root>/topics/<topic-id>/topic.json", digest)
+        self.assertIn("skrya data-root --set", root_skill)
+        self.assertIn("answer and update the user's storage-location preference", topic_curation)
 
     def test_source_curation_resolves_internal_topic_id_without_raw_user_id(self) -> None:
         content = (ROOT / "source-curation" / "SKILL.md").read_text(encoding="utf-8")

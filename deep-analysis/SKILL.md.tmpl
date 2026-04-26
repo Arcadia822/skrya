@@ -3,14 +3,15 @@
 Analyze one specific event for a resolved Skrya topic.
 
 Always resolve an explicit internal `topic-id` before reading files, but do not ask nontechnical users for raw ids when the current topic or natural topic name is clear.
+Before reading topic files or stored digest artifacts, resolve the Skrya data root. Topic configuration and generated artifacts live under `<skrya-data-root>/`, not necessarily under the skill repository.
 
 ## Read First
 
 Read these files before starting:
 
-- `topics/<topic-id>/topic.json`
-- `topics/<topic-id>/brief.json`
-- `topics/<topic-id>/deep-analysis.md`
+- `<skrya-data-root>/topics/<topic-id>/topic.json`
+- `<skrya-data-root>/topics/<topic-id>/brief.json`
+- `<skrya-data-root>/topics/<topic-id>/deep-analysis.md`
 
 If available, also read the latest digest output and the stored event context for the referenced event.
 

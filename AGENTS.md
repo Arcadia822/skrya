@@ -6,16 +6,19 @@ This workspace is topic-driven.
 
 - Any topic-scoped task must resolve an explicit internal `topic-id` before reading or writing files.
 - Do not ask nontechnical users for raw `topic-id` values when a natural topic name can be mapped or confirmed.
-- Topic files live under `topics/<topic-id>/`.
+- Resolve the Skrya data root before topic-scoped file work.
+- By default, topic files and runs live under `~/.skrya`.
+- For OpenClaw or container sandboxes where the host asks for mounted-workspace state, use `<workspace>/.skrya/data`.
+- Topic files live under `<skrya-data-root>/topics/<topic-id>/`.
 - For topic digest work, default to reading:
-  - `topics/<topic-id>/topic.json`
-  - `topics/<topic-id>/brief.json`
-  - `topics/<topic-id>/sources.json`
-  - `topics/<topic-id>/digest.md`
+  - `<skrya-data-root>/topics/<topic-id>/topic.json`
+  - `<skrya-data-root>/topics/<topic-id>/brief.json`
+  - `<skrya-data-root>/topics/<topic-id>/sources.json`
+  - `<skrya-data-root>/topics/<topic-id>/digest.md`
 - For topic deep analysis work, default to reading:
-  - `topics/<topic-id>/topic.json`
-  - `topics/<topic-id>/brief.json`
-  - `topics/<topic-id>/deep-analysis.md`
+  - `<skrya-data-root>/topics/<topic-id>/topic.json`
+  - `<skrya-data-root>/topics/<topic-id>/brief.json`
+  - `<skrya-data-root>/topics/<topic-id>/deep-analysis.md`
 
 ## Data Defaults
 
@@ -32,7 +35,7 @@ This workspace is topic-driven.
 ## Digest Defaults
 
 - Use the `digest` skill when the user wants a topic digest or daily briefing.
-- Save the digest as a file under `runs/<topic-id>/latest-digest.md`.
+- Save the digest as a file under `<skrya-data-root>/runs/<topic-id>/latest-digest.md`.
 - Render every digest item as a compact line box, with the number and title merged into the first line and source references after a blank separator line.
 - Do not split the first few items into a special format.
 - End the digest with a natural follow-up line that invites the user to reply with a number for deeper analysis, without mentioning internal skill names.
@@ -65,7 +68,7 @@ This workspace is topic-driven.
 - Simplify source feasibility internally to this rule: sources with RSS can be connected, sources without RSS are not connectable for now.
 - In user-facing output, describe this as whether a source can be 自动接入 or is 暂时不能自动接入; do not make the user reason about RSS.
 - If a source depends on a third-party retrieval skill such as `agent-reach`, store only provider-neutral runtime retrieval capabilities in durable config, not the third-party skill name.
-- Third-party provider names may appear in runtime ingest artifacts under `runs/<topic-id>/ingest/` for traceability.
+- Third-party provider names may appear in runtime ingest artifacts under `<skrya-data-root>/runs/<topic-id>/ingest/` for traceability.
 - Do not write unconfirmed source candidates into `sources.json`.
 - Do not skip straight to digest generation or one-off research when the user's real need is to define a new ongoing tracking topic.
 
@@ -76,6 +79,7 @@ This workspace is topic-driven.
 - Generated `SKILL.md` files and `agents/openai.yaml` files are checked in beside their templates so the repository can be installed directly as a skill pack.
 - `prompt-templates/` is the source of truth for `skrya-lite`, `skrya-full`, `skrya-plan`, and `skrya-user`.
 - `.skrya/hosts/` is generated runtime packaging output and is not source of truth.
+- `.skrya/data/` may be workspace-scoped runtime user data when the host requires it; it is not source of truth for skill-pack code or templates.
 - If a task changes skill wording, host packaging, or prompt-pack behavior, update the source templates first, then run `python -m skrya_orchestrator.main build-skill-pack --root . --host all`.
 - Keep `topic-curation` as the broad entrypoint for user-facing topic configuration requests.
 - Use `request-curation` for durable `brief.json` preference changes and `source-curation` for confirmed `sources.json` changes after topic intent is clear.

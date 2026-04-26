@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .paths import resolve_data_root
+
 
 RETRIEVAL_REQUEST_VERSION = "skrya.retrieval-request.v1"
 INGEST_VERSION = "skrya.ingest.v1"
@@ -21,8 +23,9 @@ class IngestWriteResult:
 
 
 class IngestService:
-    def __init__(self, root: Path | str) -> None:
+    def __init__(self, root: Path | str, data_root: Path | str | None = None) -> None:
         self._root = Path(root)
+        self._data_root = resolve_data_root(self._root, data_root).data_root
 
     def build_retrieval_request(
         self,
@@ -76,7 +79,7 @@ class IngestService:
         topic_id = self.resolve_topic_id(topic_reference)
         normalized = self._normalize_payload(topic_id, payload)
 
-        ingest_dir = self._root / "runs" / topic_id / "ingest"
+        ingest_dir = self._data_root / "runs" / topic_id / "ingest"
         normalized_dir = ingest_dir / "normalized"
         raw_dir = ingest_dir / "raw"
         normalized_dir.mkdir(parents=True, exist_ok=True)
@@ -98,7 +101,7 @@ class IngestService:
 
     def load_events(self, topic_reference: str) -> list[dict[str, Any]]:
         topic_id = self.resolve_topic_id(topic_reference)
-        latest_path = self._root / "runs" / topic_id / "ingest" / "latest-ingest.json"
+        latest_path = self._data_root / "runs" / topic_id / "ingest" / "latest-ingest.json"
         if not latest_path.exists():
             return []
 
@@ -133,7 +136,7 @@ class IngestService:
         return bool(self._runtime_retrieval_sources(topic_id))
 
     def resolve_topic_id(self, topic_reference: str) -> str:
-        topics_root = self._root / "topics"
+        topics_root = self._data_root / "topics"
         normalized_reference = self._normalize_reference(topic_reference)
         if not topics_root.exists():
             raise FileNotFoundError("Topics directory not found")
@@ -164,7 +167,7 @@ class IngestService:
         raise FileNotFoundError(f"Topic '{topic_reference}' not found")
 
     def _runtime_retrieval_sources(self, topic_id: str) -> list[dict[str, Any]]:
-        sources_path = self._root / "topics" / topic_id / "sources.json"
+        sources_path = self._data_root / "topics" / topic_id / "sources.json"
         payload = json.loads(sources_path.read_text(encoding="utf-8"))
         return [
             source

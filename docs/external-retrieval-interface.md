@@ -6,7 +6,7 @@ Skrya 可以临时借用第三方检索 skill，例如 `agent-reach`，但不会
 
 ## 能力模型
 
-`topics/<topic-id>/sources.json` 可以记录 `runtime-retrieval` 类型的来源。它描述的是能力，而不是供应商名称。
+`<skrya-data-root>/topics/<topic-id>/sources.json` 可以记录 `runtime-retrieval` 类型的来源。它描述的是能力，而不是供应商名称。
 
 ```json
 {
@@ -91,12 +91,12 @@ Skrya 可以临时借用第三方检索 skill，例如 `agent-reach`，但不会
 }
 ```
 
-`producer.name` 可以出现在 `runs/<topic-id>/ingest/` 运行产物里，用来追踪本次是谁抓取的；它不能被复制进 `sources.json` 作为长期依赖。
+`producer.name` 可以出现在 `<skrya-data-root>/runs/<topic-id>/ingest/` 运行产物里，用来追踪本次是谁抓取的；它不能被复制进 `sources.json` 作为长期依赖。
 
 ## 运行产物
 
 ```text
-runs/<topic-id>/ingest/
+<skrya-data-root>/runs/<topic-id>/ingest/
   latest-ingest.json
   raw/
     <timestamp>-<provider>.txt

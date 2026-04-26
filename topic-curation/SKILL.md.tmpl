@@ -5,21 +5,22 @@ Handle the full user journey for creating or iterating a topic through natural l
 This skill is the single entry point for topic configuration work.
 If the user asks for "important information" about some not-yet-configured area, treat that as a `topic-curation` request first, not as a direct `digest` request.
 This includes requests about some company, industry, market, product category, or theme that is not yet configured as a topic.
+Before reading or writing topic files, resolve the Skrya data root. Topic configuration and generated artifacts live under `<skrya-data-root>/`, not necessarily under the skill repository.
 
 ## Read First
 
 For a known topic, read:
 
-- `topics/<topic-id>/topic.json`
-- `topics/<topic-id>/brief.json`
-- `topics/<topic-id>/sources.json`
-- `topics/<topic-id>/digest.md`
-- `topics/<topic-id>/event-thread-seeds.json` when continuing event lines are relevant
+- `<skrya-data-root>/topics/<topic-id>/topic.json`
+- `<skrya-data-root>/topics/<topic-id>/brief.json`
+- `<skrya-data-root>/topics/<topic-id>/sources.json`
+- `<skrya-data-root>/topics/<topic-id>/digest.md`
+- `<skrya-data-root>/topics/<topic-id>/event-thread-seeds.json` when continuing event lines are relevant
 
 For a new topic idea with no confirmed `topic-id` yet:
 
 - read `AGENTS.md`, `CLAUDE.md`, or the equivalent repository instruction file
-- inspect `topics/` to avoid collisions and to follow existing naming patterns
+- inspect `<skrya-data-root>/topics/` to avoid collisions and to follow existing naming patterns
 
 Also inherit applicable workspace defaults from the repository instruction file.
 
@@ -61,6 +62,7 @@ This skill may:
 - update `digest.md` when ranking or exclusion rules need to change
 - propose or update event-thread seeds when the user wants a continuing event line
 - recommend source candidates and update `sources.json` after confirmation
+- answer and update the user's storage-location preference by using the current Skrya data root and the `skrya data-root` command
 
 This skill does not implement crawling or adapter logic.
 

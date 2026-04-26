@@ -85,9 +85,21 @@ For hosts like Codex, installation now happens in two layers:
 1. install the repo as the main global `skrya` skill
 2. install each bundled skill as its own namespaced global skill entry such as `skrya-digest`, preferably as a symlink into the installed `skrya` repo
 
-## Topic Files
+## Data Root And Topic Files
 
-Durable topic configuration remains under `topics/<topic-id>/`:
+Skrya separates the skill repository from user data. `--root` continues to point at the skill-pack or workspace root; topic configuration and generated history live under the resolved Skrya data root.
+
+Resolution order:
+
+1. explicit CLI `--data-root`
+2. `SKRYA_DATA_ROOT`
+3. workspace config at `.skrya/config.json`
+4. home config at `~/.skrya/config.json`
+5. default `~/.skrya`
+
+For OpenClaw and container sandboxes, installation can write a workspace config that points to `.skrya/data`, so state remains inside the mounted workspace instead of the skill repository or an ephemeral home directory.
+
+Durable topic configuration lives under `<skrya-data-root>/topics/<topic-id>/`:
 
 - `topic.json`
 - `brief.json`
@@ -95,7 +107,9 @@ Durable topic configuration remains under `topics/<topic-id>/`:
 - `digest.md`
 - `deep-analysis.md`
 
-Generated outputs remain under `runs/<topic-id>/`.
+Generated outputs live under `<skrya-data-root>/runs/<topic-id>/`.
+
+The checked-in `topics/` directory is treated as examples and fixtures. It is no longer the default location for user topic memory.
 
 ## Main Architectural Shift
 

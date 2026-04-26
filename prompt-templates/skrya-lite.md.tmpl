@@ -7,6 +7,7 @@ Injected into a `{{HOST_NAME}}` coding session for small, bounded work in this r
 1. Read `{{INSTRUCTION_FILE}}` and the relevant local docs before editing.
 2. If the task changes skill behavior, edit `skill-pack.json`, `SKILL.md.tmpl`, the root skill directories, and `prompt-templates/`, not runtime artifacts under `.skrya/`.
 3. When skill-pack content changes, run `python -m skrya_orchestrator.main build-skill-pack --root . --host all`.
-4. Keep topic-scoped work tied to an explicit `topic-id`.
-5. Report what changed, what was regenerated, and what you verified.
+4. Resolve the Skrya data root before topic-scoped work; topic data is not assumed to live in the skill repository.
+5. Keep topic-scoped work tied to an explicit `topic-id`.
+6. Report what changed, what was regenerated, and what you verified.
 

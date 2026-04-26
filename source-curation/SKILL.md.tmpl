@@ -3,17 +3,18 @@
 Curate sources for a configured topic after the topic intent is already clear.
 
 Always resolve an explicit internal `topic-id` before reading or writing files, but do not ask nontechnical users for raw ids when a natural topic name can be mapped.
+Before reading or writing topic files, resolve the Skrya data root. Topic configuration and generated artifacts live under `<skrya-data-root>/`, not necessarily under the skill repository.
 
 ## Read First
 
-- `topics/<topic-id>/topic.json`
-- `topics/<topic-id>/brief.json`
-- `topics/<topic-id>/sources.json`
+- `<skrya-data-root>/topics/<topic-id>/topic.json`
+- `<skrya-data-root>/topics/<topic-id>/brief.json`
+- `<skrya-data-root>/topics/<topic-id>/sources.json`
 
 If recent digest behavior matters to the source decision, also read:
 
-- `topics/<topic-id>/digest.md`
-- `runs/<topic-id>/latest-digest.md` when available
+- `<skrya-data-root>/topics/<topic-id>/digest.md`
+- `<skrya-data-root>/runs/<topic-id>/latest-digest.md` when available
 
 Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or the equivalent repository instruction file.
 

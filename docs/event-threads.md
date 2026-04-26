@@ -46,7 +46,7 @@
 先把它定义成**运行时产物**，避免过早变成 durable 配置。
 
 ```text
-runs/<topic-id>/event-threads/
+<skrya-data-root>/runs/<topic-id>/event-threads/
   latest-event-threads.json
 ```
 
@@ -59,7 +59,7 @@ runs/<topic-id>/event-threads/
 如果某条事件线需要稳定的命名、别名和匹配边界，可以额外给 topic 配一个可选 seed 文件：
 
 ```text
-topics/<topic-id>/
+<skrya-data-root>/topics/<topic-id>/
   event-thread-seeds.json
 ```
 
@@ -198,12 +198,12 @@ topics/<topic-id>/
 
 另外还附了一个 seed 示例：[`byd-flash-charge-event-thread-seed.example.json`](./byd-flash-charge-event-thread-seed.example.json)。
 
-如果你想看它在真实 topic 目录里的最小落点，可以直接参考 `topics/new-energy-vehicles/`：这里把 `topic.json`、`brief.json`、`sources.json`、`sample-events.json` 和 `event-thread-seeds.json` 放在了一起，方便同时理解“topic 边界”和“事件线边界”。
+如果你想看它在示例 topic 目录里的最小落点，可以直接参考仓库 fixture `topics/new-energy-vehicles/`：这里把 `topic.json`、`brief.json`、`sources.json`、`sample-events.json` 和 `event-thread-seeds.json` 放在了一起，方便同时理解“topic 边界”和“事件线边界”。真实用户数据应放在 Skrya data root 下。
 
 当前版本已经支持：
 
-1. 用 `python -m skrya_orchestrator.main digest --topic new-energy-vehicles --root . --sample` 基于示例事件生成日报，并同步写出运行时 `latest-event-threads.json`。
-2. 用 `python -m skrya_orchestrator.main refresh-event-threads --topic new-energy-vehicles --root .` 把 `event-thread-seeds.json` 和 `latest-digest-events.json` 手动刷新成运行时 `latest-event-threads.json`。
-3. 用 `python -m skrya_orchestrator.main event-thread --topic new-energy-vehicles --thread "比亚迪闪充站" --root .` 按时间线回放这条事件线。
+1. 用 `python -m skrya_orchestrator.main digest --topic new-energy-vehicles --root . --data-root . --sample` 基于示例事件生成日报，并同步写出运行时 `latest-event-threads.json`。
+2. 用 `python -m skrya_orchestrator.main refresh-event-threads --topic new-energy-vehicles --root . --data-root .` 把 `event-thread-seeds.json` 和 `latest-digest-events.json` 手动刷新成运行时 `latest-event-threads.json`。
+3. 用 `python -m skrya_orchestrator.main event-thread --topic new-energy-vehicles --thread "比亚迪闪充站" --root . --data-root .` 按时间线回放这条事件线。
 
 当前版本还**不会**在没有 seed 的情况下自动发现一条新事件线；“要不要新建这条线、这条线应该叫什么”仍然需要先由 agent 或维护者给出明确种子。

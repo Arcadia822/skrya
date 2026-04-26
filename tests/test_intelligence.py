@@ -447,6 +447,8 @@ class IntelligenceServiceTests(unittest.TestCase):
         root = TEST_TEMP_ROOT / name
         shutil.rmtree(root, ignore_errors=True)
         root.mkdir(parents=True, exist_ok=True)
+        (root / ".skrya").mkdir(parents=True, exist_ok=True)
+        (root / ".skrya" / "config.json").write_text(json.dumps({"data_root": "."}), encoding="utf-8")
         return root
 
     @staticmethod

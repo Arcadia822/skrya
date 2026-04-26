@@ -9,18 +9,19 @@ description: Use when the user wants to refine what kinds of items matter within
 Translate user feedback about what should matter in a configured topic into durable request language.
 
 Always resolve an explicit internal `topic-id` before reading or writing files, but do not ask nontechnical users for raw ids when a natural topic name can be mapped.
+Before reading or writing topic files, resolve the Skrya data root. Topic configuration and generated artifacts live under `<skrya-data-root>/`, not necessarily under the skill repository.
 
 ## Read First
 
-- `topics/<topic-id>/topic.json`
-- `topics/<topic-id>/brief.json`
+- `<skrya-data-root>/topics/<topic-id>/topic.json`
+- `<skrya-data-root>/topics/<topic-id>/brief.json`
 
 If the user is reacting to ranking or exclusions in a recent digest, also read:
 
-- `topics/<topic-id>/digest.md`
-- `runs/<topic-id>/latest-digest.md` when available
-- `runs/<topic-id>/latest-digest-events.json` when available
-- `runs/<topic-id>/ingest/latest-ingest.json` when available
+- `<skrya-data-root>/topics/<topic-id>/digest.md`
+- `<skrya-data-root>/runs/<topic-id>/latest-digest.md` when available
+- `<skrya-data-root>/runs/<topic-id>/latest-digest-events.json` when available
+- `<skrya-data-root>/runs/<topic-id>/ingest/latest-ingest.json` when available
 
 Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or the equivalent repository instruction file.
 

@@ -223,11 +223,30 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         self.assertTrue(latest_path.exists())
         self.assertIn("latest-ingest.json", stdout.getvalue())
 
+    def test_data_root_command_configures_workspace_storage_and_migrates_existing_data(self) -> None:
+        root = self._make_root("cli-data-root")
+        self._write_topic(root)
+
+        stdout = io.StringIO()
+        with patch(
+            "sys.argv",
+            ["skrya", "data-root", "--root", str(root), "--set", ".skrya/data", "--scope", "workspace", "--migrate"],
+        ):
+            with redirect_stdout(stdout):
+                exit_code = main()
+
+        self.assertEqual(0, exit_code)
+        self.assertTrue((root / ".skrya" / "config.json").exists())
+        self.assertTrue((root / ".skrya" / "data" / "topics" / "k-entertainment" / "topic.json").exists())
+        self.assertIn("Configured Skrya data root", stdout.getvalue())
+
     @staticmethod
     def _make_root(name: str) -> Path:
         root = TEST_TEMP_ROOT / name
         shutil.rmtree(root, ignore_errors=True)
         root.mkdir(parents=True, exist_ok=True)
+        (root / ".skrya").mkdir(parents=True, exist_ok=True)
+        (root / ".skrya" / "config.json").write_text(json.dumps({"data_root": "."}), encoding="utf-8")
         return root
 
     @staticmethod

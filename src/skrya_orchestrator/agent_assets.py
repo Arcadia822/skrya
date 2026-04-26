@@ -7,6 +7,8 @@ from pathlib import Path
 
 import yaml
 
+from .paths import DataRootConfigResult, default_data_root_for_mode, write_data_root_config
+
 
 PACK_METADATA_FILE = "skill-pack.json"
 PACK_TEMPLATE_FILE = "SKILL.md.tmpl"
@@ -49,6 +51,7 @@ class HostConfig:
     prompt_root: str
     global_skill_dir: str | None = None
     home_marker_dir: str | None = None
+    default_data_root_mode: str = "home"
 
     @property
     def instruction_label(self) -> str:
@@ -81,6 +84,7 @@ HOSTS: dict[str, HostConfig] = {
         prompt_root=f"{RUNTIME_ARTIFACT_ROOT}/openclaw/prompts",
         global_skill_dir=".openclaw/skills/skrya",
         home_marker_dir=".openclaw",
+        default_data_root_mode="workspace",
     ),
 }
 
@@ -253,6 +257,41 @@ class SkillPackInstaller:
         results: list[InstallResult] = []
         for host in install_hosts:
             results.extend(self._install_host(output_root, host))
+        return results
+
+    def configure_data_roots(
+        self,
+        output_root: Path | str,
+        host_name: str = "auto",
+        *,
+        mode: str = "host-default",
+        custom_data_root: Path | str | None = None,
+        config_scope: str | None = None,
+        migrate: bool = False,
+    ) -> list[DataRootConfigResult]:
+        output_root = Path(output_root).resolve(strict=False)
+        results: list[DataRootConfigResult] = []
+        seen_configs: set[Path] = set()
+        for host in self._resolve_install_hosts(host_name):
+            host_mode = host.default_data_root_mode if mode == "host-default" else mode
+            if host_mode == "none":
+                continue
+            if host_mode == "custom":
+                if custom_data_root is None:
+                    raise ValueError("--data-root-path is required when --data-root-mode custom")
+                data_root = custom_data_root
+                scope = config_scope or host.default_data_root_mode
+                if scope not in {"home", "workspace"}:
+                    raise ValueError(f"Unsupported data root config scope: {scope}")
+            else:
+                data_root = default_data_root_for_mode(host_mode)
+                scope = host_mode
+
+            result = write_data_root_config(output_root, data_root, scope=scope, migrate=migrate)
+            if result.config_path in seen_configs:
+                continue
+            seen_configs.add(result.config_path)
+            results.append(result)
         return results
 
     def _resolve_install_hosts(self, host_name: str) -> list[HostConfig]:

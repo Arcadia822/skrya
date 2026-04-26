@@ -27,6 +27,8 @@ Skrya is an umbrella skill pack. Route requests to the bundled skills that best 
 - For recurring workflows, prefer setting up or proposing automation first, then offer a test run.
 - Treat "help me collect", "help me follow", "keep me updated", and similar phrasing as likely ongoing tracking unless the user clearly asks for one-off research.
 - Prefer real data by default.
+- Resolve the Skrya data root before topic-scoped file work. Use `SKRYA_DATA_ROOT` or `skrya data-root` when configured; otherwise default to `~/.skrya`.
+- In OpenClaw or container sandboxes where the host instructs you to keep state in the mounted workspace, use the workspace data root `.skrya/data`.
 - Default user-facing output language is Chinese.
 - Show compact source references in daily digest output, after a blank separator line inside each numbered line box.
 - Do not show request ids or internal debug fields in normal output.
@@ -65,7 +67,7 @@ When a user or runtime mentions a third-party retrieval skill such as `agent-rea
 - Use capability names such as `web_search`, `news_search`, `site_search`, `social_search`, and `document_fetch`.
 - Store provider-neutral source entries as `runtime-retrieval` sources.
 - Do not save the provider name as a required durable source dependency.
-- Provider names may appear only in runtime ingest artifacts under `runs/<topic-id>/ingest/` for traceability.
+- Provider names may appear only in runtime ingest artifacts under `<skrya-data-root>/runs/<topic-id>/ingest/` for traceability.
 - Before digest generation, normalize provider output into `skrya.ingest.v1`; do not let digest or deep-analysis consume raw provider text directly.
 
 ## Ongoing Tracking Journey
@@ -94,10 +96,11 @@ Use these files and directories as the durable skill-pack layout:
 - Generated `SKILL.md` files and `agents/openai.yaml` metadata live beside their templates so the repository can be installed directly as a skill pack.
 - `prompt-templates/` contains thin host prompt packs.
 - `.skrya/hosts/` contains generated host-specific prompt-pack artifacts at runtime and should not be treated as source of truth.
+- `.skrya/data/` may contain workspace-scoped user data in sandboxed hosts; it is runtime state, not skill-pack source.
 
 ## Topic Defaults
 
-Use the topic files under `topics/<topic-id>/` as the durable configuration surface after the internal `topic-id` is resolved:
+Use the topic files under `<skrya-data-root>/topics/<topic-id>/` as the durable configuration surface after the internal `topic-id` is resolved:
 
 - `topic.json`
 - `brief.json`
@@ -105,7 +108,9 @@ Use the topic files under `topics/<topic-id>/` as the durable configuration surf
 - `digest.md`
 - `deep-analysis.md`
 
-Use `runs/<topic-id>/` for generated digest and analysis artifacts.
+Use `<skrya-data-root>/runs/<topic-id>/` for generated digest and analysis artifacts.
+
+When the user asks where data is stored or wants to change it, explain the current data root in natural language and use `skrya data-root --set <path> --scope home|workspace --migrate` when a persistent change is requested. For installation defaults, prefer `~/.skrya` on normal desktop hosts and workspace `.skrya/data` for OpenClaw/container mounts.
 
 ## Source Disclosure
 

@@ -74,6 +74,23 @@ class SkillPackTests(unittest.TestCase):
         self.assertTrue((home / ".codex" / "skills" / "skrya-digest").exists())
         self.assertTrue((home / ".codex" / "skills" / "skrya-topic-curation").exists())
 
+    def test_installer_configures_host_default_data_root(self) -> None:
+        root = self._make_root("skill-pack-data-root")
+        home = self._make_root("fake-home-data-root")
+        self._copy_template_inputs(root)
+        (home / ".openclaw").mkdir(parents=True, exist_ok=True)
+
+        with patch("pathlib.Path.home", return_value=home):
+            results = SkillPackInstaller(root).configure_data_roots(
+                output_root=root,
+                host_name="openclaw",
+                mode="host-default",
+            )
+
+        self.assertEqual(1, len(results))
+        self.assertEqual(root / ".skrya" / "data", results[0].data_root)
+        self.assertEqual(root / ".skrya" / "config.json", results[0].config_path)
+
     @staticmethod
     def _make_root(name: str) -> Path:
         root = TEST_TEMP_ROOT / name

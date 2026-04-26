@@ -8,6 +8,12 @@
 - `user-mediated`：agent 不能直接创建自动化任务，但可以给用户一段可复制给其他 agent 的提示词。
 - `non-automation`：当前环境没有可用的自动化路径。
 
+## 数据位置模式
+
+- `home-data-root`：默认模式，topic 配置和运行历史保存在 `~/.skrya`。
+- `workspace-data-root`：容器、OpenClaw 或挂载 workspace 环境使用，topic 配置和运行历史保存在当前 workspace 的 `.skrya/data`。
+- `custom-data-root`：用户明确指定路径时使用；agent 应说明这是长期记忆位置，并在迁移前确认。
+
 ## 旅程 1：新的长期追踪请求
 
 用户说：
@@ -124,3 +130,55 @@
 - 每天都把相关进展写成完全无关联的新 digest item
 - 只分析最新一条新闻，忽略此前已经累积的上下文
 - 把事件线更新压缩成“今天又推进了一步”这类没有具体信息量的句子
+
+## 旅程 7：安装时选择数据位置
+
+用户安装 skill 时说：
+
+```text
+把 Skrya 装到 OpenClaw 里，数据放在这个挂载的 workspace 下面。
+```
+
+期望流程：
+
+1. 判断宿主环境是否适合 `home-data-root` 还是 `workspace-data-root`。
+2. 对普通桌面宿主默认使用 `~/.skrya`，对 OpenClaw、容器或明确要求挂载目录的环境默认使用 workspace `.skrya/data`。
+3. 安装时写入对应配置，而不是让 topic 数据落在 skill 仓库根目录。
+4. 如果仓库里已经有旧的 `topics/` 或 `runs/`，询问是否迁移；用户同意后复制缺失文件到新的 data root。
+5. 安装结束时告诉用户“长期关注配置和历史简报会保存在 X”，不要只输出内部路径列表。
+
+可用命令示例：
+
+```bash
+./setup --host openclaw --data-root-mode workspace --migrate-data
+./setup --host codex --data-root-mode home --migrate-data
+```
+
+## 旅程 8：用户询问或修改数据位置
+
+用户说：
+
+```text
+我的 topic 配置现在存在哪里？帮我改到这个项目的 .skrya 下面。
+```
+
+期望流程：
+
+1. 先读取当前 data root，并用自然语言说明当前位置。
+2. 解释迁移影响：以后新 topic、digest、ingest 和事件线历史都会写到新位置；旧位置不会被自动删除。
+3. 让用户确认目标位置和是否迁移旧数据。
+4. 用户确认后运行 data-root 配置命令，并迁移旧的 `topics/` 和 `runs/`。
+5. 修改后再显示新的长期记忆位置。
+
+可用命令示例：
+
+```bash
+python3 -m skrya_orchestrator.main data-root --root . --set .skrya/data --scope workspace --migrate
+python3 -m skrya_orchestrator.main data-root --root .
+```
+
+不应该：
+
+- 要求普通用户理解 `topic-id` 或手动移动 JSON 文件
+- 静默把数据写入 skill 仓库根目录
+- 迁移后删除旧数据，除非用户单独明确要求

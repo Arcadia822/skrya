@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 from .ingest import IngestService
+from .paths import resolve_data_root
 
 
 @dataclass(slots=True)
@@ -41,8 +42,9 @@ class EventThreadRefreshResult:
 
 
 class IntelligenceService:
-    def __init__(self, root: Path | str, fetcher=None, translator=None) -> None:
+    def __init__(self, root: Path | str, fetcher=None, translator=None, data_root: Path | str | None = None) -> None:
         self._root = Path(root)
+        self._data_root = resolve_data_root(self._root, data_root).data_root
         self._fetcher = fetcher or self._default_fetch
         self._translator = translator or self._default_translate
 
@@ -85,7 +87,7 @@ class IntelligenceService:
 
         markdown = "\n".join(lines).strip() + "\n"
 
-        artifact_dir = self._root / "runs" / topic_id
+        artifact_dir = self._data_root / "runs" / topic_id
         artifact_dir.mkdir(parents=True, exist_ok=True)
 
         digest_path = artifact_dir / "latest-digest.md"
@@ -119,7 +121,7 @@ class IntelligenceService:
         return f"# {execution_time:%Y-%m-%d}｜{topic_name}｜每日简报"
 
     def _topic_display_name(self, topic_id: str) -> str:
-        topic_path = self._root / "topics" / topic_id / "topic.json"
+        topic_path = self._data_root / "topics" / topic_id / "topic.json"
         if not topic_path.exists():
             return topic_id
         metadata = json.loads(topic_path.read_text(encoding="utf-8"))
@@ -152,7 +154,7 @@ class IntelligenceService:
         ]
 
     def _scan_time_range_label(self, topic_id: str) -> str:
-        ingest_path = self._root / "runs" / topic_id / "ingest" / "latest-ingest.json"
+        ingest_path = self._data_root / "runs" / topic_id / "ingest" / "latest-ingest.json"
         if ingest_path.exists():
             payload = json.loads(ingest_path.read_text(encoding="utf-8"))
             fetched_times = [
@@ -173,7 +175,7 @@ class IntelligenceService:
 
         markdown = self._build_deep_analysis_markdown(event)
 
-        artifact_dir = self._root / "runs" / topic_id
+        artifact_dir = self._data_root / "runs" / topic_id
         artifact_dir.mkdir(parents=True, exist_ok=True)
         analysis_path = artifact_dir / f"deep-analysis-{event_number}.md"
         analysis_path.write_text(markdown, encoding="utf-8")
@@ -213,7 +215,7 @@ class IntelligenceService:
         return EventThreadRefreshResult(artifact_path=artifact_path, payload=payload)
 
     def resolve_topic_id(self, topic_reference: str) -> str:
-        topics_root = self._root / "topics"
+        topics_root = self._data_root / "topics"
         normalized_reference = self._normalize_reference(topic_reference)
         if not topics_root.exists():
             raise FileNotFoundError("Topics directory not found")
@@ -244,7 +246,7 @@ class IntelligenceService:
         raise FileNotFoundError(f"Topic '{topic_reference}' not found")
 
     def _resolve_event(self, topic_id: str, event_number: int) -> dict:
-        event_index_path = self._root / "runs" / topic_id / "latest-digest-events.json"
+        event_index_path = self._data_root / "runs" / topic_id / "latest-digest-events.json"
         if not event_index_path.exists():
             raise FileNotFoundError(f"Digest artifact not found for topic '{topic_id}'")
 
@@ -256,7 +258,7 @@ class IntelligenceService:
         raise ValueError(f"Event number {event_number} not found for topic '{topic_id}'")
 
     def _resolve_event_thread(self, topic_id: str, thread_reference: str) -> tuple[dict, Path]:
-        artifact_path = self._root / "runs" / topic_id / "event-threads" / "latest-event-threads.json"
+        artifact_path = self._data_root / "runs" / topic_id / "event-threads" / "latest-event-threads.json"
         if not artifact_path.exists():
             raise FileNotFoundError(f"Event-thread artifact not found for topic '{topic_id}'")
 
@@ -281,20 +283,20 @@ class IntelligenceService:
         raise ValueError(f"Event thread '{thread_reference}' not found for topic '{topic_id}'")
 
     def _load_digest_event_items(self, topic_id: str) -> list[dict]:
-        event_index_path = self._root / "runs" / topic_id / "latest-digest-events.json"
+        event_index_path = self._data_root / "runs" / topic_id / "latest-digest-events.json"
         if not event_index_path.exists():
             raise FileNotFoundError(f"Digest artifact not found for topic '{topic_id}'")
         payload = json.loads(event_index_path.read_text(encoding="utf-8"))
         return [dict(item) for item in payload.get("items", []) if isinstance(item, dict)]
 
     def _load_event_thread_seed_payload(self, topic_id: str) -> dict:
-        seed_path = self._root / "topics" / topic_id / "event-thread-seeds.json"
+        seed_path = self._data_root / "topics" / topic_id / "event-thread-seeds.json"
         if not seed_path.exists():
             return {}
         return json.loads(seed_path.read_text(encoding="utf-8"))
 
     def _load_event_thread_payload(self, topic_id: str) -> dict:
-        artifact_path = self._root / "runs" / topic_id / "event-threads" / "latest-event-threads.json"
+        artifact_path = self._data_root / "runs" / topic_id / "event-threads" / "latest-event-threads.json"
         if not artifact_path.exists():
             return {}
         return json.loads(artifact_path.read_text(encoding="utf-8"))
@@ -318,7 +320,7 @@ class IntelligenceService:
             "topic_id": topic_id,
             "threads": threads,
         }
-        artifact_path = self._root / "runs" / topic_id / "event-threads" / "latest-event-threads.json"
+        artifact_path = self._data_root / "runs" / topic_id / "event-threads" / "latest-event-threads.json"
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
         artifact_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         return artifact_path, payload
@@ -523,7 +525,7 @@ class IntelligenceService:
         )
 
     def _ensure_topic(self, topic_id: str) -> Path:
-        topic_dir = self._root / "topics" / topic_id
+        topic_dir = self._data_root / "topics" / topic_id
         if not topic_dir.exists():
             raise FileNotFoundError(f"Topic '{topic_id}' not found")
         return topic_dir
@@ -531,7 +533,7 @@ class IntelligenceService:
     def _load_events(self, topic_id: str, prefer_live: bool = False) -> list[dict]:
         topic_dir = self._ensure_topic(topic_id)
         sample_path = topic_dir / "sample-events.json"
-        ingest_service = IngestService(self._root)
+        ingest_service = IngestService(self._root, data_root=self._data_root)
         sources_payload = json.loads((topic_dir / "sources.json").read_text(encoding="utf-8"))
         has_rss_sources = any(
             source.get("enabled", True) and source.get("type") == "rss"

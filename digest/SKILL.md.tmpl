@@ -3,18 +3,19 @@
 Generate a topic-level digest for a resolved Skrya topic.
 
 Always resolve an explicit internal `topic-id` before reading files, but do not ask nontechnical users for raw ids when a natural topic name can be mapped.
+Before reading or writing topic files, resolve the Skrya data root. Topic configuration and generated artifacts live under `<skrya-data-root>/`, not necessarily under the skill repository.
 
 ## Read First
 
 Read these files before drafting the digest:
 
-- `topics/<topic-id>/topic.json`
-- `topics/<topic-id>/brief.json`
-- `topics/<topic-id>/sources.json`
-- `topics/<topic-id>/digest.md`
+- `<skrya-data-root>/topics/<topic-id>/topic.json`
+- `<skrya-data-root>/topics/<topic-id>/brief.json`
+- `<skrya-data-root>/topics/<topic-id>/sources.json`
+- `<skrya-data-root>/topics/<topic-id>/digest.md`
 
 If available, also read the latest event candidates or prior digest artifacts for that topic.
-When runtime retrieval was used, consume only normalized `skrya.ingest.v1` artifacts under `runs/<topic-id>/ingest/`. Do not consume raw provider output directly.
+When runtime retrieval was used, consume only normalized `skrya.ingest.v1` artifacts under `<skrya-data-root>/runs/<topic-id>/ingest/`. Do not consume raw provider output directly.
 When event-thread seeds exist, use them to surface continuing event-line updates and preserve durable topic memory.
 
 Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or the equivalent repository instruction file.
@@ -36,7 +37,7 @@ Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or
   └
   ```
 - Keep the tone concise, calm, and readable in chat.
-- Save the digest to the workspace run directory.
+- Save the digest to the Skrya data root run directory.
 - File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
 - After the digest body, add a horizontal divider `---`, then a `## 系统提示` section.
 - The system prompt section must include execution time, execution status, scan time range, and available follow-up operations.
@@ -50,7 +51,7 @@ Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or
 4. Rank events using the topic brief and digest standard.
 5. Write every event as a compact line box with stable visible numbers in the first line and source references after a blank separator line.
 6. Keep the format uniform from the first item to the last.
-7. Save the digest markdown file under `runs/<topic-id>/latest-digest.md`.
+7. Save the digest markdown file under `<skrya-data-root>/runs/<topic-id>/latest-digest.md`.
 8. Preserve enough traceability so that if the user later asks for the source of an item, you can return the complete corresponding sources.
 9. If a seeded event-thread matches today’s items, write a concise line-box event-line update before the normal numbered items. Do not include a "today matched digest items" line in the event-line update.
 10. End the digest body, insert `---`, and write a `## 系统提示` section with execution metadata and A/B/C feedback options.
