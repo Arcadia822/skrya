@@ -119,6 +119,37 @@ def migrate_workspace_data(workspace_root: Path | str, data_root: Path | str) ->
     return migrated
 
 
+def migrate_thread_naming(data_root: Path | str) -> list[Path]:
+    data_root = Path(data_root).resolve(strict=False)
+    migrated: list[Path] = []
+
+    topics_root = data_root / "topics"
+    if topics_root.exists():
+        for topic_dir in topics_root.iterdir():
+            if not topic_dir.is_dir():
+                continue
+            migrated.extend(
+                _migrate_json_file(
+                    topic_dir / "event-thread-seeds.json",
+                    topic_dir / "thread-seeds.json",
+                )
+            )
+
+    runs_root = data_root / "runs"
+    if runs_root.exists():
+        for run_dir in runs_root.iterdir():
+            if not run_dir.is_dir():
+                continue
+            migrated.extend(
+                _migrate_json_file(
+                    run_dir / "event-threads" / "latest-event-threads.json",
+                    run_dir / "threads" / "latest-threads.json",
+                )
+            )
+
+    return migrated
+
+
 def _read_configured_data_root(config_path: Path, *, base: Path) -> Path | None:
     if not config_path.exists():
         return None
@@ -148,3 +179,45 @@ def _copy_missing_tree(source: Path, target: Path) -> None:
             continue
         target_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_path, target_path)
+
+
+def _migrate_json_file(source: Path, target: Path) -> list[Path]:
+    if not source.exists() or target.exists():
+        return []
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        payload = json.loads(source.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        shutil.copy2(source, target)
+    else:
+        target.write_text(
+            json.dumps(_rename_thread_terms(payload), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    return [target]
+
+
+def _rename_thread_terms(value):
+    if isinstance(value, dict):
+        renamed = {}
+        for key, item in value.items():
+            new_key = _rename_thread_text(str(key))
+            if new_key == "event_threads":
+                new_key = "threads"
+            renamed[new_key] = _rename_thread_terms(item)
+        return renamed
+    if isinstance(value, list):
+        return [_rename_thread_terms(item) for item in value]
+    if isinstance(value, str):
+        return _rename_thread_text(value)
+    return value
+
+
+def _rename_thread_text(value: str) -> str:
+    return (
+        value.replace("event-thread-seeds", "thread-seeds")
+        .replace("event-threads", "threads")
+        .replace("event-thread", "thread")
+        .replace("event_thread", "thread")
+        .replace("EventThread", "Thread")
+    )

@@ -7,9 +7,16 @@ Injected into a `{{HOST_NAME}}` coding session for substantial work in this repo
 1. Read `{{INSTRUCTION_FILE}}`, `README.md`, `design/current-system-design.md`, and `design/core-skills-spec.md`.
 2. Treat `skill-pack.json`, `SKILL.md.tmpl`, the root skill directories, and `prompt-templates/` as the source of truth for agent-facing assets.
 3. If the request concerns unconfigured ongoing tracking, route through `topic-curation` before digest or deep-analysis behavior.
-4. For ongoing tracking requests, distinguish them from one-off research, handle recurring automation or scheduling before any digest output, and ask whether the user wants a test run instead of running one automatically.
-5. Resolve the Skrya data root before topic-scoped work; use `~/.skrya` by default and workspace `.skrya/data` when the host or container mount requires workspace-local state.
-6. When skill or prompt behavior changes, regenerate the installable skill pack with `python -m skrya_orchestrator.main build-skill-pack --root . --host all`.
-7. Update tests and docs together with the behavior change.
-8. Before finishing, run the full unittest suite and report the verification result.
+4. If the user asks for a scheduled topical news push, such as "每天早上8点推送国内外 X 的官媒信息和新闻", treat it as Skrya topic setup before generic automation.
+5. For ongoing tracking requests, distinguish them from one-off research, handle recurring automation or scheduling before any digest output, and ask whether the user wants a test run instead of running one automatically.
+6. After the user confirms a new or expanded topic scope, require source candidate confirmation before saying it is connected or creating recurring automation.
+7. Source candidate confirmation must consider configured retrieval/source channels such as X and WeChat official accounts when available, not just generic web/news search.
+8. After sources and recurring delivery are configured, proactively ask whether to run one test digest now.
+9. Test runs must use the formal digest template, include `## 系统提示`, explain A/B/C follow-ups, and avoid saving `latest-digest.md` unless explicitly requested.
+10. When the host is channel-aware, bind recurring digest delivery to the creating user and current channel/conversation by default; do not resend or combine digests from other channels unless explicitly requested and supported.
+11. When improving recall, update the smallest relevant persistent instruction surface when allowed, such as `AGENTS.md`, `CLAUDE.md`, `TOOLS.md`, `tools.md`, or documented global memory.
+12. Resolve the Skrya data root before topic-scoped work; use `~/.skrya` by default and workspace `.skrya/data` when the host or container mount requires workspace-local state.
+13. When skill or prompt behavior changes, regenerate the installable skill pack with `python -m skrya_orchestrator.main build-skill-pack --root . --host all`.
+14. Update tests and docs together with the behavior change.
+15. Before finishing, run the full unittest suite and report the verification result.
 

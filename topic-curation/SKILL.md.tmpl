@@ -5,6 +5,7 @@ Handle the full user journey for creating or iterating a topic through natural l
 This skill is the single entry point for topic configuration work.
 If the user asks for "important information" about some not-yet-configured area, treat that as a `topic-curation` request first, not as a direct `digest` request.
 This includes requests about some company, industry, market, product category, or theme that is not yet configured as a topic.
+This also includes scheduled news push requests such as "每天早上8点推送国内外 X 的官媒信息和新闻"; the schedule is only one part of the topic setup, not a reason to bypass Skrya with a generic reminder.
 Before reading or writing topic files, resolve the Skrya data root. Topic configuration and generated artifacts live under `<skrya-data-root>/`, not necessarily under the skill repository.
 
 ## Read First
@@ -15,7 +16,7 @@ For a known topic, read:
 - `<skrya-data-root>/topics/<topic-id>/brief.json`
 - `<skrya-data-root>/topics/<topic-id>/sources.json`
 - `<skrya-data-root>/topics/<topic-id>/digest.md`
-- `<skrya-data-root>/topics/<topic-id>/event-thread-seeds.json` when continuing event lines are relevant
+- `<skrya-data-root>/topics/<topic-id>/thread-seeds.json` when continuing threads are relevant
 
 For a new topic idea with no confirmed `topic-id` yet:
 
@@ -33,6 +34,7 @@ Only show the internal id when it helps confirm a newly created durable topic, a
 ## Core Rule
 
 First clarify the durable briefing intent the user wants to keep seeing, then translate that into stable configuration language. Confirm the proposed wording before creating or changing topic files.
+For recurring delivery, also preserve the delivery context the host exposes. In channel-aware hosts, that includes the creating user and current channel or conversation.
 
 Do not make the user speak in config format.
 Do not create a new topic shell before the briefing intent is clear enough.
@@ -48,8 +50,10 @@ Separate these two cases early:
 
 If the request is ambiguous, prefer treating it as ongoing tracking first and clarify from there.
 Phrases like "collect updates", "follow", "track", "keep me posted", and "regularly" should push you toward ongoing tracking.
+Chinese schedule phrases like "每天早上8点推送", "每天定时发", and "每天提醒我看" should also push you toward ongoing tracking when they include a topical news or information area.
+Treat source/scope phrases such as "国内外", "官媒", "官方来源", "信息和新闻", and "过去24小时" as durable topic configuration requirements.
 
-For ongoing tracking, keep the conversation in setup mode until topic intent is confirmed, automation is handled, and the user chooses whether to do a test run.
+For ongoing tracking, keep the conversation in setup mode until topic intent is confirmed, source candidates are confirmed or known adequate, automation is handled, and the user chooses whether to do a test run.
 
 ## What This Skill Owns
 
@@ -60,9 +64,10 @@ This skill may:
 - translate user feedback into durable configuration wording
 - update `brief.json`
 - update `digest.md` when ranking or exclusion rules need to change
-- propose or update event-thread seeds when the user wants a continuing event line
+- propose or update thread seeds when the user wants a continuing thread
 - recommend source candidates and update `sources.json` after confirmation
 - answer and update the user's storage-location preference by using the current Skrya data root and the `skrya data-root` command
+- create or propose recurring digest automation bound to the current channel/conversation by default when the host is channel-aware
 
 This skill does not implement crawling or adapter logic.
 
@@ -71,10 +76,10 @@ This skill does not implement crawling or adapter logic.
 Conversation context should become maintainable topic state.
 
 - If the user gives ambiguous shorthand entities, clarify once, then store the stable entity name, aliases, relationship, and watchpoints.
-- If the user says "这个很重要", rewrite it as a durable tracked angle, event-thread watchpoint, or ranking preference.
+- If the user says "这个很重要", rewrite it as a durable tracked angle, thread watchpoint, or ranking preference.
 - If the user says "按照前述要求生成今日简报", resolve the active topic from the conversation and current topic files; if more than one active topic is plausible, ask a short confirmation.
 - Treat repeated identical instructions as continuation or emphasis, not as a second topic creation request.
-- For B-style digest feedback such as `B <numbers> <name/intent>`, propose an event-thread seed with a stable name, aliases, match terms, summary, callback hint, and watchpoints.
+- For B-style digest feedback such as `B <numbers> <name/intent>`, propose a thread seed with a stable name, aliases, match terms, summary, callback hint, and watchpoints.
 
 ## Source Feasibility Rule
 
@@ -108,10 +113,13 @@ Infer the underlying preference and rewrite that into stable configuration langu
 6. Ask for confirmation before writing any file.
 7. After confirmation, create or update the minimum necessary files.
 8. Only discuss sources after the topic intent is clear enough to guide source choice.
-9. When recommending sources, explain fit in terms of the confirmed topic intent.
-10. Confirm source additions or removals before writing `sources.json`.
-11. If the user wants ongoing tracking, discuss recurring digest automation before producing any digest output.
-12. After the topic is configured, ask whether the user wants a test run instead of running it automatically.
+9. After the user confirms a new or expanded topic's scope and standards, propose concrete source candidates before saying the topic is connected.
+10. When recommending sources, explain fit in terms of the confirmed topic intent and say which ones can be 自动接入 versus 暂时不能自动接入.
+11. Include the relevant retrieval/source channels available in the current environment, such as web/news search, X, WeChat official accounts, site search, document fetch, or configured source skills.
+12. Confirm source additions or removals before writing `sources.json`.
+13. Do not create or update recurring digest automation until the source plan is confirmed, unless the topic already has adequate confirmed sources and the user is only changing ranking or scope.
+14. If the user wants ongoing tracking, discuss recurring digest automation before producing any digest output.
+15. After sources and recurring delivery are configured, proactively ask whether the user wants a test run instead of waiting for the user to ask.
 
 ## Automation Behavior
 
@@ -122,6 +130,9 @@ For ongoing tracking, a recurring digest is the default target experience.
   - user-mediated: the agent cannot create automation autonomously here, but can guide the user with a ready-to-send prompt
   - non-automation: the agent has no usable automation path in the current environment
 - In automation-capable mode, ask whether the user wants the recurring digest created and what time it should run.
+- In channel-aware hosts, bind the recurring digest to the current channel/conversation by default and keep the creating user/workspace identity when available.
+- In hosts without channel/conversation concepts, do not invent a channel boundary; rely on topic identity, user intent, and available automation context.
+- Do not configure cross-channel delivery unless the user explicitly requests it and the host supports that target. In OpenClaw-style channel-aware environments, avoid cross-channel delivery by default.
 - In user-mediated mode, explicitly suggest the recurring automation step and give the user a ready-to-send prompt.
 - In non-automation mode, say clearly that automation is unavailable in this environment and still provide a ready-to-send prompt the user can use in a more capable agent later.
 - After the automation step is settled, ask separately whether the user wants a test run now.
@@ -140,6 +151,18 @@ Prefer these write targets:
 
 Prefer the smallest config change that matches the user's intent.
 
+## Source Confirmation Gate
+
+When the user confirms a new or expanded recurring topic, source confirmation is a required gate before "已接入" or automation creation.
+
+- For a request such as "每天给我一份 BYD、新能源汽车、储能相关简报，主要关注国内外主流媒体内容", first propose source groups that fit those angles.
+- Explain source fit in natural Chinese, for example "覆盖比亚迪和车企动态", "覆盖海外主流财经/产业报道", or "覆盖储能项目和政策".
+- Mark each group or source as 自动接入 or 暂时不能自动接入 under current connector limits.
+- If the current environment has configured X, WeChat official account, or other source-channel skills, include them in the source plan and explain what they add compared with generic web/news search.
+- Ask the user to confirm the source plan before writing `sources.json` or claiming the daily task is connected.
+- If the existing topic already has enough confirmed sources, say that explicitly and only ask about the new source gaps created by the expansion.
+- Do not write placeholder source candidates into durable config.
+
 ## Conversation Shape
 
 Keep the interaction practical and short:
@@ -149,8 +172,28 @@ Keep the interaction practical and short:
 - rewrite it into config-ready wording
 - ask for confirmation
 - then write files
-- then handle automation or scheduling
+- then propose and confirm source candidates when sources are new or expanded
+- then handle automation or scheduling after the source plan is confirmed
 - then ask whether the user wants a test run now
+
+## Delivery Context
+
+For multi-user or multi-channel hosts that expose channel/conversation context, treat the channel as part of the durable automation boundary.
+
+- The topic config describes what to track; the automation binding describes where to deliver it when the host exposes delivery context.
+- A topic created from one channel should be delivered back to that same channel unless the user explicitly names another channel and the host supports it.
+- A补发 request should resend only the topic bound to the current channel/conversation. If the current channel has multiple plausible topics, ask which one.
+- Do not merge or forward another channel's topic digest into the current channel, even when it was generated at the same scheduled time.
+- When the host supports send-result inspection, require explicit sending and non-empty message verification after scheduled delivery.
+
+## Recall Hygiene
+
+When this skill is being installed, updated, or used to fix a missed-routing failure, guide the agent to improve persistent recall:
+
+- if the host has `AGENTS.md`, `CLAUDE.md`, `TOOLS.md`, `tools.md`, or another documented global memory/instruction file, add or update a short Skrya routing note when allowed
+- the note should say that topical daily pushes and recurring news briefings route to Skrya/topic-curation before generic reminders or automation
+- include concrete examples such as "每天早上8点推送国内外军民融合、军民协同相关的官媒信息和新闻"
+- keep the update minimal and ask before writing outside the current repository or into user-level global memory when host rules require it
 
 File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
 

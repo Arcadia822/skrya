@@ -1,6 +1,6 @@
 {
   "name": "topic-curation",
-  "description": "Use when the user wants to create a new topic, adjust an existing topic, refine what kinds of brief items matter, exclude certain kinds of items, or update topic sources through natural language. Trigger for Chinese requests like \"持续跟踪\", \"以后每天帮我看\", \"定期简报\", or \"帮我关注这个领域\".",
+  "description": "Use when the user wants to create a new topic, adjust an existing topic, refine what kinds of brief items matter, exclude certain kinds of items, update topic sources, or schedule recurring topic briefings through natural language. Trigger for Chinese requests like \"持续跟踪\", \"以后每天帮我看\", \"每天早上8点推送\", \"官媒信息和新闻\", \"定期简报\", or \"帮我关注这个领域\".",
   "display_name": "Topic Curation",
   "short_description": "Turn broad tracking intent into a durable topic configuration workflow.",
   "default_prompt": "Create or refine a tracked topic from a natural-language request.",

@@ -34,9 +34,9 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         self.assertIn("│ 信源：[source.test]", output)
         self.assertNotIn("### 1.", output)
         self.assertIn("A. 详细分析指定今日简讯", output)
-        self.assertIn("B. 创建新的事件线", output)
+        self.assertIn("B. 创建新的thread", output)
         self.assertIn("## 系统提示", output)
-        self.assertIn("C. 调整简讯和事件线的获取策略", output)
+        self.assertIn("C. 调整简讯和thread的获取策略", output)
 
     def test_digest_command_sample_mode_uses_fixture_events_for_demo_topic(self) -> None:
         root = self._make_root("cli-digest-sample")
@@ -52,17 +52,17 @@ class MainIntelligenceCommandTests(unittest.TestCase):
 
         self.assertEqual(0, exit_code)
         output = stdout.getvalue()
-        self.assertIn("## 事件线更新", output)
-        self.assertIn("┌─ **【事件线】比亚迪闪充站**", output)
+        self.assertIn("## thread更新", output)
+        self.assertIn("┌─ **【thread】比亚迪闪充站**", output)
         self.assertNotIn("今天命中的简讯：", output)
         self.assertIn("## 今日简讯", output)
         self.assertTrue((root / "runs" / "new-energy-vehicles" / "latest-digest-events.json").exists())
         self.assertTrue(
-            (root / "runs" / "new-energy-vehicles" / "event-threads" / "latest-event-threads.json").exists()
+            (root / "runs" / "new-energy-vehicles" / "threads" / "latest-threads.json").exists()
         )
 
-    def test_event_thread_command_replays_timeline_after_sample_digest(self) -> None:
-        root = self._make_root("cli-event-thread-after-digest")
+    def test_thread_command_replays_timeline_after_sample_digest(self) -> None:
+        root = self._make_root("cli-thread-after-digest")
         self._copy_new_energy_topic_fixture(root)
 
         with patch(
@@ -75,7 +75,7 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         stdout = io.StringIO()
         with patch(
             "sys.argv",
-            ["skrya", "event-thread", "--topic", "new-energy-vehicles", "--thread", "比亚迪闪充站", "--root", str(root)],
+            ["skrya", "thread", "--topic", "new-energy-vehicles", "--thread", "比亚迪闪充站", "--root", str(root)],
         ):
             with redirect_stdout(stdout):
                 exit_code = main()
@@ -107,15 +107,15 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         self.assertEqual(0, exit_code)
         self.assertIn("某演员与新剧选角争议升温", stdout.getvalue())
 
-    def test_event_thread_command_prints_timeline_for_visible_thread_name(self) -> None:
-        root = self._make_root("cli-event-thread")
+    def test_thread_command_prints_timeline_for_visible_thread_name(self) -> None:
+        root = self._make_root("cli-thread")
         self._write_new_energy_topic(root)
-        self._write_byd_event_thread(root)
+        self._write_byd_thread(root)
 
         stdout = io.StringIO()
         with patch(
             "sys.argv",
-            ["skrya", "event-thread", "--topic", "新能源汽车", "--thread", "比亚迪闪充站", "--root", str(root)],
+            ["skrya", "thread", "--topic", "新能源汽车", "--thread", "比亚迪闪充站", "--root", str(root)],
         ):
             with redirect_stdout(stdout):
                 exit_code = main()
@@ -126,26 +126,26 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         self.assertIn("2026-04-27 · 进展续写", stdout.getvalue())
         self.assertNotIn("https://example.com", stdout.getvalue())
 
-    def test_refresh_event_threads_command_writes_runtime_artifact(self) -> None:
-        root = self._make_root("cli-refresh-event-threads")
+    def test_refresh_threads_command_writes_runtime_artifact(self) -> None:
+        root = self._make_root("cli-refresh-threads")
         self._write_new_energy_topic(root)
-        self._write_byd_event_thread_seed(root)
+        self._write_byd_thread_seed(root)
         self._write_byd_digest_event_index(root)
 
         stdout = io.StringIO()
         with patch(
             "sys.argv",
-            ["skrya", "refresh-event-threads", "--topic", "新能源汽车", "--root", str(root)],
+            ["skrya", "refresh-threads", "--topic", "新能源汽车", "--root", str(root)],
         ):
             with redirect_stdout(stdout):
                 exit_code = main()
 
         self.assertEqual(0, exit_code)
-        artifact_path = root / "runs" / "new-energy-vehicles" / "event-threads" / "latest-event-threads.json"
+        artifact_path = root / "runs" / "new-energy-vehicles" / "threads" / "latest-threads.json"
         self.assertTrue(artifact_path.exists())
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
         self.assertEqual("比亚迪闪充站", payload["threads"][0]["name"])
-        self.assertIn("latest-event-threads.json", stdout.getvalue())
+        self.assertIn("latest-threads.json", stdout.getvalue())
 
     def test_retrieval_request_command_prints_provider_neutral_request(self) -> None:
         root = self._make_root("cli-retrieval-request")
@@ -240,6 +240,50 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         self.assertTrue((root / ".skrya" / "data" / "topics" / "k-entertainment" / "topic.json").exists())
         self.assertIn("Configured Skrya data root", stdout.getvalue())
 
+    def test_upgrade_command_migrates_legacy_thread_naming(self) -> None:
+        root = self._make_root("cli-upgrade-thread-naming")
+        self._write_new_energy_topic(root)
+        topic_dir = root / "topics" / "new-energy-vehicles"
+        legacy_seed = {
+            "interface_version": "skrya.event-thread-seeds.v1",
+            "event_threads": [{"id": "byd-flash-charge", "name": "比亚迪闪充站"}],
+        }
+        (topic_dir / "event-thread-seeds.json").write_text(
+            json.dumps(legacy_seed, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        legacy_dir = root / "runs" / "new-energy-vehicles" / "event-threads"
+        legacy_dir.mkdir(parents=True, exist_ok=True)
+        (legacy_dir / "latest-event-threads.json").write_text(
+            json.dumps(
+                {
+                    "interface_version": "skrya.event-thread.v1",
+                    "event_threads": [{"id": "byd-flash-charge", "name": "比亚迪闪充站", "timeline": []}],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        stdout = io.StringIO()
+        with patch(
+            "sys.argv",
+            ["skrya", "upgrade", "--root", str(root), "--migrate-thread-naming"],
+        ):
+            with redirect_stdout(stdout):
+                exit_code = main()
+
+        self.assertEqual(0, exit_code)
+        seed_payload = json.loads((topic_dir / "thread-seeds.json").read_text(encoding="utf-8"))
+        thread_payload = json.loads(
+            (root / "runs" / "new-energy-vehicles" / "threads" / "latest-threads.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("skrya.thread-seeds.v1", seed_payload["interface_version"])
+        self.assertIn("threads", seed_payload)
+        self.assertEqual("skrya.thread.v1", thread_payload["interface_version"])
+        self.assertIn("Migrated thread naming", stdout.getvalue())
+
     @staticmethod
     def _make_root(name: str) -> Path:
         root = TEST_TEMP_ROOT / name
@@ -292,20 +336,20 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         (topic_dir / "deep-analysis.md").write_text("# Deep Analysis Standard", encoding="utf-8")
 
     @staticmethod
-    def _write_byd_event_thread(root: Path) -> None:
-        artifact_dir = root / "runs" / "new-energy-vehicles" / "event-threads"
+    def _write_byd_thread(root: Path) -> None:
+        artifact_dir = root / "runs" / "new-energy-vehicles" / "threads"
         artifact_dir.mkdir(parents=True, exist_ok=True)
-        payload = json.loads((ROOT / "docs" / "byd-flash-charge-event-thread.example.json").read_text(encoding="utf-8"))
-        (artifact_dir / "latest-event-threads.json").write_text(
+        payload = json.loads((ROOT / "docs" / "byd-flash-charge-thread.example.json").read_text(encoding="utf-8"))
+        (artifact_dir / "latest-threads.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
 
     @staticmethod
-    def _write_byd_event_thread_seed(root: Path) -> None:
+    def _write_byd_thread_seed(root: Path) -> None:
         topic_dir = root / "topics" / "new-energy-vehicles"
-        payload = json.loads((ROOT / "docs" / "byd-flash-charge-event-thread-seed.example.json").read_text(encoding="utf-8"))
-        (topic_dir / "event-thread-seeds.json").write_text(
+        payload = json.loads((ROOT / "docs" / "byd-flash-charge-thread-seed.example.json").read_text(encoding="utf-8"))
+        (topic_dir / "thread-seeds.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )

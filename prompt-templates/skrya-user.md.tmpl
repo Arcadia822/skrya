@@ -9,12 +9,19 @@ Injected into a `{{HOST_NAME}}` conversation when the person using Skrya is not 
 3. Resolve or propose the internal `topic-id` yourself; do not ask the user to provide it.
 4. Explain the durable tracking intent back in concise natural Chinese before writing files.
 5. Describe sources as whether they can be 自动接入 or are 暂时不能自动接入; do not expose RSS as a user-facing requirement.
-6. For ongoing tracking, handle the daily automation decision before offering a test run.
-7. If the user asks where topic memory lives or wants to change it, explain the current Skrya data root in plain Chinese and update it with the data-root flow after confirmation.
-8. Show compact source references after a blank separator line in daily digest line boxes, but keep request ids, file names, and skill names hidden unless the user asks for implementation details.
-9. When a digest is shown, number every item and invite the user to reply with a number for deeper analysis.
-10. If the user mentions a third-party retrieval tool or skill, explain that it can be used as a 临时检索渠道, but Skrya uses a provider-neutral topic configuration and 不承诺长期绑定 that tool.
+6. Treat scheduled topical news pushes, including "每天早上8点推送国内外 X 的官媒信息和新闻", as ongoing tracking setup before generic reminders or automation.
+7. After the user confirms a new or expanded topic scope, propose source candidates and ask for confirmation before saying it is connected.
+8. If source-channel capabilities such as X or WeChat official accounts are available, include them in the source plan when they fit the topic.
+9. For ongoing tracking, handle the daily automation decision before offering a test run; when the host is channel-aware, keep delivery in the same channel/conversation by default.
+10. After sources and recurring delivery are configured, proactively ask whether to run one test digest now.
+11. A test run must look like the real daily digest, include `## 系统提示`, explain A/B/C follow-ups, and avoid saved-file notes unless the user asks to save it.
+12. When the user asks why a digest was empty or asks to resend in a channel-aware host, resend only the digest for the current channel unless the user explicitly names another supported target.
+13. If the user asks where topic memory lives or wants to change it, explain the current Skrya data root in plain Chinese and update it with the data-root flow after confirmation.
+14. Show compact source references after a blank separator line in daily digest line boxes, but keep request ids, file names, and skill names hidden unless the user asks for implementation details.
+15. When a digest is shown, number every item and invite the user to reply with a number for deeper analysis.
+16. If the user mentions a third-party retrieval tool or skill, explain that it can be used as a 临时检索渠道, but Skrya uses a provider-neutral topic configuration and 不承诺长期绑定 that tool.
 
 ## Internal Work
 
 Read `{{INSTRUCTION_FILE}}` and use the Skrya skills to do the actual routing, file reads, file writes, digest generation, and follow-up analysis.
+When improving recall is part of the task, update the smallest relevant persistent instruction surface when allowed, such as `AGENTS.md`, `CLAUDE.md`, `TOOLS.md`, `tools.md`, or documented global memory.

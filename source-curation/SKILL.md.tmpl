@@ -21,6 +21,7 @@ Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or
 ## Core Rule
 
 Use confirmed topic intent to judge which sources are a fit before changing `sources.json`.
+After a new or expanded recurring topic is confirmed, source curation is not optional unless the topic already has adequate confirmed sources for the new scope.
 
 ## Feasibility Rule
 
@@ -30,6 +31,7 @@ Use confirmed topic intent to judge which sources are a fit before changing `sou
 - Tell the user whether a source can be "自动接入" or is "暂时不能自动接入" under the current connector limits.
 - When the channel depends on a runtime retrieval skill, write a provider-neutral `runtime-retrieval` source that records capabilities, queries, languages, and time windows.
 - If the user mentions a specific provider such as `agent-reach`, do not save the provider name in durable `sources.json`; keep it only in runtime ingest artifacts.
+- If the environment exposes configured source-channel skills such as X or WeChat official account retrieval, evaluate them as possible retrieval capabilities instead of ignoring them.
 
 ## Required Behavior
 
@@ -39,6 +41,8 @@ Use confirmed topic intent to judge which sources are a fit before changing `sou
 4. Say clearly when a desired source is not currently auto-connectable, without making the user reason about RSS.
 5. Confirm additions or removals before writing `sources.json`.
 6. For runtime retrieval channels, write capabilities such as `web_search`, `news_search`, `site_search`, `social_search`, or `document_fetch`, not third-party skill names.
+7. Do not let an agent claim "已接入" or create recurring automation for a new source scope until the source plan has been confirmed.
+8. When source-channel skills such as X or WeChat official account retrieval are configured, include them in the recommendation or explain why they do not fit the confirmed topic intent.
 
 ## Output Rules
 
@@ -46,6 +50,8 @@ Use confirmed topic intent to judge which sources are a fit before changing `sou
 - Do not write unconfirmed source candidates into `sources.json`.
 - File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
 - Prefer sources that repeatedly surface the kinds of events the user actually wants.
+- For broad requests like "BYD / 新能源汽车 / 储能，国内外主流媒体优先", propose a concise source plan grouped by coverage area before writing files.
+- Distinguish delivery channels from retrieval/source channels; WeChat as a delivery target is different from WeChat official accounts as a source channel.
 
 ## Success Criteria
 

@@ -7,7 +7,8 @@ from pathlib import Path
 from .agent_assets import SkillPackBuilder, SkillPackInstaller
 from .ingest import IngestService
 from .intelligence import IntelligenceService
-from .paths import migrate_workspace_data, resolve_data_root, write_data_root_config
+from .paths import migrate_thread_naming, migrate_workspace_data, resolve_data_root, write_data_root_config
+from .version import check_latest_version
 
 
 BUILD_HOST_CHOICES = ["workspace", "codex", "claude", "openclaw", "all"]
@@ -30,16 +31,16 @@ def build_parser() -> argparse.ArgumentParser:
     analysis_parser.add_argument("--root", default=".", help="Workspace root")
     analysis_parser.add_argument("--data-root", default=None, help="Skrya data root for topics and runs")
 
-    event_thread_parser = subparsers.add_parser("event-thread")
-    event_thread_parser.add_argument("--topic", required=True, help="Topic id or topic name")
-    event_thread_parser.add_argument("--thread", required=True, help="Event-thread id or visible name")
-    event_thread_parser.add_argument("--root", default=".", help="Workspace root")
-    event_thread_parser.add_argument("--data-root", default=None, help="Skrya data root for topics and runs")
+    thread_parser = subparsers.add_parser("thread")
+    thread_parser.add_argument("--topic", required=True, help="Topic id or topic name")
+    thread_parser.add_argument("--thread", required=True, help="Thread id or visible name")
+    thread_parser.add_argument("--root", default=".", help="Workspace root")
+    thread_parser.add_argument("--data-root", default=None, help="Skrya data root for topics and runs")
 
-    refresh_event_threads_parser = subparsers.add_parser("refresh-event-threads")
-    refresh_event_threads_parser.add_argument("--topic", required=True, help="Topic id or topic name")
-    refresh_event_threads_parser.add_argument("--root", default=".", help="Workspace root")
-    refresh_event_threads_parser.add_argument("--data-root", default=None, help="Skrya data root for topics and runs")
+    refresh_threads_parser = subparsers.add_parser("refresh-threads")
+    refresh_threads_parser.add_argument("--topic", required=True, help="Topic id or topic name")
+    refresh_threads_parser.add_argument("--root", default=".", help="Workspace root")
+    refresh_threads_parser.add_argument("--data-root", default=None, help="Skrya data root for topics and runs")
 
     retrieval_parser = subparsers.add_parser("retrieval-request")
     retrieval_parser.add_argument("--topic", required=True, help="Topic id or topic name")
@@ -98,6 +99,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     install_parser.add_argument("--migrate-data", action="store_true", help="Copy existing workspace topics/runs")
 
+    uninstall_parser = subparsers.add_parser("uninstall-skill-pack")
+    uninstall_parser.add_argument("--root", default=".", help="Workspace root")
+    uninstall_parser.add_argument(
+        "--host",
+        default="auto",
+        choices=INSTALL_HOST_CHOICES,
+        help="Which host to uninstall globally",
+    )
+    uninstall_parser.add_argument(
+        "--mode",
+        default="skills-keep-data",
+        choices=["skills-keep-data", "data-keep-skills", "complete"],
+        help="Uninstall mode",
+    )
+
+    version_parser = subparsers.add_parser("version")
+    version_parser.add_argument("--root", default=".", help="Workspace root")
+    version_parser.add_argument("--check-latest", action="store_true", help="Check visible upstream revision")
+
+    upgrade_parser = subparsers.add_parser("upgrade")
+    upgrade_parser.add_argument("--root", default=".", help="Workspace root")
+    upgrade_parser.add_argument("--data-root", default=None, help="Skrya data root for topics and runs")
+    upgrade_parser.add_argument("--migrate-data", action="store_true", help="Copy existing workspace topics/runs")
+    upgrade_parser.add_argument("--migrate-thread-naming", action="store_true", help="Migrate legacy thread file names")
+    upgrade_parser.add_argument("--check-latest", action="store_true", help="Check visible upstream revision")
+
     return parser
 
 
@@ -118,16 +145,16 @@ def main() -> int:
         print(result.markdown, end="")
         return 0
 
-    if args.command == "event-thread":
+    if args.command == "thread":
         service = IntelligenceService(root, data_root=args.data_root)
-        result = service.generate_event_thread_timeline(args.topic, thread_reference=args.thread)
+        result = service.generate_thread_timeline(args.topic, thread_reference=args.thread)
         print(result.markdown, end="")
         return 0
 
-    if args.command == "refresh-event-threads":
+    if args.command == "refresh-threads":
         service = IntelligenceService(root, data_root=args.data_root)
-        result = service.refresh_event_threads(args.topic)
-        print(f"Refreshed event threads: {result.artifact_path}")
+        result = service.refresh_threads(args.topic)
+        print(f"Refreshed threads: {result.artifact_path}")
         return 0
 
     if args.command == "retrieval-request":
@@ -190,6 +217,51 @@ def main() -> int:
         )
         for result in config_results:
             print(f"data-root: {result.data_root} (config: {result.config_path})")
+        return 0
+
+    if args.command == "uninstall-skill-pack":
+        installer = SkillPackInstaller(root)
+        results = installer.uninstall(output_root=root, host_name=args.host, mode=args.mode)
+        if not results:
+            print(f"Nothing to uninstall for mode: {args.mode}")
+        for result in results:
+            print(f"{result.kind}: {result.mode} -> {result.target_path}")
+        return 0
+
+    if args.command == "version":
+        check = check_latest_version(root)
+        print(f"Skrya version: {check.local_version}")
+        if check.local_revision:
+            print(f"Local revision: {check.local_revision}")
+        if args.check_latest and check.remote_revision:
+            print(f"Remote main: {check.remote_revision}")
+            if check.has_remote_update:
+                print("Update available: yes")
+            else:
+                print("Update available: no")
+        return 0
+
+    if args.command == "upgrade":
+        resolution = resolve_data_root(root, args.data_root)
+        print(f"Skrya data root: {resolution.data_root}")
+        if args.migrate_data:
+            migrated = migrate_workspace_data(root, resolution.data_root)
+            for path in migrated:
+                print(f"Migrated data: {path}")
+        if args.migrate_thread_naming:
+            migrated = migrate_thread_naming(resolution.data_root)
+            if migrated:
+                for path in migrated:
+                    print(f"Migrated thread naming: {path}")
+            else:
+                print("Migrated thread naming: no legacy files found")
+        if args.check_latest:
+            check = check_latest_version(root)
+            print(f"Skrya version: {check.local_version}")
+            if check.remote_revision:
+                print(f"Remote main: {check.remote_revision}")
+                print(f"Update available: {'yes' if check.has_remote_update else 'no'}")
+        print("Upgrade checks complete")
         return 0
 
     parser.error(f"Unknown command: {args.command}")

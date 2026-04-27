@@ -91,6 +91,98 @@ class SkillPackTests(unittest.TestCase):
         self.assertEqual(root / ".skrya" / "data", results[0].data_root)
         self.assertEqual(root / ".skrya" / "config.json", results[0].config_path)
 
+    def test_cli_uninstall_skill_pack_can_remove_skills_but_keep_data(self) -> None:
+        root = self._make_root("skill-pack-uninstall-skills")
+        home = self._make_root("fake-home-uninstall-skills")
+        self._copy_template_inputs(root)
+        (home / ".codex").mkdir(parents=True, exist_ok=True)
+        data_root = home / ".skrya"
+        data_root.mkdir(parents=True)
+        (data_root / "topics").mkdir()
+
+        with patch("pathlib.Path.home", return_value=home):
+            SkillPackInstaller(root).install(output_root=root, host_name="codex")
+            stdout = io.StringIO()
+            with patch(
+                "sys.argv",
+                ["skrya", "uninstall-skill-pack", "--root", str(root), "--host", "codex", "--mode", "skills-keep-data"],
+            ):
+                with redirect_stdout(stdout):
+                    exit_code = main()
+
+        self.assertEqual(0, exit_code)
+        self.assertFalse((home / ".codex" / "skills" / "skrya").exists())
+        self.assertFalse((home / ".codex" / "skills" / "skrya-digest").exists())
+        self.assertTrue((data_root / "topics").exists())
+        self.assertIn("skill: removed", stdout.getvalue())
+
+    def test_cli_uninstall_skill_pack_can_clear_data_but_keep_skills(self) -> None:
+        root = self._make_root("skill-pack-uninstall-data")
+        home = self._make_root("fake-home-uninstall-data")
+        self._copy_template_inputs(root)
+        (home / ".codex").mkdir(parents=True, exist_ok=True)
+        (root / ".skrya").mkdir(parents=True, exist_ok=True)
+        (root / ".skrya" / "config.json").write_text('{"data_root": ".skrya/data"}', encoding="utf-8")
+        (root / ".skrya" / "data" / "topics").mkdir(parents=True)
+
+        with patch("pathlib.Path.home", return_value=home):
+            SkillPackInstaller(root).install(output_root=root, host_name="codex")
+            stdout = io.StringIO()
+            with patch(
+                "sys.argv",
+                ["skrya", "uninstall-skill-pack", "--root", str(root), "--host", "codex", "--mode", "data-keep-skills"],
+            ):
+                with redirect_stdout(stdout):
+                    exit_code = main()
+
+        self.assertEqual(0, exit_code)
+        self.assertTrue((home / ".codex" / "skills" / "skrya").exists())
+        self.assertFalse((root / ".skrya" / "data").exists())
+        self.assertFalse((root / ".skrya" / "config.json").exists())
+        self.assertIn("data-root: removed", stdout.getvalue())
+
+    def test_cli_uninstall_skill_pack_complete_removes_marked_global_instruction_note(self) -> None:
+        root = self._make_root("skill-pack-uninstall-complete")
+        home = self._make_root("fake-home-uninstall-complete")
+        self._copy_template_inputs(root)
+        (home / ".codex").mkdir(parents=True, exist_ok=True)
+        (root / ".skrya").mkdir(parents=True, exist_ok=True)
+        (root / ".skrya" / "config.json").write_text('{"data_root": ".skrya/data"}', encoding="utf-8")
+        (root / ".skrya" / "data" / "topics").mkdir(parents=True)
+        global_agents = home / ".codex" / "AGENTS.md"
+        global_agents.write_text(
+            "\n".join(
+                [
+                    "Keep this unrelated instruction.",
+                    "<!-- SKRYA-ROUTING-NOTE:START -->",
+                    "Route topical recurring briefings to Skrya.",
+                    "<!-- SKRYA-ROUTING-NOTE:END -->",
+                    "Keep this too.",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        with patch("pathlib.Path.home", return_value=home):
+            SkillPackInstaller(root).install(output_root=root, host_name="codex")
+            stdout = io.StringIO()
+            with patch(
+                "sys.argv",
+                ["skrya", "uninstall-skill-pack", "--root", str(root), "--host", "codex", "--mode", "complete"],
+            ):
+                with redirect_stdout(stdout):
+                    exit_code = main()
+
+        self.assertEqual(0, exit_code)
+        self.assertFalse((home / ".codex" / "skills" / "skrya").exists())
+        self.assertFalse((root / ".skrya" / "data").exists())
+        content = global_agents.read_text(encoding="utf-8")
+        self.assertIn("Keep this unrelated instruction.", content)
+        self.assertIn("Keep this too.", content)
+        self.assertNotIn("SKRYA-ROUTING-NOTE", content)
+        self.assertIn("global-instruction: skrya-note-removed", stdout.getvalue())
+
     @staticmethod
     def _make_root(name: str) -> Path:
         root = TEST_TEMP_ROOT / name

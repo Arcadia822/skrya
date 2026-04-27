@@ -3,6 +3,7 @@ import shutil
 import unittest
 from pathlib import Path
 
+from skrya_orchestrator import __version__
 from skrya_orchestrator.intelligence import IntelligenceService
 
 
@@ -33,13 +34,14 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertNotIn("今日观察", digest.markdown)
         self.assertNotIn("建议深挖", digest.markdown)
         self.assertIn("A. 详细分析指定今日简讯", digest.markdown)
-        self.assertIn("B. 创建新的事件线", digest.markdown)
+        self.assertIn("B. 创建新的thread", digest.markdown)
         self.assertIn("---\n\n## 系统提示", digest.markdown)
         self.assertIn("- 执行时间：", digest.markdown)
-        self.assertIn("- 执行状态：完成：生成 6 条简讯，更新 0 条事件线。", digest.markdown)
+        self.assertIn("- 执行状态：完成：生成 6 条简讯，更新 0 条thread。", digest.markdown)
         self.assertIn("- 扫描时间范围：最近 24 小时（默认）", digest.markdown)
+        self.assertIn(f"- Skrya：{__version__}", digest.markdown)
         self.assertIn("- 可继续操作：", digest.markdown)
-        self.assertIn("C. 调整简讯和事件线的获取策略", digest.markdown)
+        self.assertIn("C. 调整简讯和thread的获取策略", digest.markdown)
         self.assertNotIn("$deep-analysis", digest.markdown)
         self.assertNotIn("REQ-001", digest.markdown)
         self.assertTrue(digest.digest_path.exists())
@@ -195,16 +197,16 @@ class IntelligenceServiceTests(unittest.TestCase):
             sources,
         )
 
-    def test_event_thread_timeline_replays_runtime_artifact_without_showing_sources(self) -> None:
-        root = self._make_root("event-thread-timeline")
+    def test_thread_timeline_replays_runtime_artifact_without_showing_sources(self) -> None:
+        root = self._make_root("thread-timeline")
         self._write_new_energy_topic(root)
-        self._write_byd_event_thread(root)
+        self._write_byd_thread(root)
 
         service = IntelligenceService(root)
-        timeline = service.generate_event_thread_timeline("新能源汽车", "比亚迪闪充站")
+        timeline = service.generate_thread_timeline("新能源汽车", "比亚迪闪充站")
 
         self.assertEqual(
-            root / "runs" / "new-energy-vehicles" / "event-threads" / "latest-event-threads.json",
+            root / "runs" / "new-energy-vehicles" / "threads" / "latest-threads.json",
             timeline.artifact_path,
         )
         self.assertIn("# 比亚迪闪充站", timeline.markdown)
@@ -217,21 +219,21 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertNotIn("https://example.com", timeline.markdown)
         self.assertNotIn("byd-flash-charge-station", timeline.markdown)
 
-    def test_event_thread_timeline_accepts_alias_reference(self) -> None:
-        root = self._make_root("event-thread-alias")
+    def test_thread_timeline_accepts_alias_reference(self) -> None:
+        root = self._make_root("thread-alias")
         self._write_new_energy_topic(root)
-        self._write_byd_event_thread(root)
+        self._write_byd_thread(root)
 
         service = IntelligenceService(root)
-        timeline = service.generate_event_thread_timeline("new-energy-vehicles", "BYD 闪充站")
+        timeline = service.generate_thread_timeline("new-energy-vehicles", "BYD 闪充站")
 
         self.assertIn("# 比亚迪闪充站", timeline.markdown)
         self.assertIn("**续写判断：**", timeline.markdown)
 
-    def test_generate_digest_writes_detailed_event_thread_updates_when_items_match_seed(self) -> None:
-        root = self._make_root("event-thread-digest")
+    def test_generate_digest_writes_detailed_thread_updates_when_items_match_seed(self) -> None:
+        root = self._make_root("thread-digest")
         self._write_new_energy_topic(root)
-        self._write_byd_event_thread_seed(root)
+        self._write_byd_thread_seed(root)
         sample_events = json.loads((ROOT / "topics" / "new-energy-vehicles" / "sample-events.json").read_text(encoding="utf-8"))
         topic_dir = root / "topics" / "new-energy-vehicles"
         (topic_dir / "sample-events.json").write_text(
@@ -242,18 +244,18 @@ class IntelligenceServiceTests(unittest.TestCase):
         service = IntelligenceService(root)
         digest = service.generate_digest("新能源汽车", prefer_live=False)
 
-        self.assertIn("## 事件线更新", digest.markdown)
-        self.assertIn("┌─ **【事件线】比亚迪闪充站**", digest.markdown)
+        self.assertIn("## thread更新", digest.markdown)
+        self.assertIn("┌─ **【thread】比亚迪闪充站**", digest.markdown)
         self.assertNotIn("今天命中的简讯：", digest.markdown)
         self.assertIn("│ 后续看点：首批站点在哪些城市真正落地", digest.markdown)
-        self.assertLess(digest.markdown.index("## 事件线更新"), digest.markdown.index("## 今日简讯"))
+        self.assertLess(digest.markdown.index("## thread更新"), digest.markdown.index("## 今日简讯"))
         self.assertIn("A. 详细分析指定今日简讯", digest.markdown)
-        self.assertIn("- 执行状态：完成：生成 3 条简讯，更新 1 条事件线。", digest.markdown)
+        self.assertIn("- 执行状态：完成：生成 3 条简讯，更新 1 条thread。", digest.markdown)
 
-    def test_generate_digest_persists_event_thread_runtime_artifact_when_seed_matches(self) -> None:
-        root = self._make_root("event-thread-digest-runtime-artifact")
+    def test_generate_digest_persists_thread_runtime_artifact_when_seed_matches(self) -> None:
+        root = self._make_root("thread-digest-runtime-artifact")
         self._write_new_energy_topic(root)
-        self._write_byd_event_thread_seed(root)
+        self._write_byd_thread_seed(root)
         sample_events = json.loads((ROOT / "topics" / "new-energy-vehicles" / "sample-events.json").read_text(encoding="utf-8"))
         topic_dir = root / "topics" / "new-energy-vehicles"
         (topic_dir / "sample-events.json").write_text(
@@ -263,19 +265,19 @@ class IntelligenceServiceTests(unittest.TestCase):
 
         service = IntelligenceService(root)
         service.generate_digest("新能源汽车", prefer_live=False)
-        timeline = service.generate_event_thread_timeline("新能源汽车", "比亚迪闪充站")
+        timeline = service.generate_thread_timeline("新能源汽车", "比亚迪闪充站")
 
         self.assertEqual(
-            root / "runs" / "new-energy-vehicles" / "event-threads" / "latest-event-threads.json",
+            root / "runs" / "new-energy-vehicles" / "threads" / "latest-threads.json",
             timeline.artifact_path,
         )
         self.assertIn("# 比亚迪闪充站", timeline.markdown)
         self.assertIn("关联日报：", timeline.markdown)
 
-    def test_refresh_event_threads_builds_runtime_artifact_from_seed_and_digest_events(self) -> None:
-        root = self._make_root("event-thread-refresh")
+    def test_refresh_threads_builds_runtime_artifact_from_seed_and_digest_events(self) -> None:
+        root = self._make_root("thread-refresh")
         self._write_new_energy_topic(root)
-        self._write_byd_event_thread_seed(root)
+        self._write_byd_thread_seed(root)
         self._write_byd_digest_event_index(
             root,
             items=[
@@ -302,10 +304,10 @@ class IntelligenceServiceTests(unittest.TestCase):
         )
 
         service = IntelligenceService(root)
-        result = service.refresh_event_threads("新能源汽车")
+        result = service.refresh_threads("新能源汽车")
 
         self.assertEqual(
-            root / "runs" / "new-energy-vehicles" / "event-threads" / "latest-event-threads.json",
+            root / "runs" / "new-energy-vehicles" / "threads" / "latest-threads.json",
             result.artifact_path,
         )
         thread = result.payload["threads"][0]
@@ -318,18 +320,18 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertEqual([2], thread["timeline"][0]["related_digest_numbers"])
         self.assertEqual([4], thread["timeline"][1]["related_digest_numbers"])
 
-    def test_refresh_event_threads_preserves_existing_timeline_and_appends_new_progress(self) -> None:
-        root = self._make_root("event-thread-refresh-append")
+    def test_refresh_threads_preserves_existing_timeline_and_appends_new_progress(self) -> None:
+        root = self._make_root("thread-refresh-append")
         self._write_new_energy_topic(root)
-        self._write_byd_event_thread_seed(root)
-        self._write_byd_event_thread(root)
+        self._write_byd_thread_seed(root)
+        self._write_byd_thread(root)
         payload = json.loads(
-            (root / "runs" / "new-energy-vehicles" / "event-threads" / "latest-event-threads.json").read_text(
+            (root / "runs" / "new-energy-vehicles" / "threads" / "latest-threads.json").read_text(
                 encoding="utf-8"
             )
         )
         payload["threads"][0]["timeline"] = payload["threads"][0]["timeline"][:1]
-        (root / "runs" / "new-energy-vehicles" / "event-threads" / "latest-event-threads.json").write_text(
+        (root / "runs" / "new-energy-vehicles" / "threads" / "latest-threads.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
@@ -351,7 +353,7 @@ class IntelligenceServiceTests(unittest.TestCase):
         )
 
         service = IntelligenceService(root)
-        result = service.refresh_event_threads("new-energy-vehicles")
+        result = service.refresh_threads("new-energy-vehicles")
 
         timeline = result.payload["threads"][0]["timeline"]
         self.assertEqual(2, len(timeline))
@@ -436,8 +438,8 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertIn("┌─ **【简讯1】", digest.markdown)
         self.assertIn("演员选角争议持续升温", digest.markdown)
         self.assertIn("A. 详细分析指定今日简讯", digest.markdown)
-        self.assertIn("B. 创建新的事件线", digest.markdown)
-        self.assertIn("C. 调整简讯和事件线的获取策略", digest.markdown)
+        self.assertIn("B. 创建新的thread", digest.markdown)
+        self.assertIn("C. 调整简讯和thread的获取策略", digest.markdown)
         self.assertIn("│ 信源：[feed.test](https://feed.test/rookie-teaser)", digest.markdown)
         self.assertNotIn("Continue reading", digest.markdown)
         self.assertNotIn("appeared first on", digest.markdown)
@@ -500,21 +502,21 @@ class IntelligenceServiceTests(unittest.TestCase):
         (topic_dir / "deep-analysis.md").write_text("# Deep Analysis Standard", encoding="utf-8")
 
     @staticmethod
-    def _write_byd_event_thread(root: Path) -> None:
-        artifact_dir = root / "runs" / "new-energy-vehicles" / "event-threads"
+    def _write_byd_thread(root: Path) -> None:
+        artifact_dir = root / "runs" / "new-energy-vehicles" / "threads"
         artifact_dir.mkdir(parents=True, exist_ok=True)
-        example_path = ROOT / "docs" / "byd-flash-charge-event-thread.example.json"
+        example_path = ROOT / "docs" / "byd-flash-charge-thread.example.json"
         payload = json.loads(example_path.read_text(encoding="utf-8"))
-        (artifact_dir / "latest-event-threads.json").write_text(
+        (artifact_dir / "latest-threads.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
 
     @staticmethod
-    def _write_byd_event_thread_seed(root: Path) -> None:
+    def _write_byd_thread_seed(root: Path) -> None:
         topic_dir = root / "topics" / "new-energy-vehicles"
-        payload = json.loads((ROOT / "docs" / "byd-flash-charge-event-thread-seed.example.json").read_text(encoding="utf-8"))
-        (topic_dir / "event-thread-seeds.json").write_text(
+        payload = json.loads((ROOT / "docs" / "byd-flash-charge-thread-seed.example.json").read_text(encoding="utf-8"))
+        (topic_dir / "thread-seeds.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )

@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 from .ingest import IngestService
 from .paths import resolve_data_root
+from .version import runtime_metadata_lines
 
 
 @dataclass(slots=True)
@@ -30,13 +31,13 @@ class DeepAnalysisResult:
 
 
 @dataclass(slots=True)
-class EventThreadResult:
+class ThreadResult:
     markdown: str
     artifact_path: Path
 
 
 @dataclass(slots=True)
-class EventThreadRefreshResult:
+class ThreadRefreshResult:
     artifact_path: Path
     payload: dict
 
@@ -54,15 +55,15 @@ class IntelligenceService:
         events = self._rank_events(topic_id, events)
         self._ensure_topic(topic_id)
         numbered_events = list(enumerate(events, start=1))
-        event_thread_updates = self._build_digest_event_thread_updates(topic_id, numbered_events)
+        thread_updates = self._build_digest_thread_updates(topic_id, numbered_events)
         execution_time = datetime.now(ZoneInfo("Asia/Shanghai"))
 
         lines: list[str] = [self._build_digest_title(topic_id, execution_time), ""]
         if events:
-            if event_thread_updates:
-                lines.append("## 事件线更新")
+            if thread_updates:
+                lines.append("## thread更新")
                 lines.append("")
-                for update_lines in event_thread_updates:
+                for update_lines in thread_updates:
                     lines.extend(update_lines)
                     lines.append("")
 
@@ -81,7 +82,7 @@ class IntelligenceService:
                 topic_id=topic_id,
                 execution_time=execution_time,
                 event_count=len(numbered_events),
-                event_thread_count=len(event_thread_updates),
+                thread_count=len(thread_updates),
             )
         )
 
@@ -105,7 +106,7 @@ class IntelligenceService:
             ),
             encoding="utf-8",
         )
-        self._persist_event_threads_from_digest_items(
+        self._persist_threads_from_digest_items(
             topic_id,
             [self._digest_event_index_item(index, event) for index, event in numbered_events],
         )
@@ -133,10 +134,10 @@ class IntelligenceService:
         topic_id: str,
         execution_time: datetime,
         event_count: int,
-        event_thread_count: int,
+        thread_count: int,
     ) -> list[str]:
         if event_count:
-            status = f"完成：生成 {event_count} 条简讯，更新 {event_thread_count} 条事件线。"
+            status = f"完成：生成 {event_count} 条简讯，更新 {thread_count} 条thread。"
         else:
             status = "未抓到足够新的真实内容。"
         return [
@@ -147,10 +148,11 @@ class IntelligenceService:
             f"- 执行时间：{execution_time:%Y-%m-%d %H:%M}（Asia/Shanghai）",
             f"- 执行状态：{status}",
             f"- 扫描时间范围：{self._scan_time_range_label(topic_id)}",
+            *runtime_metadata_lines(self._root),
             "- 可继续操作：",
             "  - A. 详细分析指定今日简讯，例如：`A 3 5 12`。",
-            "  - B. 创建新的事件线，例如：`B 3 4 5 持续关注`。",
-            "  - C. 调整简讯和事件线的获取策略，例如：`C 6 7 我不喜欢，如果是 xxx 不要关注`。",
+            "  - B. 创建新的thread，例如：`B 3 4 5 持续关注`。",
+            "  - C. 调整简讯和thread的获取策略，例如：`C 6 7 我不喜欢，如果是 xxx 不要关注`。",
         ]
 
     def _scan_time_range_label(self, topic_id: str) -> str:
@@ -187,32 +189,32 @@ class IntelligenceService:
         event = self._resolve_event(topic_id, event_number)
         return list(event["sources"])
 
-    def generate_event_thread_timeline(self, topic_id: str, thread_reference: str) -> EventThreadResult:
+    def generate_thread_timeline(self, topic_id: str, thread_reference: str) -> ThreadResult:
         topic_id = self.resolve_topic_id(topic_id)
-        thread, artifact_path = self._resolve_event_thread(topic_id, thread_reference)
-        return EventThreadResult(
-            markdown=self._build_event_thread_markdown(thread),
+        thread, artifact_path = self._resolve_thread(topic_id, thread_reference)
+        return ThreadResult(
+            markdown=self._build_thread_markdown(thread),
             artifact_path=artifact_path,
         )
 
-    def refresh_event_threads(self, topic_id: str) -> EventThreadRefreshResult:
+    def refresh_threads(self, topic_id: str) -> ThreadRefreshResult:
         topic_id = self.resolve_topic_id(topic_id)
         self._ensure_topic(topic_id)
-        seed_payload = self._load_event_thread_seed_payload(topic_id)
-        existing_payload = self._load_event_thread_payload(topic_id)
-        definitions = self._event_thread_definitions(
+        seed_payload = self._load_thread_seed_payload(topic_id)
+        existing_payload = self._load_thread_payload(topic_id)
+        definitions = self._thread_definitions(
             seed_payload.get("threads", []),
             existing_payload.get("threads", []),
         )
         if not definitions:
             raise FileNotFoundError(
-                f"Event-thread seeds not found for topic '{topic_id}'. "
-                "Create topics/<topic-id>/event-thread-seeds.json first."
+                f"Thread seeds not found for topic '{topic_id}'. "
+                "Create topics/<topic-id>/thread-seeds.json first."
             )
 
         items = self._load_digest_event_items(topic_id)
-        artifact_path, payload = self._write_event_thread_artifact(topic_id, definitions, items)
-        return EventThreadRefreshResult(artifact_path=artifact_path, payload=payload)
+        artifact_path, payload = self._write_thread_artifact(topic_id, definitions, items)
+        return ThreadRefreshResult(artifact_path=artifact_path, payload=payload)
 
     def resolve_topic_id(self, topic_reference: str) -> str:
         topics_root = self._data_root / "topics"
@@ -257,10 +259,10 @@ class IntelligenceService:
 
         raise ValueError(f"Event number {event_number} not found for topic '{topic_id}'")
 
-    def _resolve_event_thread(self, topic_id: str, thread_reference: str) -> tuple[dict, Path]:
-        artifact_path = self._data_root / "runs" / topic_id / "event-threads" / "latest-event-threads.json"
+    def _resolve_thread(self, topic_id: str, thread_reference: str) -> tuple[dict, Path]:
+        artifact_path = self._thread_artifact_path(topic_id)
         if not artifact_path.exists():
-            raise FileNotFoundError(f"Event-thread artifact not found for topic '{topic_id}'")
+            raise FileNotFoundError(f"Thread artifact not found for topic '{topic_id}'")
 
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
         normalized_reference = self._normalize_reference(thread_reference)
@@ -278,9 +280,9 @@ class IntelligenceService:
             return matches[0], artifact_path
         if len(matches) > 1:
             names = ", ".join(sorted(str(thread.get("name", "")) for thread in matches))
-            raise ValueError(f"Event thread reference '{thread_reference}' is ambiguous: {names}")
+            raise ValueError(f"Thread reference '{thread_reference}' is ambiguous: {names}")
 
-        raise ValueError(f"Event thread '{thread_reference}' not found for topic '{topic_id}'")
+        raise ValueError(f"Thread '{thread_reference}' not found for topic '{topic_id}'")
 
     def _load_digest_event_items(self, topic_id: str) -> list[dict]:
         event_index_path = self._data_root / "runs" / topic_id / "latest-digest-events.json"
@@ -289,43 +291,62 @@ class IntelligenceService:
         payload = json.loads(event_index_path.read_text(encoding="utf-8"))
         return [dict(item) for item in payload.get("items", []) if isinstance(item, dict)]
 
-    def _load_event_thread_seed_payload(self, topic_id: str) -> dict:
-        seed_path = self._data_root / "topics" / topic_id / "event-thread-seeds.json"
+    def _load_thread_seed_payload(self, topic_id: str) -> dict:
+        seed_path = self._thread_seed_path(topic_id)
         if not seed_path.exists():
             return {}
-        return json.loads(seed_path.read_text(encoding="utf-8"))
+        return self._normalize_thread_payload(json.loads(seed_path.read_text(encoding="utf-8")))
 
-    def _load_event_thread_payload(self, topic_id: str) -> dict:
-        artifact_path = self._data_root / "runs" / topic_id / "event-threads" / "latest-event-threads.json"
+    def _load_thread_payload(self, topic_id: str) -> dict:
+        artifact_path = self._thread_artifact_path(topic_id)
         if not artifact_path.exists():
             return {}
-        return json.loads(artifact_path.read_text(encoding="utf-8"))
+        return self._normalize_thread_payload(json.loads(artifact_path.read_text(encoding="utf-8")))
 
-    def _persist_event_threads_from_digest_items(self, topic_id: str, items: list[dict]) -> None:
-        seed_payload = self._load_event_thread_seed_payload(topic_id)
-        existing_payload = self._load_event_thread_payload(topic_id)
-        definitions = self._event_thread_definitions(
+    def _thread_seed_path(self, topic_id: str) -> Path:
+        seed_path = self._data_root / "topics" / topic_id / "thread-seeds.json"
+        if seed_path.exists():
+            return seed_path
+        return self._data_root / "topics" / topic_id / "event-thread-seeds.json"
+
+    def _thread_artifact_path(self, topic_id: str) -> Path:
+        artifact_path = self._data_root / "runs" / topic_id / "threads" / "latest-threads.json"
+        if artifact_path.exists():
+            return artifact_path
+        return self._data_root / "runs" / topic_id / "event-threads" / "latest-event-threads.json"
+
+    @staticmethod
+    def _normalize_thread_payload(payload: dict) -> dict:
+        if "threads" not in payload and "event_threads" in payload:
+            payload = dict(payload)
+            payload["threads"] = payload.get("event_threads", [])
+        return payload
+
+    def _persist_threads_from_digest_items(self, topic_id: str, items: list[dict]) -> None:
+        seed_payload = self._load_thread_seed_payload(topic_id)
+        existing_payload = self._load_thread_payload(topic_id)
+        definitions = self._thread_definitions(
             seed_payload.get("threads", []),
             existing_payload.get("threads", []),
         )
         if not definitions:
             return
 
-        self._write_event_thread_artifact(topic_id, definitions, items)
+        self._write_thread_artifact(topic_id, definitions, items)
 
-    def _write_event_thread_artifact(self, topic_id: str, definitions: list[dict], items: list[dict]) -> tuple[Path, dict]:
-        threads = [self._materialize_event_thread(definition, items) for definition in definitions]
+    def _write_thread_artifact(self, topic_id: str, definitions: list[dict], items: list[dict]) -> tuple[Path, dict]:
+        threads = [self._materialize_thread(definition, items) for definition in definitions]
         payload = {
-            "interface_version": "skrya.event-thread.v1",
+            "interface_version": "skrya.thread.v1",
             "topic_id": topic_id,
             "threads": threads,
         }
-        artifact_path = self._data_root / "runs" / topic_id / "event-threads" / "latest-event-threads.json"
+        artifact_path = self._data_root / "runs" / topic_id / "threads" / "latest-threads.json"
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
         artifact_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         return artifact_path, payload
 
-    def _event_thread_definitions(self, seed_threads: list[dict], existing_threads: list[dict]) -> list[dict]:
+    def _thread_definitions(self, seed_threads: list[dict], existing_threads: list[dict]) -> list[dict]:
         definitions: dict[str, dict] = {}
         ordered_keys: list[str] = []
 
@@ -344,7 +365,7 @@ class IntelligenceService:
                 "aliases": [str(alias) for alias in thread.get("aliases", []) if str(alias).strip()],
                 "watchpoints": [str(point) for point in thread.get("watchpoints", []) if str(point).strip()],
                 "timeline": [dict(entry) for entry in thread.get("timeline", []) if isinstance(entry, dict)],
-                "_match_terms": self._event_thread_match_terms(thread),
+                "_match_terms": self._thread_match_terms(thread),
             }
             ordered_keys.append(key)
 
@@ -366,7 +387,7 @@ class IntelligenceService:
                 "watchpoints": [str(point) for point in seed.get("watchpoints", []) if str(point).strip()]
                 or list(base.get("watchpoints", [])),
                 "timeline": [dict(entry) for entry in base.get("timeline", []) if isinstance(entry, dict)],
-                "_match_terms": self._event_thread_match_terms(seed, base),
+                "_match_terms": self._thread_match_terms(seed, base),
             }
             definitions[key] = merged
             if key not in ordered_keys:
@@ -374,7 +395,7 @@ class IntelligenceService:
 
         return [definitions[key] for key in ordered_keys]
 
-    def _event_thread_match_terms(self, *threads: dict) -> list[str]:
+    def _thread_match_terms(self, *threads: dict) -> list[str]:
         terms: list[str] = []
         seen: set[str] = set()
         for thread in threads:
@@ -394,7 +415,7 @@ class IntelligenceService:
                 terms.append(candidate.strip())
         return terms
 
-    def _materialize_event_thread(self, definition: dict, items: list[dict]) -> dict:
+    def _materialize_thread(self, definition: dict, items: list[dict]) -> dict:
         thread = {
             "id": definition["id"],
             "name": definition.get("name", ""),
@@ -405,12 +426,12 @@ class IntelligenceService:
             "watchpoints": list(definition.get("watchpoints", [])),
         }
         timeline = [dict(entry) for entry in definition.get("timeline", []) if isinstance(entry, dict)]
-        seen_signatures = {self._event_thread_entry_signature(entry) for entry in timeline}
+        seen_signatures = {self._thread_entry_signature(entry) for entry in timeline}
         new_entries: list[dict] = []
 
-        for item in self._matched_event_thread_items(definition, items):
-            entry = self._event_thread_entry_from_digest_item(item, has_existing=bool(timeline or new_entries))
-            signature = self._event_thread_entry_signature(entry)
+        for item in self._matched_thread_items(definition, items):
+            entry = self._thread_entry_from_digest_item(item, has_existing=bool(timeline or new_entries))
+            signature = self._thread_entry_signature(entry)
             if signature in seen_signatures:
                 continue
             seen_signatures.add(signature)
@@ -421,7 +442,7 @@ class IntelligenceService:
             thread["status"] = "active" if thread["timeline"] else "watching"
         return thread
 
-    def _matched_event_thread_items(self, definition: dict, items: list[dict]) -> list[dict]:
+    def _matched_thread_items(self, definition: dict, items: list[dict]) -> list[dict]:
         match_terms = [self._normalize_reference(term) for term in definition.get("_match_terms", []) if term]
         if not match_terms:
             return []
@@ -448,7 +469,7 @@ class IntelligenceService:
         )
         return matches
 
-    def _event_thread_entry_from_digest_item(self, item: dict, *, has_existing: bool) -> dict:
+    def _thread_entry_from_digest_item(self, item: dict, *, has_existing: bool) -> dict:
         raw_date = str(item.get("date", "")).strip()
         date = raw_date[:10] if raw_date else ""
         number = item.get("number")
@@ -462,10 +483,10 @@ class IntelligenceService:
             "sources": [str(source) for source in item.get("sources", []) if str(source).strip()],
         }
 
-    def _build_digest_event_thread_updates(self, topic_id: str, numbered_events: list[tuple[int, dict]]) -> list[list[str]]:
-        seed_payload = self._load_event_thread_seed_payload(topic_id)
-        existing_payload = self._load_event_thread_payload(topic_id)
-        definitions = self._event_thread_definitions(
+    def _build_digest_thread_updates(self, topic_id: str, numbered_events: list[tuple[int, dict]]) -> list[list[str]]:
+        seed_payload = self._load_thread_seed_payload(topic_id)
+        existing_payload = self._load_thread_payload(topic_id)
+        definitions = self._thread_definitions(
             seed_payload.get("threads", []),
             existing_payload.get("threads", []),
         )
@@ -475,14 +496,14 @@ class IntelligenceService:
         items = [self._digest_event_index_item(number, event) for number, event in numbered_events]
         updates: list[list[str]] = []
         for definition in definitions:
-            matched_items = self._matched_event_thread_items(definition, items)
+            matched_items = self._matched_thread_items(definition, items)
             if not matched_items:
                 continue
-            updates.append(self._build_digest_event_thread_update(definition, matched_items))
+            updates.append(self._build_digest_thread_update(definition, matched_items))
         return updates
 
-    def _build_digest_event_thread_update(self, definition: dict, matched_items: list[dict]) -> list[str]:
-        name = self._to_chinese(str(definition.get("name") or "未命名事件线"))
+    def _build_digest_thread_update(self, definition: dict, matched_items: list[dict]) -> list[str]:
+        name = self._to_chinese(str(definition.get("name") or "未命名thread"))
         summaries = " ".join(
             self._build_chinese_analysis(str(item.get("analysis_body") or item.get("analysis_title") or item.get("title") or ""))
             for item in matched_items[:2]
@@ -494,7 +515,7 @@ class IntelligenceService:
         )
 
         lines = [
-            f"┌─ **【事件线】{name}**",
+            f"┌─ **【thread】{name}**",
             *self._build_box_content_lines(summaries),
             "│",
         ]
@@ -517,7 +538,7 @@ class IntelligenceService:
             "date": event.get("date", ""),
         }
 
-    def _event_thread_entry_signature(self, entry: dict) -> tuple[str, str, tuple[str, ...]]:
+    def _thread_entry_signature(self, entry: dict) -> tuple[str, str, tuple[str, ...]]:
         return (
             str(entry.get("date", "")).strip(),
             self._normalize_reference(str(entry.get("headline", ""))),
@@ -892,11 +913,11 @@ class IntelligenceService:
         ]
         return "\n".join(lines)
 
-    def _build_event_thread_markdown(self, thread: dict) -> str:
-        title = self._to_chinese(str(thread.get("name", "未命名事件线")))
+    def _build_thread_markdown(self, thread: dict) -> str:
+        title = self._to_chinese(str(thread.get("name", "未命名thread")))
         summary = self._build_chinese_analysis(str(thread.get("summary", "")))
         callback_hint = self._build_chinese_analysis(str(thread.get("callback_hint", "")))
-        status = self._event_thread_status_label(str(thread.get("status", "")))
+        status = self._thread_status_label(str(thread.get("status", "")))
         watchpoints = "；".join(
             self._to_chinese(str(item)).rstrip("。！？；：")
             for item in thread.get("watchpoints", [])
@@ -921,7 +942,7 @@ class IntelligenceService:
         lines.append("")
         if timeline_entries:
             for index, entry in enumerate(timeline_entries, start=1):
-                phase = self._event_thread_phase_label(str(entry.get("phase", "")))
+                phase = self._thread_phase_label(str(entry.get("phase", "")))
                 headline = self._to_chinese(str(entry.get("headline", "事件推进")))
                 entry_summary = self._build_chinese_analysis(str(entry.get("summary", "")))
                 date = str(entry.get("date", "")).strip()
@@ -932,7 +953,7 @@ class IntelligenceService:
                 prefix = f"{date} · {phase}" if date else phase
                 lines.append(f"{index}. {prefix}：{headline}。{entry_summary}{digest_note}")
         else:
-            lines.append("1. 这条事件线还没有写入时间线节点，后续出现新进展后再续写。")
+            lines.append("1. 这条thread还没有写入时间线节点，后续出现新进展后再续写。")
         lines.append("")
         return "\n".join(lines)
 
@@ -945,7 +966,7 @@ class IntelligenceService:
         return "信息还偏薄，暂时适合当作观察线索，而不是确定结论。"
 
     @staticmethod
-    def _event_thread_status_label(status: str) -> str:
+    def _thread_status_label(status: str) -> str:
         return {
             "active": "持续跟进",
             "watching": "继续观察",
@@ -953,7 +974,7 @@ class IntelligenceService:
         }.get(status, status or "继续观察")
 
     @staticmethod
-    def _event_thread_phase_label(phase: str) -> str:
+    def _thread_phase_label(phase: str) -> str:
         return {
             "seed": "建线观察",
             "update": "进展续写",

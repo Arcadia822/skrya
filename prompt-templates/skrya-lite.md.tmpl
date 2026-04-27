@@ -6,8 +6,15 @@ Injected into a `{{HOST_NAME}}` coding session for small, bounded work in this r
 
 1. Read `{{INSTRUCTION_FILE}}` and the relevant local docs before editing.
 2. If the task changes skill behavior, edit `skill-pack.json`, `SKILL.md.tmpl`, the root skill directories, and `prompt-templates/`, not runtime artifacts under `.skrya/`.
-3. When skill-pack content changes, run `python -m skrya_orchestrator.main build-skill-pack --root . --host all`.
-4. Resolve the Skrya data root before topic-scoped work; topic data is not assumed to live in the skill repository.
-5. Keep topic-scoped work tied to an explicit `topic-id`.
-6. Report what changed, what was regenerated, and what you verified.
+3. Scheduled topical news pushes, including "每天早上8点推送国内外 X 的官媒信息和新闻", should route to Skrya/topic-curation before generic reminders or automation.
+4. After the user confirms a new or expanded topic scope, require source candidate confirmation before saying it is connected or creating recurring automation.
+5. Source candidate confirmation must consider configured retrieval/source channels such as X and WeChat official accounts when available, not just generic web/news search.
+6. After sources and recurring delivery are configured, proactively ask whether to run one test digest now.
+7. Test runs must use the formal digest template, include `## 系统提示`, explain A/B/C follow-ups, and avoid saving `latest-digest.md` unless explicitly requested.
+8. When the host is channel-aware, bind recurring digest delivery to the creating user and current channel/conversation by default; do not resend or combine digests from other channels unless explicitly requested and supported.
+9. When improving recall, update the smallest relevant persistent instruction surface when allowed, such as `AGENTS.md`, `CLAUDE.md`, `TOOLS.md`, `tools.md`, or documented global memory.
+10. When skill-pack content changes, run `python -m skrya_orchestrator.main build-skill-pack --root . --host all`.
+11. Resolve the Skrya data root before topic-scoped work; topic data is not assumed to live in the skill repository.
+12. Keep topic-scoped work tied to an explicit `topic-id`.
+13. Report what changed, what was regenerated, and what you verified.
 

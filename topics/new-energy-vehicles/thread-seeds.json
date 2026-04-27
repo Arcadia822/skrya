@@ -1,13 +1,13 @@
 {
-  "interface_version": "skrya.event-thread-seeds.v1",
+  "interface_version": "skrya.thread-seeds.v1",
   "topic_id": "new-energy-vehicles",
   "threads": [
     {
       "id": "byd-flash-charge-station",
       "name": "比亚迪闪充站",
       "status": "active",
-      "summary": "围绕比亚迪闪充站建设、城市落地、合作扩张和实测反馈持续发展的事件线。",
-      "callback_hint": "后续如果出现新站点开通、首批城市扩张、合作方接入或用户真实补能体验，应优先并入这条事件线。",
+      "summary": "围绕比亚迪闪充站建设、城市落地、合作扩张和实测反馈持续发展的thread。",
+      "callback_hint": "后续如果出现新站点开通、首批城市扩张、合作方接入或用户真实补能体验，应优先并入这条thread。",
       "aliases": [
         "BYD 闪充站",
         "比亚迪兆瓦闪充站"

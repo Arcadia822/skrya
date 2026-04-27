@@ -16,9 +16,20 @@ Read these files before drafting the digest:
 
 If available, also read the latest event candidates or prior digest artifacts for that topic.
 When runtime retrieval was used, consume only normalized `skrya.ingest.v1` artifacts under `<skrya-data-root>/runs/<topic-id>/ingest/`. Do not consume raw provider output directly.
-When event-thread seeds exist, use them to surface continuing event-line updates and preserve durable topic memory.
+When thread seeds exist, use them to surface continuing thread updates and preserve durable topic memory.
 
 Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or the equivalent repository instruction file.
+
+## Delivery Context
+
+Digest generation and digest delivery are separate steps.
+
+- Before scheduled delivery, manual resend, or "why was today's digest empty" diagnosis, resolve the topic. In channel-aware hosts, also resolve the channel/conversation binding for the current request.
+- In channel-aware hosts, only send the digest bound to the current channel/conversation unless the user explicitly names another target and the host supports cross-channel delivery.
+- In hosts without channel/conversation concepts, fall back to the resolved topic, user intent, and available automation context.
+- If multiple same-channel topics are plausible in a channel-aware host, ask the user which digest they mean instead of sending all generated digests.
+- Do not bundle unrelated topic digests from other channels into a resend response, even when they share a scheduled run time.
+- If generated content exists but the delivered message was empty, resend via the explicit message tool when available and verify that the sent body is non-empty.
 
 ## Output Rules
 
@@ -37,11 +48,16 @@ Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or
   └
   ```
 - Keep the tone concise, calm, and readable in chat.
-- Save the digest to the Skrya data root run directory.
+- Save scheduled or user-requested real digests to the Skrya data root run directory.
+- For test runs, use the same digest template in chat only and do not save it as `latest-digest.md` unless the user explicitly asks to save the preview.
 - File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
 - After the digest body, add a horizontal divider `---`, then a `## 系统提示` section.
-- The system prompt section must include execution time, execution status, scan time range, and available follow-up operations.
-- Put feedback choices inside `## 系统提示`: `A <numbers>` for deep analysis, `B <numbers> <name/intent>` for event-thread creation or updates, and `C <numbers/reason>` for durable topic memory changes.
+- The system prompt section must include execution time, execution status, scan time range, current Skrya version, and available follow-up operations.
+- Include the agent framework/version and LLM model only when the host exposes them; silently omit unknown fields.
+- When the host can inspect the Skrya repository, check the latest visible Skrya version or upstream revision. If a newer version is available, ask the user whether to update and follow `docs/upgrade.md`.
+- Put feedback choices inside `## 系统提示` and explain them in natural Chinese: `A <numbers>` for deep analysis, `B <numbers> <name/intent>` for thread creation or updates, and `C <numbers/reason>` for durable topic memory changes.
+- Do not put chatty prefaces before the digest body.
+- Do not append implementation notes such as saved file paths after the `## 系统提示` section.
 
 ## Required Behavior
 
@@ -51,15 +67,16 @@ Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or
 4. Rank events using the topic brief and digest standard.
 5. Write every event as a compact line box with stable visible numbers in the first line and source references after a blank separator line.
 6. Keep the format uniform from the first item to the last.
-7. Save the digest markdown file under `<skrya-data-root>/runs/<topic-id>/latest-digest.md`.
+7. Save the digest markdown file under `<skrya-data-root>/runs/<topic-id>/latest-digest.md` only for scheduled or user-requested real digests; do not save test-run previews by default.
 8. Preserve enough traceability so that if the user later asks for the source of an item, you can return the complete corresponding sources.
-9. If a seeded event-thread matches today’s items, write a concise line-box event-line update before the normal numbered items. Do not include a "today matched digest items" line in the event-line update.
+9. If a seeded thread matches today’s items, write a concise line-box thread update before the normal numbered items. Do not include a "today matched digest items" line in the thread update.
 10. End the digest body, insert `---`, and write a `## 系统提示` section with execution metadata and A/B/C feedback options.
+11. For a test run, still use the same digest template and `## 系统提示` format, but mark execution status as test/preview and do not mention saved artifacts.
 
 ## Feedback Handling
 
 - `A <numbers>` routes the selected digest items to deep analysis.
-- `B <numbers> <name/intent>` means the user wants a continuing event line; propose a stable event-thread seed before writing it.
+- `B <numbers> <name/intent>` means the user wants a continuing thread; propose a stable thread seed before writing it.
 - `C <numbers/reason>` means the user is adjusting durable topic memory; route to request curation instead of answering only in chat.
 - If the user asks "为什么没有 X", do not regenerate blindly; start missed-item diagnosis through request curation.
 - If the user says "这个很重要", treat it as a durable ranking or watchpoint update, not a compliment to the current answer.

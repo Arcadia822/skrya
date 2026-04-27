@@ -97,6 +97,13 @@ class InstallResult:
     mode: str
 
 
+@dataclass(frozen=True)
+class UninstallResult:
+    kind: str
+    target_path: Path
+    mode: str
+
+
 class SkillPackBuilder:
     def __init__(self, template_root: Path | str) -> None:
         self._template_root = Path(template_root)
@@ -294,6 +301,31 @@ class SkillPackInstaller:
             results.append(result)
         return results
 
+    def uninstall(
+        self,
+        output_root: Path | str,
+        host_name: str = "auto",
+        *,
+        mode: str = "skills-keep-data",
+    ) -> list[UninstallResult]:
+        output_root = Path(output_root).resolve(strict=False)
+        if mode not in {"skills-keep-data", "data-keep-skills", "complete"}:
+            raise ValueError(f"Unsupported uninstall mode: {mode}")
+
+        results: list[UninstallResult] = []
+        if mode in {"skills-keep-data", "complete"}:
+            for host in self._resolve_install_hosts(host_name):
+                results.extend(self._uninstall_host(host))
+
+        if mode in {"data-keep-skills", "complete"}:
+            results.extend(self._remove_data_root(output_root))
+
+        if mode == "complete":
+            for host in self._resolve_install_hosts(host_name):
+                results.extend(self._remove_global_instruction_note(output_root, host))
+
+        return results
+
     def _resolve_install_hosts(self, host_name: str) -> list[HostConfig]:
         if host_name != "auto":
             host = SkillPackBuilder._resolve_host(host_name)
@@ -361,3 +393,94 @@ class SkillPackInstaller:
     @staticmethod
     def _link_name(skill_name: str) -> str:
         return f"{SKILL_LINK_PREFIX}{skill_name}"
+
+    def _uninstall_host(self, host: HostConfig) -> list[UninstallResult]:
+        assert host.global_skill_dir is not None
+        target = (Path.home() / host.global_skill_dir).resolve(strict=False)
+        paths = [target]
+        for skill in self._builder._load_skill_sources():
+            paths.append(target.parent / self._link_name(skill.name))
+
+        results: list[UninstallResult] = []
+        for path in paths:
+            if not path.exists() and not path.is_symlink():
+                continue
+            self._remove_path(path)
+            results.append(UninstallResult(kind="skill", target_path=path, mode="removed"))
+        return results
+
+    def _remove_data_root(self, output_root: Path) -> list[UninstallResult]:
+        from .paths import CONFIG_RELATIVE_PATH, resolve_data_root
+
+        resolution = resolve_data_root(output_root)
+        results: list[UninstallResult] = []
+        data_root = resolution.data_root
+        if data_root.exists() or data_root.is_symlink():
+            self._remove_path(data_root)
+            results.append(UninstallResult(kind="data-root", target_path=data_root, mode="removed"))
+
+        config_candidates = [
+            output_root / CONFIG_RELATIVE_PATH,
+            Path.home() / CONFIG_RELATIVE_PATH,
+        ]
+        if resolution.config_path:
+            config_candidates.append(resolution.config_path)
+        seen: set[Path] = set()
+        for path in config_candidates:
+            path = path.resolve(strict=False)
+            if path in seen:
+                continue
+            seen.add(path)
+            if not path.exists():
+                continue
+            try:
+                payload = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if "data_root" not in payload:
+                continue
+            path.unlink()
+            results.append(UninstallResult(kind="data-config", target_path=path, mode="removed"))
+        return results
+
+    def _remove_global_instruction_note(self, output_root: Path, host: HostConfig) -> list[UninstallResult]:
+        candidates = [
+            output_root / host.instruction_file,
+            Path.home() / host.instruction_file,
+        ]
+        if host.home_marker_dir:
+            candidates.append(Path.home() / host.home_marker_dir / host.instruction_file)
+
+        results: list[UninstallResult] = []
+        seen: set[Path] = set()
+        for path in candidates:
+            path = path.resolve(strict=False)
+            if path in seen or not path.exists():
+                continue
+            seen.add(path)
+            original = path.read_text(encoding="utf-8")
+            updated = self._strip_skrya_instruction_blocks(original)
+            if updated == original:
+                continue
+            path.write_text(updated, encoding="utf-8")
+            results.append(UninstallResult(kind="global-instruction", target_path=path, mode="skrya-note-removed"))
+        return results
+
+    @staticmethod
+    def _strip_skrya_instruction_blocks(content: str) -> str:
+        start = "<!-- SKRYA-ROUTING-NOTE:START -->"
+        end = "<!-- SKRYA-ROUTING-NOTE:END -->"
+        while start in content and end in content:
+            start_index = content.index(start)
+            end_index = content.index(end, start_index) + len(end)
+            if end_index < len(content) and content[end_index : end_index + 1] == "\n":
+                end_index += 1
+            content = content[:start_index] + content[end_index:]
+        return content
+
+    @staticmethod
+    def _remove_path(path: Path) -> None:
+        if path.is_symlink() or path.is_file():
+            path.unlink()
+            return
+        shutil.rmtree(path)
