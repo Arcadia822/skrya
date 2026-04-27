@@ -59,6 +59,64 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertIn("某女团练习生出圈片段从 INS 扩散到韩媒", digest.markdown)
         self.assertEqual(root / "runs" / "k-entertainment" / "latest-digest.md", digest.digest_path)
 
+    def test_generate_digest_uses_topic_language_for_english_output(self) -> None:
+        root = self._make_root("digest-english-topic")
+        topic_dir = root / "topics" / "ai-browsers"
+        topic_dir.mkdir(parents=True)
+        (topic_dir / "topic.json").write_text(
+            json.dumps(
+                {
+                    "topic": "ai-browsers",
+                    "name": "AI Browsers",
+                    "description": "AI browser market tracking",
+                    "language": "en",
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        (topic_dir / "brief.json").write_text(
+            json.dumps({"requests": [{"req": "REQ-001", "content": "AI browser launches and adoption"}]}),
+            encoding="utf-8",
+        )
+        (topic_dir / "sources.json").write_text(json.dumps({"sources": []}), encoding="utf-8")
+        (topic_dir / "digest.md").write_text("# Digest Standard", encoding="utf-8")
+        (topic_dir / "deep-analysis.md").write_text("# Deep Analysis Standard", encoding="utf-8")
+        (topic_dir / "sample-events.json").write_text(
+            json.dumps(
+                [
+                    {
+                        "key": "comet-enterprise",
+                        "title": "Comet expands enterprise rollout",
+                        "headline_summary": "The AI browser is moving from consumer launch into enterprise adoption signals.",
+                        "list_summary": "",
+                        "analysis_title": "Comet expands enterprise rollout",
+                        "analysis_body": "Enterprise rollout is becoming the next adoption test.",
+                        "sources": ["https://example.com/comet-enterprise"],
+                    }
+                ],
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        digest = IntelligenceService(root).generate_digest("ai-browsers")
+
+        self.assertIn("| AI Browsers | Daily Briefing", digest.markdown)
+        self.assertIn("┌─ **【Brief 1】Comet expands enterprise rollout**", digest.markdown)
+        self.assertIn("│ Sources: [example.com](https://example.com/comet-enterprise)", digest.markdown)
+        self.assertIn("---\n\n## System", digest.markdown)
+        self.assertIn("- Status: Complete: generated 1 brief items and updated 0 threads.", digest.markdown)
+        self.assertIn("- Scan window: last 24 hours (default)", digest.markdown)
+        self.assertIn("A. Deep-analyze specified brief items", digest.markdown)
+        self.assertNotIn("## 系统提示", digest.markdown)
+        self.assertNotIn("简讯", digest.markdown)
+
+        analysis = IntelligenceService(root).generate_deep_analysis("ai-browsers", event_number=1)
+        self.assertIn("**Short take:**", analysis.markdown)
+        self.assertIn("**Known facts:**", analysis.markdown)
+        self.assertNotIn("**简要结论：**", analysis.markdown)
+
     def test_live_sources_do_not_fall_back_to_sample_events_when_empty(self) -> None:
         root = self._make_root("live-empty-no-sample-fallback")
         self._write_topic(root)

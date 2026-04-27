@@ -20,8 +20,8 @@ class VersionCheck:
         return bool(self.local_revision and self.remote_revision and self.local_revision != self.remote_revision)
 
 
-def runtime_metadata_lines(root: Path | str) -> list[str]:
-    lines = [f"- Skrya：{__version__}"]
+def runtime_metadata_lines(root: Path | str, language: str = "zh-CN") -> list[str]:
+    lines = [f"- Skrya: {__version__}" if language == "en" else f"- Skrya：{__version__}"]
 
     agent = _agent_framework_label()
     if agent:
@@ -33,7 +33,10 @@ def runtime_metadata_lines(root: Path | str) -> list[str]:
 
     check = check_latest_version(root)
     if check.has_remote_update:
-        lines.append("- 版本检查：发现 Skrya 有可见新版本。回复“更新 Skrya”后，我会先执行升级流程。")
+        if language == "en":
+            lines.append("- Version check: a newer visible Skrya revision is available. Reply `update Skrya` to run the upgrade flow first.")
+        else:
+            lines.append("- 版本检查：发现 Skrya 有可见新版本。回复“更新 Skrya”后，我会先执行升级流程。")
     return lines
 
 

@@ -36,11 +36,13 @@ class SkillContractTests(unittest.TestCase):
         en_readme = (ROOT / "README.en.md").read_text(encoding="utf-8")
 
         self.assertIn("**语言 / Language:** 简体中文 | [English](README.en.md)", zh_readme)
-        self.assertIn("**Language:** [简体中文](README.md) | English", en_readme)
+        self.assertIn("**Language:** [Chinese](README.md) | English", en_readme)
         self.assertIn("Topic-driven briefing workspace", en_readme)
+        self.assertIn("## Language Policy", en_readme)
         self.assertIn("## Installation", en_readme)
         self.assertIn("## Uninstall", en_readme)
         self.assertIn("uninstall-skill-pack", en_readme)
+        self.assertNotRegex(en_readme, r"[\u4e00-\u9fff]")
 
     def test_new_energy_vehicles_topic_fixture_models_thread_journey(self) -> None:
         topic_dir = ROOT / "topics" / "new-energy-vehicles"
@@ -163,6 +165,24 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("resolve an internal `topic-id` before reading or writing files", topic_curation)
         self.assertIn("自动接入", source_curation)
         self.assertIn("Do not expose RSS as a user-facing requirement", source_curation)
+
+    def test_language_policy_is_topic_scoped_and_bilingual(self) -> None:
+        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        topic_curation = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
+        digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        english_readme = (ROOT / "README.en.md").read_text(encoding="utf-8")
+
+        for content in [root_skill, agents, topic_curation, readme, english_readme]:
+            self.assertIn("topic.json.language", content)
+
+        self.assertIn("Do not set output language at installation time", root_skill)
+        self.assertNotIn("Default output language is Chinese", agents)
+        self.assertIn("Supported output languages are Chinese and English", root_skill)
+        self.assertIn("Chinese and English output", english_readme)
+        self.assertIn("English format: `# YYYY-MM-DD | Topic Name | Daily Briefing`", digest)
+        self.assertIn("`## System` for English", digest)
 
     def test_skills_describe_provider_neutral_runtime_retrieval(self) -> None:
         root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")

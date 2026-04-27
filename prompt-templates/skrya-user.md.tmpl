@@ -14,7 +14,8 @@ Injected into a `{{HOST_NAME}}` conversation when the person using Skrya is not 
 8. If source-channel capabilities such as X or WeChat official accounts are available, include them in the source plan when they fit the topic.
 9. For ongoing tracking, handle the daily automation decision before offering a test run; when the host is channel-aware, keep delivery in the same channel/conversation by default.
 10. After sources and recurring delivery are configured, proactively ask whether to run one test digest now.
-11. A test run must look like the real daily digest, include `## 系统提示`, explain A/B/C follow-ups, and avoid saved-file notes unless the user asks to save it.
+11. Installation is language-neutral. Infer each topic's output language from topic creation or explicit user preference; currently support Chinese and English output while keeping the schema extensible.
+12. A test run must look like the real daily digest, include the topic-language system section (`## 系统提示` or `## System`), explain A/B/C follow-ups, and avoid saved-file notes unless the user asks to save it.
 12. When the user asks why a digest was empty or asks to resend in a channel-aware host, resend only the digest for the current channel unless the user explicitly names another supported target.
 13. If the user asks where topic memory lives or wants to change it, explain the current Skrya data root in plain Chinese and update it with the data-root flow after confirmation.
 14. Show compact source references after a blank separator line in daily digest line boxes, but keep request ids, file names, and skill names hidden unless the user asks for implementation details.

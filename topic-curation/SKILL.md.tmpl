@@ -35,6 +35,8 @@ Only show the internal id when it helps confirm a newly created durable topic, a
 
 First clarify the durable briefing intent the user wants to keep seeing, then translate that into stable configuration language. Confirm the proposed wording before creating or changing topic files.
 For recurring delivery, also preserve the delivery context the host exposes. In channel-aware hosts, that includes the creating user and current channel or conversation.
+Do not ask for or set a language during installation. For each topic, set `topic.json.language` from the user's topic-creation language unless the user explicitly requests another briefing language. Skrya currently supports Chinese and English output; the schema may remain extensible for future languages.
+The topic language controls digest and deep-analysis output. If the user later gives feedback in another language, converse in the feedback language while preserving the topic's configured output language unless the user asks to change it.
 
 Do not make the user speak in config format.
 Do not create a new topic shell before the briefing intent is clear enough.
@@ -168,6 +170,7 @@ When the user confirms a new or expanded recurring topic, source confirmation is
 Keep the interaction practical and short:
 
 - accept the user's language as-is
+- infer and persist the topic output language from topic creation or explicit user preference
 - infer the underlying lasting preference
 - rewrite it into config-ready wording
 - ask for confirmation

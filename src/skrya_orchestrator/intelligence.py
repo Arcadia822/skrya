@@ -55,26 +55,31 @@ class IntelligenceService:
         events = self._rank_events(topic_id, events)
         self._ensure_topic(topic_id)
         numbered_events = list(enumerate(events, start=1))
-        thread_updates = self._build_digest_thread_updates(topic_id, numbered_events)
         execution_time = datetime.now(ZoneInfo("Asia/Shanghai"))
+        language = self._topic_output_language(topic_id)
+        thread_updates = self._build_digest_thread_updates(topic_id, numbered_events, language)
 
-        lines: list[str] = [self._build_digest_title(topic_id, execution_time), ""]
+        lines: list[str] = [self._build_digest_title(topic_id, execution_time, language), ""]
         if events:
             if thread_updates:
-                lines.append("## thread更新")
+                lines.append("## Thread Updates" if language == "en" else "## thread更新")
                 lines.append("")
                 for update_lines in thread_updates:
                     lines.extend(update_lines)
                     lines.append("")
 
-                lines.append("## 今日简讯")
+                lines.append("## Today's Briefs" if language == "en" else "## 今日简讯")
                 lines.append("")
 
             for number, event in numbered_events:
-                lines.append(self._build_digest_entry(number, event))
+                lines.append(self._build_digest_entry(number, event, language))
                 lines.append("")
         else:
-            lines.append("暂时没有抓到足够新的真实内容，先不拿样例数据冒充日报。你可以稍后再试，或者明确告诉我用样例做演示。")
+            lines.append(
+                "No sufficiently fresh real items were found. I will not pretend sample data is today's briefing."
+                if language == "en"
+                else "暂时没有抓到足够新的真实内容，先不拿样例数据冒充日报。你可以稍后再试，或者明确告诉我用样例做演示。"
+            )
             lines.append("")
 
         lines.extend(
@@ -83,6 +88,7 @@ class IntelligenceService:
                 execution_time=execution_time,
                 event_count=len(numbered_events),
                 thread_count=len(thread_updates),
+                language=language,
             )
         )
 
@@ -117,9 +123,12 @@ class IntelligenceService:
             artifact_path=event_index_path,
         )
 
-    def _build_digest_title(self, topic_id: str, execution_time: datetime) -> str:
+    def _build_digest_title(self, topic_id: str, execution_time: datetime, language: str) -> str:
         topic_name = self._topic_display_name(topic_id)
-        return f"# {execution_time:%Y-%m-%d}｜{topic_name}｜每日简报"
+        if language == "en":
+            return f"# {execution_time:%Y-%m-%d} | {topic_name} | Daily Briefing"
+        label = "每日简报"
+        return f"# {execution_time:%Y-%m-%d}｜{topic_name}｜{label}"
 
     def _topic_display_name(self, topic_id: str) -> str:
         topic_path = self._data_root / "topics" / topic_id / "topic.json"
@@ -128,6 +137,18 @@ class IntelligenceService:
         metadata = json.loads(topic_path.read_text(encoding="utf-8"))
         return str(metadata.get("name") or metadata.get("description") or topic_id)
 
+    def _topic_output_language(self, topic_id: str) -> str:
+        topic_path = self._data_root / "topics" / topic_id / "topic.json"
+        if not topic_path.exists():
+            return "zh-CN"
+        metadata = json.loads(topic_path.read_text(encoding="utf-8"))
+        language = str(metadata.get("language", "")).strip().lower()
+        if language in {"en", "en-us", "en-gb"}:
+            return "en"
+        if language in {"zh", "zh-cn", "zh-hans", "zh_cn"}:
+            return "zh-CN"
+        return "zh-CN"
+
     def _build_digest_system_prompt(
         self,
         *,
@@ -135,11 +156,29 @@ class IntelligenceService:
         execution_time: datetime,
         event_count: int,
         thread_count: int,
+        language: str,
     ) -> list[str]:
-        if event_count:
-            status = f"完成：生成 {event_count} 条简讯，更新 {thread_count} 条thread。"
-        else:
-            status = "未抓到足够新的真实内容。"
+        if language == "en":
+            status = (
+                f"Complete: generated {event_count} brief items and updated {thread_count} threads."
+                if event_count
+                else "No sufficiently fresh real items were found."
+            )
+            return [
+                "---",
+                "",
+                "## System",
+                "",
+                f"- Execution time: {execution_time:%Y-%m-%d %H:%M} (Asia/Shanghai)",
+                f"- Status: {status}",
+                f"- Scan window: {self._scan_time_range_label(topic_id, language)}",
+                *runtime_metadata_lines(self._root, language=language),
+                "- Available follow-ups:",
+                "  - A. Deep-analyze specified brief items, for example: `A 3 5 12`.",
+                "  - B. Create a new thread, for example: `B 3 4 5 keep tracking`.",
+                "  - C. Adjust briefing and thread strategy, for example: `C 6 7 I dislike this; skip xxx next time`.",
+            ]
+        status = f"完成：生成 {event_count} 条简讯，更新 {thread_count} 条thread。" if event_count else "未抓到足够新的真实内容。"
         return [
             "---",
             "",
@@ -147,15 +186,15 @@ class IntelligenceService:
             "",
             f"- 执行时间：{execution_time:%Y-%m-%d %H:%M}（Asia/Shanghai）",
             f"- 执行状态：{status}",
-            f"- 扫描时间范围：{self._scan_time_range_label(topic_id)}",
-            *runtime_metadata_lines(self._root),
+            f"- 扫描时间范围：{self._scan_time_range_label(topic_id, language)}",
+            *runtime_metadata_lines(self._root, language=language),
             "- 可继续操作：",
             "  - A. 详细分析指定今日简讯，例如：`A 3 5 12`。",
             "  - B. 创建新的thread，例如：`B 3 4 5 持续关注`。",
             "  - C. 调整简讯和thread的获取策略，例如：`C 6 7 我不喜欢，如果是 xxx 不要关注`。",
         ]
 
-    def _scan_time_range_label(self, topic_id: str) -> str:
+    def _scan_time_range_label(self, topic_id: str, language: str = "zh-CN") -> str:
         ingest_path = self._data_root / "runs" / topic_id / "ingest" / "latest-ingest.json"
         if ingest_path.exists():
             payload = json.loads(ingest_path.read_text(encoding="utf-8"))
@@ -165,17 +204,22 @@ class IntelligenceService:
                 if isinstance(item, dict) and str(item.get("fetched_at", "")).strip()
             ]
             if fetched_times:
+                if language == "en":
+                    return f"{min(fetched_times)} to {max(fetched_times)}"
                 return f"{min(fetched_times)} 至 {max(fetched_times)}"
             retrieved_at = str(payload.get("retrieved_at", "")).strip()
             if retrieved_at:
+                if language == "en":
+                    return f"latest retrieval as of {retrieved_at}"
                 return f"截至 {retrieved_at} 的最近一轮检索"
-        return "最近 24 小时（默认）"
+        return "last 24 hours (default)" if language == "en" else "最近 24 小时（默认）"
 
     def generate_deep_analysis(self, topic_id: str, event_number: int) -> DeepAnalysisResult:
         topic_id = self.resolve_topic_id(topic_id)
         event = self._resolve_event(topic_id, event_number)
+        language = self._topic_output_language(topic_id)
 
-        markdown = self._build_deep_analysis_markdown(event)
+        markdown = self._build_deep_analysis_markdown(event, language=language)
 
         artifact_dir = self._data_root / "runs" / topic_id
         artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -483,7 +527,12 @@ class IntelligenceService:
             "sources": [str(source) for source in item.get("sources", []) if str(source).strip()],
         }
 
-    def _build_digest_thread_updates(self, topic_id: str, numbered_events: list[tuple[int, dict]]) -> list[list[str]]:
+    def _build_digest_thread_updates(
+        self,
+        topic_id: str,
+        numbered_events: list[tuple[int, dict]],
+        language: str = "zh-CN",
+    ) -> list[list[str]]:
         seed_payload = self._load_thread_seed_payload(topic_id)
         existing_payload = self._load_thread_payload(topic_id)
         definitions = self._thread_definitions(
@@ -499,17 +548,19 @@ class IntelligenceService:
             matched_items = self._matched_thread_items(definition, items)
             if not matched_items:
                 continue
-            updates.append(self._build_digest_thread_update(definition, matched_items))
+            updates.append(self._build_digest_thread_update(definition, matched_items, language))
         return updates
 
-    def _build_digest_thread_update(self, definition: dict, matched_items: list[dict]) -> list[str]:
-        name = self._to_chinese(str(definition.get("name") or "未命名thread"))
+    def _build_digest_thread_update(self, definition: dict, matched_items: list[dict], language: str = "zh-CN") -> list[str]:
+        name = str(definition.get("name") or ("untitled thread" if language == "en" else "未命名thread"))
+        if language != "en":
+            name = self._to_chinese(name)
         summaries = " ".join(
-            self._build_chinese_analysis(str(item.get("analysis_body") or item.get("analysis_title") or item.get("title") or ""))
+            self._build_brief(str(item.get("analysis_body") or item.get("analysis_title") or item.get("title") or ""), language=language)
             for item in matched_items[:2]
         )
         watchpoints = "；".join(
-            self._to_chinese(str(point)).rstrip("。！？；：")
+            (str(point) if language == "en" else self._to_chinese(str(point))).rstrip("。！？；：.!?")
             for point in definition.get("watchpoints", [])[:2]
             if str(point).strip()
         )
@@ -520,10 +571,13 @@ class IntelligenceService:
             "│",
         ]
         if watchpoints:
-            lines.extend(self._build_box_content_lines(f"后续看点：{watchpoints}。"))
+            label = "Watch next" if language == "en" else "后续看点"
+            suffix = "." if language == "en" else "。"
+            lines.extend(self._build_box_content_lines(f"{label}: {watchpoints}{suffix}" if language == "en" else f"{label}：{watchpoints}{suffix}"))
         else:
-            callback_hint = self._build_chinese_analysis(str(definition.get("callback_hint", "")))
-            lines.extend(self._build_box_content_lines(f"后续判断：{callback_hint}"))
+            callback_hint = self._build_brief(str(definition.get("callback_hint", "")), language=language)
+            label = "Follow-up judgment" if language == "en" else "后续判断"
+            lines.extend(self._build_box_content_lines(f"{label}: {callback_hint}" if language == "en" else f"{label}：{callback_hint}"))
         lines.append("└")
         return lines
 
@@ -829,20 +883,24 @@ class IntelligenceService:
         cleaned = re.sub(r"The post .*? appeared first on .*\.?$", "", cleaned, flags=re.IGNORECASE).strip()
         return cleaned
 
-    def _translate_title(self, text: str) -> str:
+    def _translate_title(self, text: str, language: str = "zh-CN") -> str:
+        if language == "en":
+            return text
         return self._to_chinese(text)
 
-    def _build_digest_entry(self, number: int, event: dict) -> str:
-        title = self._translate_title(event["title"]).rstrip("。！？；：")
+    def _build_digest_entry(self, number: int, event: dict, language: str = "zh-CN") -> str:
+        title = self._translate_title(event["title"], language=language).rstrip("。！？；：")
         summary_source = event["headline_summary"] or event["list_summary"] or event["title"]
-        summary = self._build_chinese_brief(summary_source)
-        sources = self._build_source_references(event.get("sources", []))
+        summary = self._build_brief(summary_source, language=language)
+        sources = self._build_source_references(event.get("sources", []), language=language)
+        item_label = f"Brief {number}" if language == "en" else f"简讯{number}"
+        source_label = "Sources" if language == "en" else "信源"
         return "\n".join(
             [
-                f"┌─ **【简讯{number}】{title}**",
+                f"┌─ **【{item_label}】{title}**",
                 *self._build_box_content_lines(summary),
                 "│",
-                f"│ 信源：{sources}",
+                f"│ {source_label}: {sources}" if language == "en" else f"│ {source_label}：{sources}",
                 "└",
             ]
         )
@@ -860,9 +918,11 @@ class IntelligenceService:
         )
         return [f"│ {line}" for line in (wrapped or [text])]
 
-    def _build_source_references(self, sources: list[str]) -> str:
+    def _build_source_references(self, sources: list[str], language: str = "zh-CN") -> str:
         references = [self._format_source_reference(source) for source in sources if str(source).strip()]
-        return " ".join(references) if references else "暂无可展示信源"
+        if references:
+            return " ".join(references)
+        return "No displayable sources yet" if language == "en" else "暂无可展示信源"
 
     def _format_source_reference(self, source: str) -> str:
         source = str(source).strip()
@@ -873,9 +933,16 @@ class IntelligenceService:
         return source
 
     def _build_chinese_brief(self, text: str) -> str:
+        return self._build_brief(text, language="zh-CN")
+
+    def _build_brief(self, text: str, language: str = "zh-CN") -> str:
         text = " ".join(text.split())
         if not text:
+            if language == "en":
+                return "A real-time item was found and can be expanded later."
             return "当前抓到一条实时内容，后续可以继续展开。"
+        if language == "en":
+            return text if text.endswith((".", "!", "?")) else text + "."
         translated = self._to_chinese(text)
         return translated if translated.endswith(("。", "！", "？")) else translated + "。"
 
@@ -892,12 +959,34 @@ class IntelligenceService:
         translated = self._translator(text)
         return translated if translated else text
 
-    def _build_deep_analysis_markdown(self, event: dict) -> str:
-        title = self._translate_title(event["analysis_title"])
+    def _build_deep_analysis_markdown(self, event: dict, language: str = "zh-CN") -> str:
+        title = self._translate_title(event["analysis_title"], language=language)
+        if language == "en":
+            body = self._build_brief(event.get("analysis_body", ""), language=language)
+            source_count = len(event.get("sources", []))
+            evidence_note = (
+                "multiple sources support the signal, so it can be treated as event-level movement."
+                if source_count > 1
+                else "it currently relies mainly on one source, so keep some uncertainty in the judgment."
+            )
+            lines = [
+                f"# {title}",
+                "",
+                f"**Short take:** {body}",
+                "",
+                f"**Known facts:** The event has been recorded, and {evidence_note}",
+                "",
+                f"**Uncertainty:** {self._uncertainty_note(event, language=language)}",
+                "",
+                "**What to watch next:** Look for formal responses, independent follow-up reporting, platform data, or concrete legal/business movement. Repeated rewrites without new evidence should be discounted; new evidence or official action makes it worth continued tracking.",
+                "",
+            ]
+            return "\n".join(lines)
+
         body = self._build_chinese_analysis(event.get("analysis_body", ""))
         source_count = len(event.get("sources", []))
         evidence_note = "目前至少有多条来源支撑，可以把它当作已经进入事件层面的信号。" if source_count > 1 else "目前主要来自单条来源，判断时要保留一点余量。"
-        uncertainty_note = self._uncertainty_note(event)
+        uncertainty_note = self._uncertainty_note(event, language=language)
 
         lines = [
             f"# {title}",
@@ -957,8 +1046,14 @@ class IntelligenceService:
         lines.append("")
         return "\n".join(lines)
 
-    def _uncertainty_note(self, event: dict) -> str:
+    def _uncertainty_note(self, event: dict, language: str = "zh-CN") -> str:
         text = self._event_text(event)
+        if language == "en":
+            if any(keyword in text for keyword in ("reportedly", "allegedly", "rumor", "传闻", "疑似", "据报")):
+                return "Some details are still not fully confirmed; distinguish reporting, official statements, and social-platform emotion."
+            if len(event.get("sources", [])) > 1:
+                return "Multiple sources make the outline stronger, but impact and next steps still need fresh responses or data."
+            return "The evidence is still thin, so treat this as a watch signal rather than a settled conclusion."
         if any(keyword in text for keyword in ("reportedly", "allegedly", "rumor", "传闻", "疑似", "据报")):
             return "这里仍有未经完全确认的部分，尤其要区分媒体报道、当事方正式说法和社交平台情绪。"
         if len(event.get("sources", [])) > 1:

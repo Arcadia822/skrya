@@ -12,7 +12,8 @@ Injected into a `{{HOST_NAME}}` coding session for substantial work in this repo
 6. After the user confirms a new or expanded topic scope, require source candidate confirmation before saying it is connected or creating recurring automation.
 7. Source candidate confirmation must consider configured retrieval/source channels such as X and WeChat official accounts when available, not just generic web/news search.
 8. After sources and recurring delivery are configured, proactively ask whether to run one test digest now.
-9. Test runs must use the formal digest template, include `## 系统提示`, explain A/B/C follow-ups, and avoid saving `latest-digest.md` unless explicitly requested.
+9. Installation is language-neutral. Infer each topic's output language from topic creation or explicit user preference; currently support Chinese and English output while keeping the schema extensible.
+10. Test runs must use the formal digest template, include the topic-language system section (`## 系统提示` or `## System`), explain A/B/C follow-ups, and avoid saving `latest-digest.md` unless explicitly requested.
 10. When the host is channel-aware, bind recurring digest delivery to the creating user and current channel/conversation by default; do not resend or combine digests from other channels unless explicitly requested and supported.
 11. When improving recall, update the smallest relevant persistent instruction surface when allowed, such as `AGENTS.md`, `CLAUDE.md`, `TOOLS.md`, `tools.md`, or documented global memory.
 12. Resolve the Skrya data root before topic-scoped work; use `~/.skrya` by default and workspace `.skrya/data` when the host or container mount requires workspace-local state.

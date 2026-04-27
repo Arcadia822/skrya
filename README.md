@@ -40,6 +40,16 @@ Skrya 是 topic-driven 的。主要实体包括：
 
 完整实体图见 [docs/domain-model.md](docs/domain-model.md)，包括 `channel`、`delivery context`、`automation`、`run`、`ingest artifact` 和 `upgrade flow`。
 
+## 语言策略
+
+安装 Skrya 时不需要指定语言。语言是 topic 配置的一部分：
+
+- 新建 topic 时，默认使用用户创建 topic 时使用的语言作为 `topic.json.language`。
+- 用户也可以明确指定这个 topic 的简报输出语言。
+- 当前项目只承诺中文和英文输出；schema 和框架保留未来扩展更多语言的空间。
+- topic language 决定该 topic 的 digest 和 deep-analysis 输出语言。
+- 用户后续反馈时，agent 与用户交流应使用用户反馈本身的语言；除非用户明确要求，否则不要顺手改变 topic 的输出语言。
+
 ## Skill Pack
 
 根 `skrya` skill 负责把用户意图路由到子技能：

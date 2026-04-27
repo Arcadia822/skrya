@@ -39,7 +39,9 @@ Digest generation and digest delivery are separate steps.
 
 ## Output Rules
 
-- The top-level title must include the execution date and visible topic name: `# YYYY-MM-DD｜主题名｜每日简报`.
+- Use the topic's configured output language from `topic.json.language`. Supported output languages are Chinese and English; keep the template model extensible for future languages.
+- Do not derive digest language from install-time settings. Installation is language-neutral.
+- The top-level title must include the execution date and visible topic name. Chinese format: `# YYYY-MM-DD｜主题名｜每日简报`. English format: `# YYYY-MM-DD | Topic Name | Daily Briefing`.
 - Treat events as the primary unit, not articles.
 - Show concise source references in a separate source line for every digest item.
 - Do not show internal debug fields such as matched request ids.
@@ -57,11 +59,11 @@ Digest generation and digest delivery are separate steps.
 - Save scheduled or user-requested real digests to the Skrya data root run directory.
 - For test runs, use the same digest template in chat only and do not save it as `latest-digest.md` unless the user explicitly asks to save the preview.
 - File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
-- After the digest body, add a horizontal divider `---`, then a `## 系统提示` section.
-- The system prompt section must include execution time, execution status, scan time range, current Skrya version, and available follow-up operations.
+- After the digest body, add a horizontal divider `---`, then a system section in the topic language: `## 系统提示` for Chinese or `## System` for English.
+- The system section must include execution time, execution status, scan time range, current Skrya version, and available follow-up operations.
 - Include the agent framework/version and LLM model only when the host exposes them; silently omit unknown fields.
 - When the host can inspect the Skrya repository, check the latest visible Skrya version or upstream revision. If a newer version is available, ask the user whether to update and follow `docs/upgrade.md`.
-- Put feedback choices inside `## 系统提示` and explain them in natural Chinese: `A <numbers>` for deep analysis, `B <numbers> <name/intent>` for thread creation or updates, and `C <numbers/reason>` for durable topic memory changes.
+- Put feedback choices inside the system section and explain them in the topic language: `A <numbers>` for deep analysis, `B <numbers> <name/intent>` for thread creation or updates, and `C <numbers/reason>` for durable topic memory changes.
 - Do not put chatty prefaces before the digest body.
 - Do not append implementation notes such as saved file paths after the `## 系统提示` section.
 

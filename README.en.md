@@ -2,14 +2,14 @@
 
 > Topic-driven briefing workspace for agent-native daily digests, source curation, and event follow-up.
 
-**Language:** [简体中文](README.md) | English
+**Language:** [Chinese](README.md) | English
 
 [![Python](https://img.shields.io/badge/Python-%E2%89%A53.10-3776ab.svg)](https://www.python.org)
 [![Agent Skill Pack](https://img.shields.io/badge/Agent_Skill_Pack-Skrya-0ea5e9.svg)](#skill-pack)
 [![Tests](https://img.shields.io/badge/tests-unittest-10b981.svg)](#development)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Skrya turns natural-language tracking requests into durable briefing workflows. A user can say “每天帮我关注 BYD、新能源汽车和储能”， and an agent should turn that into a confirmed topic, source plan, schedule, test run, daily digest, follow-up analysis, and durable feedback memory.
+Skrya turns natural-language tracking requests into durable briefing workflows. A user can say "Send me a daily briefing about BYD, new energy vehicles, and energy storage", and an agent should turn that into a confirmed topic, source plan, schedule, test run, daily digest, follow-up analysis, and durable feedback memory.
 
 It is not a news app. It is the instruction, configuration, and runtime shape that lets agents operate a topic-driven briefing system without repeatedly rediscovering what the user meant. An excellent use of memory, at last.
 
@@ -17,14 +17,14 @@ It is not a news app. It is the instruction, configuration, and runtime shape th
 
 | User need | Skrya behavior |
 | --- | --- |
-| “每天早上推送国内外 X 的官媒信息” | Routes to topic setup before generic automation. |
-| “有哪些信源？” | Proposes concrete source candidates before claiming the topic is configured. |
-| “测试一轮” | Produces a preview using the real digest template, without saving it by default. |
-| “今天日报没有内容” | Diagnoses generation, delivery, channel binding, and empty-send failure. |
-| “展开第 3 条” | Uses the latest digest index for deep analysis. |
-| “这条线持续跟” | Creates or updates a `thread` below the topic. |
-| “这类少推” | Writes durable request preferences instead of treating feedback as disposable chat. |
-| “卸载 Skrya” | Offers skill-only, data-only, and complete uninstall modes. |
+| "Send official domestic and international X news every morning" | Routes to topic setup before generic automation. |
+| "What sources are configured?" | Proposes concrete source candidates before claiming the topic is configured. |
+| "Run a test" | Produces a preview using the real digest template, without saving it by default. |
+| "Why was today's briefing empty?" | Diagnoses generation, delivery, channel binding, and empty-send failure. |
+| "Expand item 3" | Uses the latest digest index for deep analysis. |
+| "Keep tracking this line" | Creates or updates a `thread` below the topic. |
+| "Show fewer items like this" | Writes durable request preferences instead of treating feedback as disposable chat. |
+| "Uninstall Skrya" | Offers skill-only, data-only, and complete uninstall modes. |
 
 ## Core Concepts
 
@@ -39,6 +39,16 @@ Skrya is topic-driven. The main durable entities are:
 - `template`: the output contract for setup, digest, test run, and analysis.
 
 See [docs/domain-model.md](docs/domain-model.md) for the full entity map, including `channel`, `delivery context`, `automation`, `run`, `ingest artifact`, and `upgrade flow`.
+
+## Language Policy
+
+Skrya does not require an install-time language setting. Language is part of each topic's configuration:
+
+- When a topic is created, default `topic.json.language` to the language the user used for topic creation.
+- The user may explicitly request a different briefing output language for that topic.
+- This project currently supports Chinese and English output. The schema and framework may remain extensible for more languages later.
+- Topic language controls digest and deep-analysis output for that topic.
+- When the user gives feedback later, the agent should converse in the language of that feedback. Do not change the topic output language unless the user explicitly asks.
 
 ## Skill Pack
 
@@ -76,52 +86,54 @@ Typical setup:
 Example prompts:
 
 ```text
-以后每天帮我关注 AI 浏览器有什么重要动态。
+Send me a daily briefing about important AI browser developments.
 ```
 
 ```text
-帮我持续跟比亚迪闪充站这条线；以后有新进展就接着往下讲。
+Keep tracking the BYD flash-charging rollout thread and continue it when new developments appear.
 ```
 
 ```text
-展开第 3 条，帮我判断这件事后面还值不值得看。
+Expand item 3 and tell me whether it is still worth watching.
 ```
 
 ## Digest Format
 
-Daily digest output uses one stable template: title, optional thread updates, uniform line boxes, compact source references, then `## 系统提示`.
+Daily digest output uses one stable template: title, optional thread updates, uniform line boxes, compact source references, then `## System`.
 
 ```markdown
-# 2026-04-26｜新能源汽车｜每日简报
+# 2026-04-26 | New Energy Vehicles | Daily Briefing
 
-## thread更新
+## Thread Updates
 
-┌─ **【thread】比亚迪闪充站**
-│ 这条线从发布会概念走到建设兑现，讨论重点已经变成站点是否真的铺开。
+┌─ **【thread】BYD flash-charging rollout**
+│ The thread has moved from launch claims to execution, with attention shifting
+│ to whether stations are actually coming online.
 │
-│ 后续看点：首批站点在哪些城市真正落地；真实补能效率是否被反复验证。
+│ Watch next: first live cities; repeatable real-world charging performance.
 └
 
-## 今日简讯
+## Today's Briefs
 
-┌─ **【简讯1】比亚迪闪充站首批落地城市名单开始清晰**
-│ 这条线开始从产品能力展示推进到具体站点和城市铺设进度。
+┌─ **【Brief 1】First BYD flash-charging cities start to become clear**
+│ This has moved from product demonstration to concrete station rollout and
+│ city coverage.
 │
-│ 信源：[example.com](https://example.com/byd-flash-charge-cities)
+│ Sources: [example.com](https://example.com/byd-flash-charge-cities)
 └
 
 ---
 
-## 系统提示
+## System
 
-- 执行时间：2026-04-26 12:19（Asia/Shanghai）
-- 执行状态：完成：生成 3 条简讯，更新 1 条thread。
-- 扫描时间范围：最近 24 小时（默认）
-- Skrya：0.1.0
-- 可继续操作：
-  - A. 详细分析指定今日简讯，例如：`A 3 5 12`。
-  - B. 创建新的thread，例如：`B 3 4 5 持续关注`。
-  - C. 调整简讯和thread的获取策略，例如：`C 6 7 我不喜欢，如果是 xxx 不要关注`。
+- Execution time: 2026-04-26 12:19 (Asia/Shanghai)
+- Status: Complete: generated 3 brief items and updated 1 thread.
+- Scan window: last 24 hours (default)
+- Skrya: 0.1.0
+- Available follow-ups:
+  - A. Deep-analyze specified brief items, for example: `A 3 5 12`.
+  - B. Create a new thread, for example: `B 3 4 5 keep tracking`.
+  - C. Adjust briefing and thread strategy, for example: `C 6 7 I dislike this; skip xxx next time`.
 ```
 
 The system section includes the Skrya version. Agent framework/version and LLM model are included only when the host exposes them.
@@ -168,10 +180,10 @@ Concrete thread paths for the fixture topic:
 `thread` details are documented in [docs/threads.md](docs/threads.md). The fixture topic is [topics/new-energy-vehicles/](topics/new-energy-vehicles/), including `thread-seeds.json`. A timeline can be replayed with:
 
 ```bash
-python3 -m skrya_orchestrator.main thread --topic new-energy-vehicles --thread "比亚迪闪充站" --root . --data-root .
+python3 -m skrya_orchestrator.main thread --topic new-energy-vehicles --thread "byd-flash-charge" --root . --data-root .
 ```
 
-The full example flow is in [docs/user-journeys.md](docs/user-journeys.md), especially “旅程 6：持续事件的时间线追踪”.
+The full example flow is in [docs/user-journeys.md](docs/user-journeys.md), especially journey 6 for continuing thread tracking.
 
 ## Retrieval
 
@@ -275,7 +287,7 @@ Examples below use `--data-root .` to run against checked-in fixtures. Real inst
 ```bash
 python3 -m skrya_orchestrator.main digest --topic new-energy-vehicles --root . --data-root . --sample
 python3 -m skrya_orchestrator.main deep-analysis --topic k-entertainment --event-number 3 --root . --data-root .
-python3 -m skrya_orchestrator.main thread --topic new-energy-vehicles --thread "比亚迪闪充站" --root . --data-root .
+python3 -m skrya_orchestrator.main thread --topic new-energy-vehicles --thread "byd-flash-charge" --root . --data-root .
 python3 -m skrya_orchestrator.main refresh-threads --topic new-energy-vehicles --root . --data-root .
 python3 -m skrya_orchestrator.main retrieval-request --topic k-entertainment --root . --data-root .
 python3 -m skrya_orchestrator.main ingest --topic k-entertainment --root . --data-root . --file runs/k-entertainment/ingest/input.json

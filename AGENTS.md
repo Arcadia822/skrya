@@ -31,7 +31,11 @@ This workspace is topic-driven.
 
 ## Output Defaults
 
-- Default output language is Chinese.
+- Do not set Skrya output language at installation time.
+- Resolve output language per topic from `topic.json.language`.
+- For a new topic, infer the topic output language from the language the user used while creating it, unless the user explicitly requests another briefing language.
+- Current supported output languages are Chinese and English. Keep the schema extensible for future languages, but do not claim support beyond Chinese and English.
+- Topic language controls digest and deep-analysis output. If the user gives feedback in another language, reply to that feedback in the feedback language without changing the topic output language unless the user asks.
 - Show compact source references in default daily digest output.
 - Do not show internal debug fields, request ids, or implementation metadata in user-facing output.
 - Keep enough traceability so complete sources can be returned later if the user asks.

@@ -48,7 +48,11 @@ Skrya is an umbrella skill pack. Route requests to the bundled skills that best 
 - Prefer real data by default.
 - Resolve the Skrya data root before topic-scoped file work. Use `SKRYA_DATA_ROOT` or `skrya data-root` when configured; otherwise default to `~/.skrya`.
 - In OpenClaw or container sandboxes where the host instructs you to keep state in the mounted workspace, use the workspace data root `.skrya/data`.
-- Default user-facing output language is Chinese.
+- Do not set output language at installation time. Resolve output language per topic.
+- Supported output languages are Chinese and English. Keep the language framework extensible for additional languages later, but do not claim support beyond Chinese and English yet.
+- For a new topic, infer `topic.json.language` from the language the user used while creating the topic, unless the user explicitly requests a different briefing language.
+- The topic language controls digest and deep-analysis output for that topic.
+- When the user gives feedback or asks follow-up questions, reply in the language the user used for that feedback, even if the topic digest language is different.
 - Show compact source references in daily digest output, after a blank separator line inside each numbered line box.
 - Do not show request ids or internal debug fields in normal output.
 - Preserve enough traceability to return complete sources later if the user asks.
@@ -84,7 +88,7 @@ When the user is not technical, behave like a briefing assistant rather than a r
 - let the user describe the area in everyday language
 - translate that into topic intent, tracked angles, sources, and schedule internally
 - explain only the next human decision the user needs to make
-- use words like "关注主题", "每日简报", "自动接入", and "试跑一次"
+- use natural terms in the user's current language, such as "关注主题" / "topic", "每日简报" / "daily briefing", "自动接入" / "automatically connect", and "试跑一次" / "test run"
 - avoid exposing terms such as raw `topic-id`, `brief.json`, `sources.json`, RSS, request ids, or skill names unless the user asks for implementation details
 
 ## External Retrieval Providers

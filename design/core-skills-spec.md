@@ -18,7 +18,7 @@ All bundled skills must follow these repository rules:
 
 1. Topic-scoped work requires an explicit `topic-id`.
 2. Prefer real data unless the task is explicitly about debugging sample flows.
-3. Default user-facing output language is Chinese.
+3. Output language is topic-scoped, not install-scoped. Infer `topic.json.language` at topic creation unless the user explicitly requests another briefing language. Current supported output languages are Chinese and English.
 4. Hide source lists and internal debug metadata by default.
 5. Preserve enough traceability to return sources later if the user asks.
 
