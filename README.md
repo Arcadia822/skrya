@@ -1,77 +1,79 @@
 # Skrya
 
-> Topic-driven briefing workspace for agent-native daily digests, source curation, and event follow-up.
+> 面向 agent 的 topic-driven 简报工作区：每日简报、信源确认、持续跟踪、深度分析和生命周期管理。
+
+**语言 / Language:** 简体中文 | [English](README.en.md)
 
 [![Python](https://img.shields.io/badge/Python-%E2%89%A53.10-3776ab.svg)](https://www.python.org)
 [![Agent Skill Pack](https://img.shields.io/badge/Agent_Skill_Pack-Skrya-0ea5e9.svg)](#skill-pack)
-[![Tests](https://img.shields.io/badge/tests-unittest-10b981.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-unittest-10b981.svg)](#开发)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Skrya turns natural-language tracking requests into durable briefing workflows. A user can say “每天帮我关注 BYD、新能源汽车和储能”， and an agent should turn that into a confirmed topic, source plan, schedule, test run, daily digest, follow-up analysis, and durable feedback memory.
+Skrya 把自然语言的信息跟踪需求变成可持续运行的 agent workflow。用户可以说“每天帮我关注 BYD、新能源汽车和储能”，agent 需要把它落实为确认过的 topic、信源计划、定时任务、测试简报、每日 digest、深度分析和长期反馈记忆。
 
-It is not a news app. It is the instruction, configuration, and runtime shape that lets agents operate a topic-driven briefing system without repeatedly rediscovering what the user meant. An excellent use of memory, at last.
+它不是新闻客户端，也不是固定后台服务。它是一套让 agent 少一点即兴发挥、多一点可复用判断的技能包和运行时约定。令人意外地，这有助于减少事故。
 
-## What Skrya Handles
+## Skrya 解决什么
 
-| User need | Skrya behavior |
+| 用户需求 | Skrya 行为 |
 | --- | --- |
-| “每天早上推送国内外 X 的官媒信息” | Routes to topic setup before generic automation. |
-| “有哪些信源？” | Proposes concrete source candidates before claiming the topic is configured. |
-| “测试一轮” | Produces a preview using the real digest template, without saving it by default. |
-| “今天日报没有内容” | Diagnoses generation, delivery, channel binding, and empty-send failure. |
-| “展开第 3 条” | Uses the latest digest index for deep analysis. |
-| “这条线持续跟” | Creates or updates a `thread` below the topic. |
-| “这类少推” | Writes durable request preferences instead of treating feedback as disposable chat. |
-| “卸载 Skrya” | Offers skill-only, data-only, and complete uninstall modes. |
+| “每天早上推送国内外 X 的官媒信息” | 先进入 topic 配置，而不是直接创建普通提醒。 |
+| “有哪些信源？” | 先给出具体候选信源和可自动接入状态，再宣称配置完成。 |
+| “测试一轮” | 使用正式 digest 模板输出预览，默认不保存为正式日报。 |
+| “今天日报没有内容” | 排查生成、投递、通道绑定和空消息发送。 |
+| “展开第 3 条” | 基于最新 digest index 做 deep analysis。 |
+| “这条线持续跟” | 在 topic 下创建或更新 `thread`。 |
+| “这类少推” | 写入长期偏好，而不是只在聊天里回应。 |
+| “卸载 Skrya” | 提供只卸技能、只清数据、完全卸载三种模式。 |
 
-## Core Concepts
+## 核心概念
 
-Skrya is topic-driven. The main durable entities are:
+Skrya 是 topic-driven 的。主要实体包括：
 
-- `topic`: one long-running tracking area.
-- `request`: user intent and ranking preferences inside a topic.
-- `source`: confirmed retrieval source or provider-neutral runtime retrieval capability.
-- `digest item`: a numbered event in a daily briefing.
-- `thread`: a continuing timeline below a topic and above individual digest items.
-- `channel`: an optional host conversation boundary used for delivery isolation.
-- `template`: the output contract for setup, digest, test run, and analysis.
+- `topic`：一个长期关注主题。
+- `request`：topic 内的用户意图、排序偏好和排除规则。
+- `source`：确认过的信源，或 provider-neutral 的运行时检索能力。
+- `digest item`：每日简报里的可见编号事件。
+- `thread`：比 topic 更小、比单条 digest item 更稳定的持续时间线。
+- `channel`：部分 host 暴露的会话/通道边界，用于定时投递隔离。
+- `template`：setup、digest、test run、analysis 的输出契约。
 
-See [docs/domain-model.md](docs/domain-model.md) for the full entity map, including `channel`, `delivery context`, `automation`, `run`, `ingest artifact`, and `upgrade flow`.
+完整实体图见 [docs/domain-model.md](docs/domain-model.md)，包括 `channel`、`delivery context`、`automation`、`run`、`ingest artifact` 和 `upgrade flow`。
 
 ## Skill Pack
 
-The root `skrya` skill routes user intent to bundled skills:
+根 `skrya` skill 负责把用户意图路由到子技能：
 
-| Skill | Purpose |
+| Skill | 作用 |
 | --- | --- |
-| `topic-curation` | Create or adjust a long-running topic. |
-| `source-curation` | Confirm source candidates and runtime retrieval capabilities. |
-| `request-curation` | Convert digest feedback into durable topic preferences. |
-| `digest` | Generate ranked daily briefings with traceable sources. |
-| `deep-analysis` | Expand one digest item or event into a concise analysis. |
+| `topic-curation` | 创建或调整长期关注主题。 |
+| `source-curation` | 确认候选信源和运行时检索能力。 |
+| `request-curation` | 把 digest 反馈沉淀成长期偏好。 |
+| `digest` | 生成带来源、编号和系统提示的每日简报。 |
+| `deep-analysis` | 展开某条 digest item 或具体事件。 |
 
-Important workflow rules:
+关键规则：
 
-- Topic-scoped work resolves an internal `topic-id` before file operations.
-- Recurring tracking is not satisfied by one-off chat research.
-- Source candidates are proposed and confirmed before recurring delivery is declared configured.
-- Channel-aware hosts bind scheduled delivery and resend to the creating channel by default.
-- Test runs use the real digest template and do not append saved-file notes.
-- Topical scheduled news pushes route to Skrya before generic reminders.
+- topic 相关文件操作前必须解析内部 `topic-id`。
+- 长期跟踪不能用一次性聊天搜索糊弄过去。
+- 用户确认主题范围后，要先确认信源，再宣称接入和创建任务。
+- 有 channel/conversation 的 host 默认把定时投递和补发绑定到创建通道。
+- 测试简报必须使用正式模板，不在前后追加闲聊或保存路径。
+- “每天推送 X 新闻”这类请求应先路由到 Skrya，而不是普通 automation。
 
-## User Journey
+## 用户流程
 
-Typical setup:
+典型 setup：
 
-1. User describes a tracking need in natural language.
-2. Agent confirms the durable topic intent.
-3. Agent proposes concrete sources and marks what can be automatically connected.
-4. User confirms the source plan.
-5. Agent creates or proposes the recurring automation for the current channel when the host supports it.
-6. Agent asks whether to run one test digest.
-7. Future `A` / `B` / `C` feedback updates analysis, threads, or preferences.
+1. 用户用自然语言描述长期关注需求。
+2. Agent 确认 durable topic intent。
+3. Agent 提出具体信源计划，并标注哪些可以自动接入。
+4. 用户确认信源计划。
+5. Agent 在 host 支持时创建或建议创建当前 channel 绑定的 recurring automation。
+6. Agent 询问是否现在试跑一次。
+7. 后续用户用 `A` / `B` / `C` 反馈触发深度分析、thread 或长期偏好更新。
 
-Example prompts:
+示例：
 
 ```text
 以后每天帮我关注 AI 浏览器有什么重要动态。
@@ -85,9 +87,9 @@ Example prompts:
 展开第 3 条，帮我判断这件事后面还值不值得看。
 ```
 
-## Digest Format
+## Digest 模板
 
-Daily digest output uses one stable template: title, optional thread updates, uniform line boxes, compact source references, then `## 系统提示`.
+每日简报使用稳定模板：标题、可选 thread 更新、统一 line box、紧凑来源引用，最后进入 `## 系统提示`。
 
 ```markdown
 # 2026-04-26｜新能源汽车｜每日简报
@@ -122,19 +124,19 @@ Daily digest output uses one stable template: title, optional thread updates, un
   - C. 调整简讯和thread的获取策略，例如：`C 6 7 我不喜欢，如果是 xxx 不要关注`。
 ```
 
-The system section includes the Skrya version. Agent framework/version and LLM model are included only when the host exposes them.
+系统提示会包含 Skrya 版本。agent framework/version 和 LLM model 只有在 host 可见时才展示。
 
 ## Runtime Data
 
-User topic data lives under the Skrya data root, not necessarily inside this repository.
+用户 topic 数据保存在 Skrya data root 下，不一定在本仓库里。
 
-Defaults:
+默认：
 
-- Normal desktop hosts: `~/.skrya`
-- OpenClaw/container-style mounted workspaces: `.skrya/data`
-- Override: `SKRYA_DATA_ROOT` or `--data-root`
+- 普通桌面 host：`~/.skrya`
+- OpenClaw / container / mounted workspace：`.skrya/data`
+- 覆盖方式：`SKRYA_DATA_ROOT` 或 `--data-root`
 
-Topic files:
+Topic 文件：
 
 ```text
 <skrya-data-root>/topics/<topic-id>/
@@ -146,7 +148,7 @@ Topic files:
   thread-seeds.json
 ```
 
-Runtime artifacts:
+运行产物：
 
 ```text
 <skrya-data-root>/runs/<topic-id>/
@@ -156,24 +158,24 @@ Runtime artifacts:
   threads/latest-threads.json
 ```
 
-Concrete thread paths for the fixture topic:
+示例 topic 的 thread 路径：
 
 ```text
 <skrya-data-root>/topics/new-energy-vehicles/thread-seeds.json
 <skrya-data-root>/runs/new-energy-vehicles/threads/latest-threads.json
 ```
 
-`thread` details are documented in [docs/threads.md](docs/threads.md). The fixture topic is [topics/new-energy-vehicles/](topics/new-energy-vehicles/), including `thread-seeds.json`. A timeline can be replayed with:
+`thread` 设计见 [docs/threads.md](docs/threads.md)。示例 topic 在 [topics/new-energy-vehicles/](topics/new-energy-vehicles/)，包含 `thread-seeds.json`。回放时间线：
 
 ```bash
 python3 -m skrya_orchestrator.main thread --topic new-energy-vehicles --thread "比亚迪闪充站" --root . --data-root .
 ```
 
-The full example flow is in [docs/user-journeys.md](docs/user-journeys.md), especially “旅程 6：持续事件的时间线追踪”.
+完整对话流程见 [docs/user-journeys.md](docs/user-journeys.md)，尤其是“旅程 6：持续事件的时间线追踪”。
 
 ## Retrieval
 
-Skrya can use third-party retrieval tools without making them durable dependencies. Long-term source configuration stores capabilities, not provider names:
+Skrya 可以使用第三方检索工具，但长期配置只记录能力，不绑定 provider 名称：
 
 - `web_search`
 - `news_search`
@@ -181,11 +183,11 @@ Skrya can use third-party retrieval tools without making them durable dependenci
 - `social_search`
 - `document_fetch`
 
-Provider output should be normalized into `skrya.ingest.v1`; digest and deep analysis consume normalized artifacts, not raw retrieval dumps. See [docs/external-retrieval-interface.md](docs/external-retrieval-interface.md).
+Provider 输出应先归一化为 `skrya.ingest.v1`；digest 和 deep analysis 只消费归一化产物，不直接消费 raw dump。接口见 [docs/external-retrieval-interface.md](docs/external-retrieval-interface.md)。
 
-## Installation
+## 安装
 
-Requirements: Python 3.10+.
+要求 Python 3.10+。
 
 ```bash
 git clone https://github.com/Arcadia822/skrya.git
@@ -194,13 +196,13 @@ python3 -m pip install -e .
 python3 -m skrya_orchestrator.main build-skill-pack --root . --host all
 ```
 
-Install the skill pack:
+安装 skill pack：
 
 ```bash
 python3 -m skrya_orchestrator.main install-skill-pack --root . --host auto
 ```
 
-Host-specific installs:
+指定 host：
 
 ```bash
 python3 -m skrya_orchestrator.main install-skill-pack --root . --host codex
@@ -208,39 +210,39 @@ python3 -m skrya_orchestrator.main install-skill-pack --root . --host claude
 python3 -m skrya_orchestrator.main install-skill-pack --root . --host openclaw
 ```
 
-Convenience scripts:
+便捷脚本：
 
 ```bash
 ./setup --host auto
 ./setup --host openclaw --data-root-mode workspace --migrate-data
 ```
 
-PowerShell:
+PowerShell：
 
 ```powershell
 ./setup.ps1 --host auto
 ```
 
-Manage the data root:
+管理 data root：
 
 ```bash
 python3 -m skrya_orchestrator.main data-root --root .
 python3 -m skrya_orchestrator.main data-root --root . --set .skrya/data --scope workspace --migrate
 ```
 
-`--migrate` and `--migrate-data` copy existing workspace `topics/` and `runs/` into the configured data root without deleting the old files.
+`--migrate` 和 `--migrate-data` 会把已有 workspace `topics/` 和 `runs/` 复制到配置的 data root，不会删除旧文件。
 
-## Uninstall
+## 卸载
 
-Skrya supports three uninstall modes. An agent should explain these choices and confirm the destructive ones before acting.
+Skrya 支持三种卸载模式。agent 应先解释选项，并在破坏性操作前确认。
 
-| Mode | What it removes | What it keeps |
+| Mode | 删除 | 保留 |
 | --- | --- | --- |
-| `skills-keep-data` | Installed Skrya skill directories and bundled skill links | Topic config, run history, data-root config |
-| `data-keep-skills` | Skrya data root and data-root config | Installed skills |
-| `complete` | Skills, Skrya data/config, and marked Skrya routing notes in global instruction files such as `AGENTS.md` | Unrelated user instructions and non-Skrya data |
+| `skills-keep-data` | 已安装 Skrya skill 目录和 bundled skill 链接 | topic 配置、运行历史、data-root config |
+| `data-keep-skills` | Skrya data root 和 data-root config | 已安装 skill |
+| `complete` | skill、Skrya 数据/config、全局指令文件中带标记的 Skrya routing note | 无关用户指令和非 Skrya 数据 |
 
-Commands:
+命令：
 
 ```bash
 python3 -m skrya_orchestrator.main uninstall-skill-pack --root . --host auto --mode skills-keep-data
@@ -248,13 +250,13 @@ python3 -m skrya_orchestrator.main uninstall-skill-pack --root . --host auto --m
 python3 -m skrya_orchestrator.main uninstall-skill-pack --root . --host auto --mode complete
 ```
 
-Complete uninstall removes only Skrya routing notes from global instruction memory. Marked blocks such as `SKRYA-ROUTING-NOTE` are safe to remove automatically; unrelated `AGENTS.md`, `CLAUDE.md`, `TOOLS.md`, or `tools.md` content must be preserved.
+完全卸载只移除全局 instruction memory 里的 Skrya routing note。带 `SKRYA-ROUTING-NOTE` 标记的块可以安全自动删除；无关的 `AGENTS.md`、`CLAUDE.md`、`TOOLS.md`、`tools.md` 内容必须保留。
 
-## Upgrade
+## 升级
 
-Read [docs/upgrade.md](docs/upgrade.md) before updating an existing install.
+更新已有安装前先读 [docs/upgrade.md](docs/upgrade.md)。
 
-Common flow:
+常用流程：
 
 ```bash
 PYTHONPATH=src python3 -m skrya_orchestrator.main version --root . --check-latest
@@ -264,11 +266,11 @@ PYTHONPATH=src python3 -m skrya_orchestrator.main build-skill-pack --root . --ho
 PYTHONPATH=src python3 -m unittest discover -s tests
 ```
 
-Current upgrade support includes migration from legacy `event-thread` runtime naming to `thread` naming. Old files are left in place for audit and rollback, because deleting evidence during migration would be a charmingly avoidable mistake.
+当前升级支持把旧 `event-thread` 运行时命名迁移到 `thread` 命名。旧文件会保留，用于审计和回滚。
 
 ## CLI Reference
 
-Examples below use `--data-root .` to run against checked-in fixtures. Real installs usually read from `~/.skrya`.
+下面示例使用 `--data-root .` 读取仓库 fixture。真实安装通常读取 `~/.skrya`。
 
 ```bash
 python3 -m skrya_orchestrator.main digest --topic new-energy-vehicles --root . --data-root . --sample
@@ -281,7 +283,7 @@ python3 -m skrya_orchestrator.main version --root . --check-latest
 python3 -m skrya_orchestrator.main uninstall-skill-pack --root . --host auto --mode skills-keep-data
 ```
 
-## Repository Layout
+## 仓库结构
 
 ```text
 .
@@ -306,26 +308,26 @@ python3 -m skrya_orchestrator.main uninstall-skill-pack --root . --host auto --m
 
 ## Source Of Truth
 
-For agent-facing behavior, edit source templates first:
+改 agent-facing 行为时，先改源模板：
 
-1. Root skill: `skill-pack.json` and `SKILL.md.tmpl`
-2. Bundled skills: `<skill>/skill.json` and `<skill>/SKILL.md.tmpl`
-3. Host prompts: `prompt-templates/`
-4. Build artifacts:
+1. 根 skill：`skill-pack.json` 和 `SKILL.md.tmpl`
+2. Bundled skills：`<skill>/skill.json` 和 `<skill>/SKILL.md.tmpl`
+3. Host prompts：`prompt-templates/`
+4. 重建产物：
 
 ```bash
 python3 -m skrya_orchestrator.main build-skill-pack --root . --host all
 ```
 
-Generated `SKILL.md` files and `agents/openai.yaml` files are checked in so the repository can be installed directly as a skill pack. `.skrya/hosts/`, `.skrya/data/`, `runs/`, `tmp/`, `__pycache__/`, and `*.egg-info/` are runtime or cache output.
+生成的 `SKILL.md` 和 `agents/openai.yaml` 会提交到仓库，以便仓库可直接作为 skill pack 安装。`.skrya/hosts/`、`.skrya/data/`、`runs/`、`tmp/`、`__pycache__/`、`*.egg-info/` 是运行或缓存产物。
 
-## Development
+## 开发
 
 ```bash
 python3 -m pip install -e .
 PYTHONPATH=src python3 -m unittest discover -s tests
 ```
 
-Tests cover skill-pack generation, topic resolution, digest formatting, source curation behavior, runtime retrieval, ingest normalization, thread timelines, upgrades, and skill documentation contracts.
+测试覆盖 skill-pack 生成、topic 解析、digest 格式、source curation、runtime retrieval、ingest normalization、thread timeline、upgrade、uninstall 和 skill 文档契约。
 
-Contribution guidelines are in [CONTRIBUTING.md](CONTRIBUTING.md). The license is [MIT](LICENSE).
+贡献指南见 [CONTRIBUTING.md](CONTRIBUTING.md)。许可证为 [MIT](LICENSE)。

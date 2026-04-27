@@ -11,6 +11,7 @@ class SkillContractTests(unittest.TestCase):
         content = (ROOT / "README.md").read_text(encoding="utf-8")
 
         self.assertIn("# Skrya", content)
+        self.assertIn("[English](README.en.md)", content)
         self.assertIn("skill-pack.json", content)
         self.assertIn("build-skill-pack", content)
         self.assertIn("install-skill-pack", content)
@@ -29,6 +30,17 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("skills-keep-data", content)
         self.assertIn("data-keep-skills", content)
         self.assertIn("complete", content)
+
+    def test_english_readme_is_available_from_homepage(self) -> None:
+        zh_readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        en_readme = (ROOT / "README.en.md").read_text(encoding="utf-8")
+
+        self.assertIn("**语言 / Language:** 简体中文 | [English](README.en.md)", zh_readme)
+        self.assertIn("**Language:** [简体中文](README.md) | English", en_readme)
+        self.assertIn("Topic-driven briefing workspace", en_readme)
+        self.assertIn("## Installation", en_readme)
+        self.assertIn("## Uninstall", en_readme)
+        self.assertIn("uninstall-skill-pack", en_readme)
 
     def test_new_energy_vehicles_topic_fixture_models_thread_journey(self) -> None:
         topic_dir = ROOT / "topics" / "new-energy-vehicles"
@@ -108,6 +120,7 @@ class SkillContractTests(unittest.TestCase):
 
     def test_root_and_bundled_skill_docs_exist(self) -> None:
         self.assertTrue((ROOT / "SKILL.md").exists(), "root umbrella skill should exist")
+        self.assertTrue((ROOT / "README.en.md").exists(), "English README should exist")
         self.assertTrue((ROOT / "skrya" / "SKILL.md").exists(), "installer-facing skrya skill should exist")
         self.assertTrue((ROOT / "topic-curation" / "SKILL.md").exists(), "topic-curation skill should exist")
         self.assertTrue((ROOT / "request-curation" / "SKILL.md").exists(), "request-curation skill should exist")
