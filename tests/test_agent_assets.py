@@ -113,6 +113,7 @@ class SkillPackTests(unittest.TestCase):
         self.assertEqual(0, exit_code)
         self.assertFalse((home / ".codex" / "skills" / "skrya").exists())
         self.assertFalse((home / ".codex" / "skills" / "skrya-digest").exists())
+        self.assertTrue((root / "SKILL.md").exists())
         self.assertTrue((data_root / "topics").exists())
         self.assertIn("skill: removed", stdout.getvalue())
 
@@ -140,6 +141,22 @@ class SkillPackTests(unittest.TestCase):
         self.assertFalse((root / ".skrya" / "data").exists())
         self.assertFalse((root / ".skrya" / "config.json").exists())
         self.assertIn("data-root: removed", stdout.getvalue())
+
+    def test_uninstall_refuses_to_clear_implicit_default_home_data_root(self) -> None:
+        root = self._make_root("skill-pack-uninstall-default-home")
+        home = self._make_root("fake-home-uninstall-default-home")
+        self._copy_template_inputs(root)
+        (home / ".skrya" / "topics").mkdir(parents=True)
+
+        with patch("pathlib.Path.home", return_value=home):
+            with self.assertRaisesRegex(ValueError, "Refusing to remove the default Skrya data root"):
+                SkillPackInstaller(root).uninstall(
+                    output_root=root,
+                    host_name="codex",
+                    mode="data-keep-skills",
+                )
+
+        self.assertTrue((home / ".skrya" / "topics").exists())
 
     def test_cli_uninstall_skill_pack_complete_removes_marked_global_instruction_note(self) -> None:
         root = self._make_root("skill-pack-uninstall-complete")
@@ -177,6 +194,7 @@ class SkillPackTests(unittest.TestCase):
         self.assertEqual(0, exit_code)
         self.assertFalse((home / ".codex" / "skills" / "skrya").exists())
         self.assertFalse((root / ".skrya" / "data").exists())
+        self.assertTrue((root / "SKILL.md").exists())
         content = global_agents.read_text(encoding="utf-8")
         self.assertIn("Keep this unrelated instruction.", content)
         self.assertIn("Keep this too.", content)

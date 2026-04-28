@@ -396,7 +396,7 @@ class SkillPackInstaller:
 
     def _uninstall_host(self, host: HostConfig) -> list[UninstallResult]:
         assert host.global_skill_dir is not None
-        target = (Path.home() / host.global_skill_dir).resolve(strict=False)
+        target = Path.home() / host.global_skill_dir
         paths = [target]
         for skill in self._builder._load_skill_sources():
             paths.append(target.parent / self._link_name(skill.name))
@@ -415,6 +415,11 @@ class SkillPackInstaller:
         resolution = resolve_data_root(output_root)
         results: list[UninstallResult] = []
         data_root = resolution.data_root
+        if resolution.source == "default-home":
+            raise ValueError(
+                "Refusing to remove the default Skrya data root without an explicit data-root config. "
+                "Run `skrya data-root --set ~/.skrya --scope home` first if this is intentional."
+            )
         if data_root.exists() or data_root.is_symlink():
             self._remove_path(data_root)
             results.append(UninstallResult(kind="data-root", target_path=data_root, mode="removed"))
