@@ -10,38 +10,95 @@ class SkillContractTests(unittest.TestCase):
     def test_readme_documents_installable_skill_pack_model(self) -> None:
         content = (ROOT / "README.md").read_text(encoding="utf-8")
 
+        self.assertIn('<div align="center">', content)
         self.assertIn("# Skrya", content)
+        self.assertIn("python-%E2%89%A53.10", content)
+        self.assertIn("skrya-v0.1.0", content)
+        self.assertEqual(2, content.count("img.shields.io"))
         self.assertIn("[English](README.en.md)", content)
-        self.assertIn("skill-pack.json", content)
-        self.assertIn("build-skill-pack", content)
-        self.assertIn("install-skill-pack", content)
-        self.assertIn(".skrya/hosts/", content)
-        self.assertIn("data-root", content)
-        self.assertIn("~/.skrya", content)
-        self.assertIn(".skrya/data", content)
-        self.assertIn("setup", content)
-        self.assertIn("thread --topic", content)
-        self.assertIn("refresh-threads --topic", content)
-        self.assertIn("thread-seeds.json", content)
-        self.assertIn("topics/new-energy-vehicles/", content)
+        self.assertIn("## 核心能力", content)
+        self.assertIn("每日简报", content)
+        self.assertIn("信源把关", content)
+        self.assertIn("组合扩展", content)
+        self.assertIn("agent-reach", content)
+        self.assertIn("wechat-article-search", content)
+        self.assertIn("不关注绕过登录墙", content)
+        self.assertIn("持续 thread", content)
+        self.assertIn("通道不串台", content)
+        self.assertIn("## 隐私", content)
+        self.assertIn("完全本地运作", content)
+        self.assertIn("不会主动上传", content)
+        self.assertNotIn("## 数据放在哪里", content)
+        self.assertNotIn("默认位置", content)
+        self.assertIn("INSTALL.md", content)
         self.assertIn("docs/domain-model.md", content)
-        self.assertIn("docs/upgrade.md", content)
+        self.assertIn("skills-keep-data", content)
+        self.assertIn("data-keep-skills", content)
+        self.assertIn("complete", content)
+        self.assertIn("CONTRIBUTING.md", content)
+        for command_detail in [
+            "install-skill-pack",
+            "uninstall-skill-pack",
+            "python3 -m",
+            "git clone",
+            "git pull",
+            "upgrade --root",
+            "data-root --root",
+            "```bash",
+        ]:
+            self.assertNotIn(command_detail, content)
+
+    def test_install_doc_contains_agent_facing_operations(self) -> None:
+        content = (ROOT / "INSTALL.md").read_text(encoding="utf-8")
+
+        self.assertIn("install-skill-pack", content)
+        self.assertIn("data-root --root", content)
         self.assertIn("uninstall-skill-pack", content)
         self.assertIn("skills-keep-data", content)
         self.assertIn("data-keep-skills", content)
         self.assertIn("complete", content)
+        self.assertIn("version --root . --check-latest", content)
+        self.assertIn("upgrade --root . --migrate-thread-naming", content)
+        self.assertIn("build-skill-pack --root . --host all", content)
+        self.assertIn("docs/upgrade.md", content)
 
     def test_english_readme_is_available_from_homepage(self) -> None:
         zh_readme = (ROOT / "README.md").read_text(encoding="utf-8")
         en_readme = (ROOT / "README.en.md").read_text(encoding="utf-8")
 
-        self.assertIn("**语言 / Language:** 简体中文 | [English](README.en.md)", zh_readme)
-        self.assertIn("**Language:** [Chinese](README.md) | English", en_readme)
-        self.assertIn("Topic-driven briefing workspace", en_readme)
-        self.assertIn("## Language Policy", en_readme)
-        self.assertIn("## Installation", en_readme)
+        self.assertIn("**简体中文** · [English](README.en.md)", zh_readme)
+        self.assertIn("[Chinese](README.md) · **English**", en_readme)
+        self.assertIn('<div align="center">', en_readme)
+        self.assertEqual(2, en_readme.count("img.shields.io"))
+        self.assertIn("Turn \"keep me updated on this\"", en_readme)
+        self.assertIn("## Quick Start", en_readme)
+        self.assertIn("## Core Value", en_readme)
+        self.assertIn("Daily Briefings", en_readme)
+        self.assertIn("Source Discipline", en_readme)
+        self.assertIn("Skill Composition", en_readme)
+        self.assertIn("agent-reach", en_readme)
+        self.assertIn("wechat-article-search", en_readme)
+        self.assertIn("bypassing login walls", en_readme)
+        self.assertIn("Continuing Threads", en_readme)
+        self.assertIn("Channel Isolation", en_readme)
+        self.assertIn("## Privacy", en_readme)
+        self.assertIn("runs fully locally", en_readme)
+        self.assertIn("does not proactively upload", en_readme)
+        self.assertNotIn("## Where Data Lives", en_readme)
         self.assertIn("## Uninstall", en_readme)
-        self.assertIn("uninstall-skill-pack", en_readme)
+        self.assertIn("INSTALL.md", en_readme)
+        self.assertNotIn("## Digest Example", en_readme)
+        for command_detail in [
+            "install-skill-pack",
+            "uninstall-skill-pack",
+            "python3 -m",
+            "git clone",
+            "git pull",
+            "upgrade --root",
+            "data-root --root",
+            "```bash",
+        ]:
+            self.assertNotIn(command_detail, en_readme)
         self.assertNotRegex(en_readme, r"[\u4e00-\u9fff]")
 
     def test_new_energy_vehicles_topic_fixture_models_thread_journey(self) -> None:
@@ -66,11 +123,10 @@ class SkillContractTests(unittest.TestCase):
         threads = (ROOT / "docs" / "threads.md").read_text(encoding="utf-8")
         user_journeys = (ROOT / "docs" / "user-journeys.md").read_text(encoding="utf-8")
 
-        self.assertIn("帮我持续跟比亚迪闪充站这条线；以后有新进展就接着往下讲", readme)
-        self.assertIn("<skrya-data-root>/topics/new-energy-vehicles/thread-seeds.json", readme)
-        self.assertIn("<skrya-data-root>/runs/new-energy-vehicles/threads/latest-threads.json", readme)
-        self.assertIn('thread --topic new-energy-vehicles --thread "比亚迪闪充站"', readme)
-        self.assertIn("旅程 6：持续事件的时间线追踪", readme)
+        self.assertIn("thread", readme)
+        self.assertNotIn("## 简报长什么样", readme)
+        self.assertNotIn("## thread更新", readme)
+        self.assertNotIn("比亚迪闪充站", readme)
         self.assertIn("旅程 6：持续事件的时间线追踪", threads)
         self.assertIn("thread更新不要压成一行泛泛而谈", threads)
         self.assertIn("┌─ **【thread】比亚迪闪充站**", threads)
@@ -123,6 +179,7 @@ class SkillContractTests(unittest.TestCase):
     def test_root_and_bundled_skill_docs_exist(self) -> None:
         self.assertTrue((ROOT / "SKILL.md").exists(), "root umbrella skill should exist")
         self.assertTrue((ROOT / "README.en.md").exists(), "English README should exist")
+        self.assertTrue((ROOT / "INSTALL.md").exists(), "agent-facing install guide should exist")
         self.assertTrue((ROOT / "skrya" / "SKILL.md").exists(), "installer-facing skrya skill should exist")
         self.assertTrue((ROOT / "topic-curation" / "SKILL.md").exists(), "topic-curation skill should exist")
         self.assertTrue((ROOT / "request-curation" / "SKILL.md").exists(), "request-curation skill should exist")
@@ -142,6 +199,13 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("MIT", readme)
         self.assertIn("build-skill-pack", contributing)
         self.assertIn("Use `thread`, not `event-thread`", contributing)
+        self.assertIn("## Architecture", contributing)
+        self.assertIn("## Runtime Data", contributing)
+        self.assertIn("~/.skrya", contributing)
+        self.assertIn(".skrya/data", contributing)
+        self.assertIn("<skrya-data-root>/topics/<topic-id>/", contributing)
+        self.assertIn("## Code Layout", contributing)
+        self.assertIn("## Technical Design Notes", contributing)
         self.assertIn("MIT License", license_text)
         self.assertIn('license = "MIT"', pyproject)
 
@@ -174,12 +238,13 @@ class SkillContractTests(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         english_readme = (ROOT / "README.en.md").read_text(encoding="utf-8")
 
-        for content in [root_skill, agents, topic_curation, readme, english_readme]:
+        for content in [root_skill, agents, topic_curation]:
             self.assertIn("topic.json.language", content)
 
         self.assertIn("Do not set output language at installation time", root_skill)
         self.assertNotIn("Default output language is Chinese", agents)
         self.assertIn("Supported output languages are Chinese and English", root_skill)
+        self.assertIn("语言跟着 topic 走", readme)
         self.assertIn("Chinese and English output", english_readme)
         self.assertIn("English format: `# YYYY-MM-DD | Topic Name | Daily Briefing`", digest)
         self.assertIn("`## System` for English", digest)
