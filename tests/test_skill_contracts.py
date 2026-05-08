@@ -32,6 +32,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertNotIn("默认位置", content)
         self.assertIn("INSTALL.md", content)
         self.assertIn("docs/domain-model.md", content)
+        self.assertIn("docs/delivery-bindings.md", content)
         self.assertIn("skills-keep-data", content)
         self.assertIn("data-keep-skills", content)
         self.assertIn("complete", content)
@@ -81,6 +82,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("bypassing login walls", en_readme)
         self.assertIn("Continuing Threads", en_readme)
         self.assertIn("Channel Isolation", en_readme)
+        self.assertIn("Delivery bindings", en_readme)
         self.assertIn("## Privacy", en_readme)
         self.assertIn("runs fully locally", en_readme)
         self.assertIn("does not proactively upload", en_readme)
@@ -102,7 +104,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertNotRegex(en_readme, r"[\u4e00-\u9fff]")
 
     def test_new_energy_vehicles_topic_fixture_models_thread_journey(self) -> None:
-        topic_dir = ROOT / "topics" / "new-energy-vehicles"
+        topic_dir = ROOT / "tests" / "fixtures" / "topics" / "new-energy-vehicles"
 
         topic = json.loads((topic_dir / "topic.json").read_text(encoding="utf-8"))
         brief = json.loads((topic_dir / "brief.json").read_text(encoding="utf-8"))
@@ -141,9 +143,15 @@ class SkillContractTests(unittest.TestCase):
         domain_model = (ROOT / "docs" / "domain-model.md").read_text(encoding="utf-8")
         upgrade = (ROOT / "docs" / "upgrade.md").read_text(encoding="utf-8")
         digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
+        delivery_bindings = (ROOT / "docs" / "delivery-bindings.md").read_text(encoding="utf-8")
 
         self.assertIn("| `thread` |", domain_model)
         self.assertIn("| `channel` |", domain_model)
+        self.assertIn("| `delivery binding` |", domain_model)
+        self.assertIn("skrya.delivery-bindings.v1", delivery_bindings)
+        self.assertIn("host_metadata", delivery_bindings)
+        self.assertIn("do not scan all topics", delivery_bindings)
+        self.assertIn("DeliveryBindingService.match_current_context", delivery_bindings)
         self.assertIn("upgrade --root . --migrate-thread-naming", upgrade)
         self.assertIn("current Skrya version", digest)
         self.assertIn("agent framework/version and LLM model only when the host exposes them", digest)
@@ -458,6 +466,30 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("do not invent a channel boundary", topic_curation)
         self.assertIn("没有通道概念的 agent 不需要伪造通道", user_journeys)
 
+    def test_channel_bound_followups_do_not_use_global_topic_scope(self) -> None:
+        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        topic_curation = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
+        digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        full_prompt = (ROOT / "prompt-templates" / "skrya-full.md.tmpl").read_text(encoding="utf-8")
+        lite_prompt = (ROOT / "prompt-templates" / "skrya-lite.md.tmpl").read_text(encoding="utf-8")
+        user_prompt = (ROOT / "prompt-templates" / "skrya-user.md.tmpl").read_text(encoding="utf-8")
+        user_journeys = (ROOT / "docs" / "user-journeys.md").read_text(encoding="utf-8")
+        topic_template = (ROOT / "design" / "topic-template-spec.md").read_text(encoding="utf-8")
+
+        for content in [root_skill, topic_curation, digest, agents, full_prompt, lite_prompt, user_prompt]:
+            self.assertIn("delivery-bindings.json", content)
+
+        for content in [root_skill, topic_curation, digest, agents]:
+            self.assertIn("current channel", content)
+            self.assertIn("do not scan all topics", content.lower())
+
+        self.assertIn("skrya.delivery-bindings.v1", topic_template)
+        self.assertIn("host_metadata", topic_template)
+        self.assertIn("current-channel-only", user_journeys)
+        self.assertIn("扫描所有 topic", user_journeys)
+        self.assertIn("Resolve against `delivery-bindings.json` first", user_prompt)
+
     def test_confirmed_topic_expansion_requires_source_confirmation_before_automation(self) -> None:
         root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         topic_curation = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
@@ -533,12 +565,41 @@ class SkillContractTests(unittest.TestCase):
 
         self.assertIn("Do not write conversational prefaces", root_skill)
         self.assertIn("Do not append implementation notes", digest)
-        self.assertIn("do not save test-run previews by default", digest)
+        self.assertIn("Do not save test-run previews by default", digest)
         self.assertIn("A <编号>", root_skill)
         self.assertIn("旅程 11：试跑输出必须等同正式日报模板", user_journeys)
         self.assertIn("不要先发一段“我跑一轮测试”的闲聊", user_journeys)
         self.assertIn("只说“可以回复 A 2”，但不解释 A/B/C 的含义", user_journeys)
-        self.assertIn("把测试产物写入或宣称写入 `latest-digest.md`", user_journeys)
+        self.assertIn("把测试产物写入 timestamped digest 文件", user_journeys)
+
+    def test_digest_template_and_automation_prompt_contract_are_file_based(self) -> None:
+        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
+        topic_curation = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        full_prompt = (ROOT / "prompt-templates" / "skrya-full.md.tmpl").read_text(encoding="utf-8")
+        lite_prompt = (ROOT / "prompt-templates" / "skrya-lite.md.tmpl").read_text(encoding="utf-8")
+        user_prompt = (ROOT / "prompt-templates" / "skrya-user.md.tmpl").read_text(encoding="utf-8")
+        user_journeys = (ROOT / "docs" / "user-journeys.md").read_text(encoding="utf-8")
+        default_template = (ROOT / "digest" / "templates" / "default-digest.md").read_text(encoding="utf-8")
+
+        for content in [root_skill, digest, topic_curation, agents, full_prompt, lite_prompt, user_prompt]:
+            self.assertIn("digest template file", content)
+            self.assertIn("digest/templates/default-digest.md", content)
+            self.assertIn("latest-digest.md", content)
+
+        for content in [root_skill, digest, topic_curation, agents]:
+            self.assertIn("digest-YYYYMMDDTHHMMSS+0800.md", content)
+            self.assertIn("symlink or pointer", content)
+
+        self.assertIn("digest-YYYYMMDDTHHMMSS+0800.md", user_journeys)
+        self.assertIn("软链接或 pointer", user_journeys)
+        self.assertIn("Automation Prompt Contract", topic_curation)
+        self.assertIn("自动化 prompt 合同", user_journeys)
+        self.assertIn("self-contained automation prompt", user_prompt)
+        self.assertIn("digest.md` contains ranking and judgment rules", topic_curation)
+        self.assertIn("not the output layout template", digest)
+        self.assertIn("┌─ **【简讯1】事件标题**", default_template)
 
 
 if __name__ == "__main__":

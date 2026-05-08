@@ -19,6 +19,7 @@ Read these files before drafting the digest:
 - `<skrya-data-root>/topics/<topic-id>/brief.json`
 - `<skrya-data-root>/topics/<topic-id>/sources.json`
 - `<skrya-data-root>/topics/<topic-id>/digest.md`
+- topic-specific digest template file when configured; otherwise `digest/templates/default-digest.md`
 
 If available, also read the latest event candidates or prior digest artifacts for that topic.
 When runtime retrieval was used, consume only normalized `skrya.ingest.v1` artifacts under `<skrya-data-root>/runs/<topic-id>/ingest/`. Do not consume raw provider output directly.
@@ -32,6 +33,8 @@ Digest generation and digest delivery are separate steps.
 
 - Before scheduled delivery, manual resend, or "why was today's digest empty" diagnosis, resolve the topic. In channel-aware hosts, also resolve the channel/conversation binding for the current request.
 - In channel-aware hosts, only send the digest bound to the current channel/conversation unless the user explicitly names another target and the host supports cross-channel delivery.
+- In channel-aware hosts, treat the current channel/conversation as the default visibility boundary. Resolve against `delivery-bindings.json` first; do not scan all topics or all generated digests from the current channel.
+- If no topic is bound to the current channel/conversation, ask which topic the user means or explain that no binding was found. Do not resend, combine, or repair every topic.
 - In hosts without channel/conversation concepts, fall back to the resolved topic, user intent, and available automation context.
 - If multiple same-channel topics are plausible in a channel-aware host, ask the user which digest they mean instead of sending all generated digests.
 - Do not bundle unrelated topic digests from other channels into a resend response, even when they share a scheduled run time.
@@ -40,6 +43,8 @@ Digest generation and digest delivery are separate steps.
 ## Output Rules
 
 - Use the topic's configured output language from `topic.json.language`. Supported output languages are Chinese and English; keep the template model extensible for future languages.
+- Use the configured digest template file as the output layout contract. Do not reconstruct the report shape from memory when a template file is available.
+- Treat `digest.md` as ranking, exclusion, and judgment guidance; it is not the output layout template.
 - Do not derive digest language from install-time settings. Installation is language-neutral.
 - The top-level title must include the execution date and visible topic name. Chinese format: `# YYYY-MM-DD｜主题名｜每日简报`. English format: `# YYYY-MM-DD | Topic Name | Daily Briefing`.
 - Treat events as the primary unit, not articles.
@@ -56,8 +61,9 @@ Digest generation and digest delivery are separate steps.
   └
   ```
 - Keep the tone concise, calm, and readable in chat.
-- Save scheduled or user-requested real digests to the Skrya data root run directory.
-- For test runs, use the same digest template in chat only and do not save it as `latest-digest.md` unless the user explicitly asks to save the preview.
+- Save scheduled or user-requested real digests to the Skrya data root run directory with an absolute execution-time filename such as `digest-YYYYMMDDTHHMMSS+0800.md`.
+- Keep `latest-digest.md` as a symlink or pointer to the newest real digest artifact; do not treat it as the canonical digest filename.
+- For test runs, use the same digest template in chat only and do not save a timestamped artifact or update `latest-digest.md` unless the user explicitly asks to save the preview.
 - File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
 - After the digest body, add a horizontal divider `---`, then a system section in the topic language: `## 系统提示` for Chinese or `## System` for English.
 - The system section must include execution time, execution status, scan time range, current Skrya version, and available follow-up operations.
@@ -69,13 +75,13 @@ Digest generation and digest delivery are separate steps.
 
 ## Required Behavior
 
-1. Load topic configuration and topic-specific digest guidance.
+1. Load topic configuration, topic-specific digest guidance, and the digest template file.
 2. Consume the available normalized `skrya.ingest.v1` items or event candidates.
 3. Remove obvious duplicates and low-value fragments.
 4. Rank events using the topic brief and digest standard.
 5. Write every event as a compact line box with stable visible numbers in the first line and source references after a blank separator line.
 6. Keep the format uniform from the first item to the last.
-7. Save the digest markdown file under `<skrya-data-root>/runs/<topic-id>/latest-digest.md` only for scheduled or user-requested real digests; do not save test-run previews by default.
+7. Save the digest markdown file under `<skrya-data-root>/runs/<topic-id>/` with an absolute execution-time filename only for scheduled or user-requested real digests; then update `latest-digest.md` as a symlink or pointer to that file. Do not save test-run previews by default.
 8. Preserve enough traceability so that if the user later asks for the source of an item, you can return the complete corresponding sources.
 9. If a seeded thread matches today’s items, write a concise line-box thread update before the normal numbered items. Do not include a "today matched digest items" line in the thread update.
 10. End the digest body, insert `---`, and write a `## 系统提示` section with execution metadata and A/B/C feedback options.

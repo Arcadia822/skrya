@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import textwrap
 import xml.etree.ElementTree as ET
@@ -97,8 +98,9 @@ class IntelligenceService:
         artifact_dir = self._data_root / "runs" / topic_id
         artifact_dir.mkdir(parents=True, exist_ok=True)
 
-        digest_path = artifact_dir / "latest-digest.md"
+        digest_path = artifact_dir / self._digest_artifact_name(execution_time)
         digest_path.write_text(markdown, encoding="utf-8")
+        self._point_latest_artifact(artifact_dir / "latest-digest.md", digest_path)
 
         event_index_path = artifact_dir / "latest-digest-events.json"
         event_index_path.write_text(
@@ -122,6 +124,19 @@ class IntelligenceService:
             digest_path=digest_path,
             artifact_path=event_index_path,
         )
+
+    @staticmethod
+    def _digest_artifact_name(execution_time: datetime) -> str:
+        return f"digest-{execution_time:%Y%m%dT%H%M%S%z}.md"
+
+    @staticmethod
+    def _point_latest_artifact(latest_path: Path, target_path: Path) -> None:
+        if latest_path.exists() or latest_path.is_symlink():
+            latest_path.unlink()
+        try:
+            latest_path.symlink_to(os.path.relpath(target_path, latest_path.parent))
+        except OSError:
+            latest_path.write_text(target_path.read_text(encoding="utf-8"), encoding="utf-8")
 
     def _build_digest_title(self, topic_id: str, execution_time: datetime, language: str) -> str:
         topic_name = self._topic_display_name(topic_id)

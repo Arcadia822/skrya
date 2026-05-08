@@ -41,6 +41,7 @@ Only show the internal id when it helps confirm a newly created durable topic, a
 
 First clarify the durable briefing intent the user wants to keep seeing, then translate that into stable configuration language. Confirm the proposed wording before creating or changing topic files.
 For recurring delivery, also preserve the delivery context the host exposes. In channel-aware hosts, that includes the creating user and current channel or conversation.
+For channel-aware hosts, write delivery context into topic state as `delivery-bindings.json`; do not rely on the scheduled message appearing in the later chat session.
 Do not ask for or set a language during installation. For each topic, set `topic.json.language` from the user's topic-creation language unless the user explicitly requests another briefing language. Skrya currently supports Chinese and English output; the schema may remain extensible for future languages.
 The topic language controls digest and deep-analysis output. If the user later gives feedback in another language, converse in the feedback language while preserving the topic's configured output language unless the user asks to change it.
 
@@ -139,6 +140,7 @@ For ongoing tracking, a recurring digest is the default target experience.
   - non-automation: the agent has no usable automation path in the current environment
 - In automation-capable mode, ask whether the user wants the recurring digest created and what time it should run.
 - In channel-aware hosts, bind the recurring digest to the current channel/conversation by default and keep the creating user/workspace identity when available.
+- For channel-aware hosts, write or update `delivery-bindings.json` before treating the automation as configured.
 - In hosts without channel/conversation concepts, do not invent a channel boundary; rely on topic identity, user intent, and available automation context.
 - Do not configure cross-channel delivery unless the user explicitly requests it and the host supports that target. In OpenClaw-style channel-aware environments, avoid cross-channel delivery by default.
 - In user-mediated mode, explicitly suggest the recurring automation step and give the user a ready-to-send prompt.
@@ -148,6 +150,25 @@ For ongoing tracking, a recurring digest is the default target experience.
 - Do not assume the user wants a test run.
 - Do not present collected results in chat as if that replaces the recurring workflow the user asked for.
 
+## Automation Prompt Contract
+
+When creating a recurring digest automation directly, or giving the user a ready-to-send automation prompt, the prompt must be self-contained. Do not rely on the creating chat's transient memory.
+
+Include these fields or instructions:
+
+- use Skrya and the `digest` workflow for a resolved topic, not a generic news summary
+- resolved `topic-id` and visible topic name
+- Skrya data root policy, including workspace `.skrya/data` for OpenClaw or mounted-workspace environments when applicable
+- delivery context: creating user and current channel/conversation when the host exposes them
+- topic-state binding: create or update `delivery-bindings.json` for that host/channel/user/workspace binding; the automation must not rely on later chat context
+- required reads before generation: `topic.json`, `brief.json`, `sources.json`, `digest.md`, and the configured digest template file
+- default template fallback: use `digest/templates/default-digest.md` when no topic-specific digest template is configured
+- distinction that `digest.md` contains ranking and judgment rules, while the template file controls output layout
+- output rules from the template, including uniform line boxes, source references, `---`, and the topic-language system section
+- artifact policy: save real scheduled digests as `digest-YYYYMMDDTHHMMSS+0800.md` under `<skrya-data-root>/runs/<topic-id>/`, then update `latest-digest.md` as a symlink or pointer
+- delivery policy: send only to the bound channel/conversation unless the user explicitly configured another supported target, and verify non-empty delivery when the host supports it
+- do not perform or save a test run unless the user separately asks for one
+
 ## File Strategy
 
 Prefer these write targets:
@@ -156,6 +177,7 @@ Prefer these write targets:
 - `brief.json` for durable tracking requests
 - `digest.md` for ranking, exclusion, and digest judgment rules
 - `sources.json` for confirmed RSS sources and `runtime-retrieval` capability sources
+- `delivery-bindings.json` for host/channel/user/workspace bindings and automation ids when the host exposes delivery context
 
 Prefer the smallest config change that matches the user's intent.
 
@@ -190,8 +212,11 @@ Keep the interaction practical and short:
 For multi-user or multi-channel hosts that expose channel/conversation context, treat the channel as part of the durable automation boundary.
 
 - The topic config describes what to track; the automation binding describes where to deliver it when the host exposes delivery context.
+- Store delivery bindings as Skrya-owned normalized JSON in `delivery-bindings.json`, using schema `skrya.delivery-bindings.v1`. Do not store raw host or agent context as required core state; put agent-specific extras under `host_metadata`.
 - A topic created from one channel should be delivered back to that same channel unless the user explicitly names another channel and the host supports it.
 - A补发 request should resend only the topic bound to the current channel/conversation. If the current channel has multiple plausible topics, ask which one.
+- For feedback, empty-digest diagnosis, missed delivery repair, or manual resend, default to current-channel scope. First match the current host/channel/conversation against `delivery-bindings.json`; do not scan all topics or operate on all topics from the current channel.
+- If no matching binding exists, say the current channel has no known Skrya topic binding and ask which topic the user means. Do not send any digest until the binding is resolved or explicitly overridden.
 - Do not merge or forward another channel's topic digest into the current channel, even when it was generated at the same scheduled time.
 - When the host supports send-result inspection, require explicit sending and non-empty message verification after scheduled delivery.
 

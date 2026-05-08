@@ -8,6 +8,8 @@ This workspace is topic-driven.
 - Do not ask nontechnical users for raw `topic-id` values when a natural topic name can be mapped or confirmed.
 - When the host exposes a channel/conversation concept, topic automation is channel-scoped by default. Bind each recurring digest task to the creating user and the channel/conversation where it was created.
 - In channel-aware hosts, scheduled delivery, manual resend, and "why was today's digest empty" diagnosis must use the original topic + channel binding. Do not collect or resend digests from other channels just because they ran in the same time window.
+- In channel-aware hosts, the current conversation is the default visibility boundary. Use topic-scoped `delivery-bindings.json` to match the current host/channel/conversation and creating user/workspace when available before taking action.
+- If the current channel has no matching binding, do not scan all topics, send all digests, or repair every automation. Ask which topic the user means or explain the missing binding first.
 - In hosts without channel/conversation concepts, fall back to topic identity, user intent, and available automation context instead of inventing a channel boundary.
 - Do not deliver across channels unless the user explicitly requests a cross-channel target and the current host clearly supports it. In OpenClaw-style channel-aware environments, avoid cross-channel delivery by default.
 - Resolve the Skrya data root before topic-scoped file work.
@@ -37,13 +39,16 @@ This workspace is topic-driven.
 - Current supported output languages are Chinese and English. Keep the schema extensible for future languages, but do not claim support beyond Chinese and English.
 - Topic language controls digest and deep-analysis output. If the user gives feedback in another language, reply to that feedback in the feedback language without changing the topic output language unless the user asks.
 - Show compact source references in default daily digest output.
+- Daily digest layout is controlled by a digest template file. Use the configured topic template when present; otherwise use the default template file `digest/templates/default-digest.md`.
+- Treat `digest.md` as ranking, exclusion, and judgment guidance, not as the output layout template.
+- Real digest artifacts should use absolute execution-time filenames such as `digest-YYYYMMDDTHHMMSS+0800.md`; `latest-digest.md` should be a symlink or pointer to the newest real artifact.
 - Do not show internal debug fields, request ids, or implementation metadata in user-facing output.
 - Keep enough traceability so complete sources can be returned later if the user asks.
 
 ## Digest Defaults
 
 - Use the `digest` skill when the user wants a topic digest or daily briefing.
-- Save the digest as a file under `<skrya-data-root>/runs/<topic-id>/latest-digest.md`.
+- Save real scheduled or user-requested digest output under `<skrya-data-root>/runs/<topic-id>/` with an absolute execution-time filename, then update `latest-digest.md` as a symlink or pointer to that artifact.
 - When resending or diagnosing a scheduled digest in a channel-aware host, first resolve the topic and channel/conversation binding for the current message. If multiple same-channel topics are plausible, ask a short clarification instead of sending all of them.
 - After scheduled delivery, prefer explicit message-tool sending and verify that the sent content is non-empty in the target channel when the host supports verification.
 - Render every digest item as a compact line box, with the number and title merged into the first line and source references after a blank separator line.
@@ -75,6 +80,8 @@ This workspace is topic-driven.
 - If the current agent can create automation after confirmation, proactively ask whether to create the daily digest task and what time it should run.
 - If the current agent cannot create automation directly but can guide the user, explicitly suggest creating it and give the user a ready-to-send prompt.
 - If the current agent has no automation path in the environment, say so clearly and still provide a ready-to-send prompt for a more capable agent.
+- Recurring digest automation prompts must be self-contained Skrya digest contracts: include topic id, data root, delivery context, required topic files, digest template file with default fallback, normalized `delivery-bindings.json` update, timestamped artifact naming, `latest-digest.md` symlink/pointer behavior, and non-empty delivery verification.
+- `delivery-bindings.json` is Skrya-owned normalized JSON. Do not store raw OpenClaw/Codex/Claude context as core state; put agent-specific fields under `host_metadata`.
 - After configuration and automation handling, ask whether the user wants a test run instead of running the digest automatically.
 - Keep the test run as a separate explicit yes/no decision instead of silently bundling it into the automation prompt.
 - After sources and recurring delivery are fully configured, proactively ask whether to run one test digest now. Do not wait for the user to discover this option.
@@ -93,7 +100,7 @@ This workspace is topic-driven.
 
 - A test run should render with the same digest template as a real daily digest: title, uniform line boxes, source references, `---`, and `## 系统提示`.
 - Do not prepend chatty status text before the digest body, and do not append implementation notes such as "已写入测试产物".
-- Test-run output is for preview and should not be saved as `<skrya-data-root>/runs/<topic-id>/latest-digest.md` unless the user explicitly asks to save it.
+- Test-run output is for preview and should not be saved as a timestamped digest artifact or update `<skrya-data-root>/runs/<topic-id>/latest-digest.md` unless the user explicitly asks to save it.
 - The `## 系统提示` section must explain follow-up commands in user-readable Chinese, for example `A 2` means deep analysis of item 2.
 
 ## Skill Pack Defaults

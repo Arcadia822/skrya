@@ -130,6 +130,7 @@ class SkillPackBuilder:
             written.append(
                 self._write_text(skill_dir / "agents" / "openai.yaml", self._render_openai_metadata(skill))
             )
+            written.extend(self._copy_skill_asset_dir(skill.template_path.parent, skill_dir, "templates"))
 
         return written
 
@@ -180,6 +181,16 @@ class SkillPackBuilder:
     def _load_prompt_templates(self) -> list[Path]:
         prompt_root = self._template_root / "prompt-templates"
         return sorted(prompt_root.glob(f"*{PROMPT_TEMPLATE_SUFFIX}"))
+
+    def _copy_skill_asset_dir(self, source_skill_dir: Path, output_skill_dir: Path, dirname: str) -> list[Path]:
+        source_dir = source_skill_dir / dirname
+        if not source_dir.exists():
+            return []
+        target_dir = output_skill_dir / dirname
+        if source_dir.resolve() != target_dir.resolve():
+            shutil.rmtree(target_dir, ignore_errors=True)
+            shutil.copytree(source_dir, target_dir)
+        return sorted(path for path in target_dir.rglob("*") if path.is_file())
 
     def _render_skill_markdown(self, skill: SkillSource) -> str:
         header = "\n".join(

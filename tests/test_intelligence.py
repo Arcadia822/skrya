@@ -8,6 +8,7 @@ from skrya_orchestrator.intelligence import IntelligenceService
 
 
 ROOT = Path(__file__).resolve().parents[1]
+FIXTURE_TOPICS_ROOT = ROOT / "tests" / "fixtures" / "topics"
 TEST_TEMP_ROOT = ROOT / "tmp" / "unit-tests"
 TEST_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -45,6 +46,10 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertNotIn("$deep-analysis", digest.markdown)
         self.assertNotIn("REQ-001", digest.markdown)
         self.assertTrue(digest.digest_path.exists())
+        self.assertRegex(digest.digest_path.name, r"^digest-\d{8}T\d{6}\+0800\.md$")
+        latest_path = root / "runs" / "k-entertainment" / "latest-digest.md"
+        self.assertTrue(latest_path.is_symlink())
+        self.assertEqual(digest.digest_path, latest_path.resolve())
         self.assertTrue(digest.artifact_path.exists())
 
     def test_generate_digest_resolves_topic_name_for_nontechnical_users(self) -> None:
@@ -57,7 +62,7 @@ class IntelligenceServiceTests(unittest.TestCase):
 
         self.assertIn("┌─ **【简讯1】", digest.markdown)
         self.assertIn("某女团练习生出圈片段从 INS 扩散到韩媒", digest.markdown)
-        self.assertEqual(root / "runs" / "k-entertainment" / "latest-digest.md", digest.digest_path)
+        self.assertRegex(digest.digest_path.name, r"^digest-\d{8}T\d{6}\+0800\.md$")
 
     def test_generate_digest_uses_topic_language_for_english_output(self) -> None:
         root = self._make_root("digest-english-topic")
@@ -292,7 +297,7 @@ class IntelligenceServiceTests(unittest.TestCase):
         root = self._make_root("thread-digest")
         self._write_new_energy_topic(root)
         self._write_byd_thread_seed(root)
-        sample_events = json.loads((ROOT / "topics" / "new-energy-vehicles" / "sample-events.json").read_text(encoding="utf-8"))
+        sample_events = json.loads((FIXTURE_TOPICS_ROOT / "new-energy-vehicles" / "sample-events.json").read_text(encoding="utf-8"))
         topic_dir = root / "topics" / "new-energy-vehicles"
         (topic_dir / "sample-events.json").write_text(
             json.dumps(sample_events, ensure_ascii=False, indent=2),
@@ -314,7 +319,7 @@ class IntelligenceServiceTests(unittest.TestCase):
         root = self._make_root("thread-digest-runtime-artifact")
         self._write_new_energy_topic(root)
         self._write_byd_thread_seed(root)
-        sample_events = json.loads((ROOT / "topics" / "new-energy-vehicles" / "sample-events.json").read_text(encoding="utf-8"))
+        sample_events = json.loads((FIXTURE_TOPICS_ROOT / "new-energy-vehicles" / "sample-events.json").read_text(encoding="utf-8"))
         topic_dir = root / "topics" / "new-energy-vehicles"
         (topic_dir / "sample-events.json").write_text(
             json.dumps(sample_events, ensure_ascii=False, indent=2),

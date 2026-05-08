@@ -87,6 +87,7 @@ Skrya 支持三种卸载方式：
 | [安装说明](INSTALL.md) | 给 agent 读取的安装、卸载和升级步骤 |
 | [用户旅程](docs/user-journeys.md) | agent 面向普通用户时应该怎么行动 |
 | [thread](docs/threads.md) | 如何持续跟踪同一条事件线 |
+| [通道绑定](docs/delivery-bindings.md) | 如何把 topic 投递隔离在创建它的通道和用户上下文里 |
 | [外部检索接口](docs/external-retrieval-interface.md) | 如何接入运行时检索结果 |
 | [领域模型](docs/domain-model.md) | topic、request、source、thread、channel 等实体 |
 | [贡献指南](CONTRIBUTING.md) | 开发、测试、代码结构和技术设计 |

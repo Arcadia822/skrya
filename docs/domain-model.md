@@ -17,12 +17,12 @@ Skrya is topic-driven. The important entities are:
 | `thread` | A stable timeline below a topic and above individual digest items, used for continuing events. |
 | `thread seed` | Durable config that names a thread, aliases it, and defines match terms/watchpoints. |
 | `watchpoint` | A future condition worth monitoring for a request or thread. |
-| `template` | The user-facing output contract for digests, analysis, and setup flows. |
+| `template` | A file-based user-facing output contract for digests, analysis, and setup flows. Digest output uses a configured topic template or the default digest template file. |
 | `data root` | The runtime storage root, usually `~/.skrya` or workspace `.skrya/data`. |
-| `topic file` | Durable per-topic files: `topic.json`, `brief.json`, `sources.json`, `digest.md`, `deep-analysis.md`, and optional `thread-seeds.json`. |
+| `topic file` | Durable per-topic files: `topic.json`, `brief.json`, `sources.json`, `digest.md`, `deep-analysis.md`, optional `thread-seeds.json`, and optional `delivery-bindings.json`. |
 | `run` | Generated runtime state under `<skrya-data-root>/runs/<topic-id>/`. |
 | `ingest artifact` | Normalized retrieval output, especially `skrya.ingest.v1`. |
-| `digest artifact` | Saved digest markdown and index files for later continuation. |
+| `digest artifact` | Saved digest markdown and index files for later continuation. Real digest markdown files use absolute execution-time names; latest pointers are not canonical artifacts. |
 | `deep-analysis artifact` | Saved analysis output for a digest item. |
 | `thread artifact` | Runtime thread timelines, normally `threads/latest-threads.json`. |
 | `test run` | A preview digest that follows the real template but is not saved by default. |
@@ -30,6 +30,7 @@ Skrya is topic-driven. The important entities are:
 | `user` | The person whose topic preferences and automation intent are being served. |
 | `channel` | A conversation/channel binding exposed by some hosts. Required for delivery isolation when available. |
 | `delivery context` | The topic plus user/channel/workspace binding used for scheduled delivery and resend. |
+| `delivery binding` | A normalized Skrya-owned JSON record in `delivery-bindings.json` that maps one topic to one host/channel/conversation/user/workspace automation boundary. |
 | `automation` | A recurring task that generates and/or sends a digest. |
 | `schedule` | The recurrence and timezone for automation. |
 | `send verification` | A post-send check that delivered body content was non-empty. |
@@ -51,16 +52,17 @@ flowchart TD
   Request --> Topic["topic"]
   Topic --> Source["source"]
   Topic --> ThreadSeed["thread seed"]
+  Topic --> DeliveryBinding["delivery binding"]
   Source --> Ingest["ingest artifact"]
   Ingest --> Event["event"]
   Event --> DigestItem["digest item"]
   ThreadSeed --> Thread["thread"]
   DigestItem --> Thread
   Topic --> Automation["automation"]
-  Channel --> Delivery["delivery context"]
-  Automation --> Delivery
+  Channel --> DeliveryBinding
+  Automation --> DeliveryBinding
+  DeliveryBinding --> Delivery["delivery context"]
   DigestItem --> Feedback["A/B/C feedback"]
   Feedback --> Request
   Feedback --> ThreadSeed
 ```
-

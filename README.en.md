@@ -87,6 +87,7 @@ Complete uninstall removes only marked Skrya instruction blocks such as `SKRYA-R
 | [Install](INSTALL.md) | Agent-facing install, uninstall, and upgrade steps |
 | [User journeys](docs/user-journeys.md) | How agents should behave for nontechnical users |
 | [Threads](docs/threads.md) | Continuing event timelines |
+| [Delivery bindings](docs/delivery-bindings.md) | How topic delivery stays isolated to the creating channel and user context |
 | [External retrieval](docs/external-retrieval-interface.md) | Runtime retrieval normalization |
 | [Domain model](docs/domain-model.md) | Topic, request, source, thread, channel, and related entities |
 | [Contributing](CONTRIBUTING.md) | Development, tests, code layout, and technical design |

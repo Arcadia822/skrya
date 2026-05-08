@@ -28,6 +28,8 @@ class SkillPackTests(unittest.TestCase):
         self.assertIn(root / "digest" / "SKILL.md", written)
         self.assertTrue((root / "topic-curation" / "SKILL.md").exists())
         self.assertTrue((root / "skrya" / "SKILL.md").exists())
+        self.assertTrue((root / "digest" / "templates" / "default-digest.md").exists())
+        self.assertIn(root / "digest" / "templates" / "default-digest.md", written)
         self.assertIn("topic-curation", (root / "SKILL.md").read_text(encoding="utf-8"))
         self.assertIn("topic-curation", (root / "skrya" / "SKILL.md").read_text(encoding="utf-8"))
         self.assertIn("display_name: Digest", (root / "digest" / "agents" / "openai.yaml").read_text(encoding="utf-8"))

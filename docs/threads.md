@@ -198,12 +198,12 @@ thread更新不要压成一行泛泛而谈。用户已经明确要求持续追�
 
 另外还附了一个 seed 示例：[`byd-flash-charge-thread-seed.example.json`](./byd-flash-charge-thread-seed.example.json)。
 
-如果你想看它在示例 topic 目录里的最小落点，可以直接参考仓库 fixture `topics/new-energy-vehicles/`：这里把 `topic.json`、`brief.json`、`sources.json`、`sample-events.json` 和 `thread-seeds.json` 放在了一起，方便同时理解“topic 边界”和“thread边界”。真实用户数据应放在 Skrya data root 下。
+如果你想看它在示例 topic 目录里的最小落点，可以直接参考仓库 fixture `tests/fixtures/topics/new-energy-vehicles/`：这里把 `topic.json`、`brief.json`、`sources.json`、`sample-events.json` 和 `thread-seeds.json` 放在了一起，方便同时理解“topic 边界”和“thread边界”。真实用户数据应放在 Skrya data root 下。
 
 当前版本已经支持：
 
-1. 用 `python -m skrya_orchestrator.main digest --topic new-energy-vehicles --root . --data-root . --sample` 基于示例事件生成日报，并同步写出运行时 `latest-threads.json`。
-2. 用 `python -m skrya_orchestrator.main refresh-threads --topic new-energy-vehicles --root . --data-root .` 把 `thread-seeds.json` 和 `latest-digest-events.json` 手动刷新成运行时 `latest-threads.json`。
-3. 用 `python -m skrya_orchestrator.main thread --topic new-energy-vehicles --thread "比亚迪闪充站" --root . --data-root .` 按时间线回放这条thread。
+1. 用 `python -m skrya_orchestrator.main digest --topic new-energy-vehicles --root . --data-root tests/fixtures --sample` 基于示例事件生成日报，并同步写出运行时 `latest-threads.json`。
+2. 用 `python -m skrya_orchestrator.main refresh-threads --topic new-energy-vehicles --root . --data-root tests/fixtures` 把 `thread-seeds.json` 和 `latest-digest-events.json` 手动刷新成运行时 `latest-threads.json`。
+3. 用 `python -m skrya_orchestrator.main thread --topic new-energy-vehicles --thread "比亚迪闪充站" --root . --data-root tests/fixtures` 按时间线回放这条thread。
 
 当前版本还**不会**在没有 seed 的情况下自动发现一条新thread；“要不要新建这条线、这条线应该叫什么”仍然需要先由 agent 或维护者给出明确种子。

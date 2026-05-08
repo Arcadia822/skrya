@@ -15,6 +15,7 @@
 - `same-channel`：默认模式。用户在哪个 channel/conversation 创建每日简报，后续定时推送、补发和空内容诊断都回到同一个 channel/conversation。
 - `cross-channel-explicit`：只有用户明确指定另一个通道，且当前 host 明确支持跨通道发送时才使用。
 - `cross-channel-avoided`：OpenClaw 这类架构默认避免跨通道投递；如果用户没有明确说明，不要猜测或转发到其他通道。
+- `current-channel-only`：用户在某个通道反馈空日报、补发、修复投递或“刚才那个简报”时，agent 默认只拥有当前通道视角。定时任务消息没有自动进入当前聊天 session，因此必须用 topic state 里的 `delivery-bindings.json` 解析绑定，不能把全局 topic 列表当成上下文。
 
 ## 数据位置模式
 
@@ -37,9 +38,10 @@
 3. 给出稳定的话题描述，并在写入配置前让用户确认。
 4. 在输出任何日报前，先处理自动化问题。
 5. 如果 agent 可以创建自动化，询问是否创建每日简报任务以及运行时间。
-6. 如果 agent 不能直接创建自动化，给出一段可直接转发的自动化创建提示词。
-7. 单独询问用户现在是否要试跑一次。
-8. 只有用户明确同意后，才运行测试日报。
+6. 如果 agent 可以创建自动化，自动化 prompt 必须是完整的 Skrya digest contract，而不是一句“每天生成简报”。
+7. 如果 agent 不能直接创建自动化，给出一段可直接转发的自动化创建提示词。
+8. 单独询问用户现在是否要试跑一次。
+9. 只有用户明确同意后，才运行测试日报。
 
 不应该：
 
@@ -82,6 +84,38 @@
 5. 如果不能直接创建自动化，给出一段可发送给更合适 agent 的提示词。
 6. 单独询问是否现在试跑。
 7. 只有用户明确同意后，才运行测试 digest。
+
+## 自动化 prompt 合同
+
+创建或建议每日 digest 自动化时，prompt 必须自包含。不要假设定时运行的 agent 会继承创建时聊天里的 skill 阅读状态。
+
+自动化 prompt 至少包含：
+
+```text
+使用 Skrya 的 digest workflow 为已解析 topic 生成每日简报，不要生成普通新闻摘要。
+
+topic-id: <topic-id>
+topic name: <可见主题名>
+data root: <Skrya data root；OpenClaw/挂载 workspace 默认使用 .skrya/data>
+delivery context: <创建用户 + 当前 channel/conversation，如果 host 暴露这些信息>
+topic state: 写入或更新 topics/<topic-id>/delivery-bindings.json，使用 schema skrya.delivery-bindings.v1；不同 agent 的特殊字段只放 host_metadata
+
+生成前读取：
+- topics/<topic-id>/topic.json
+- topics/<topic-id>/brief.json
+- topics/<topic-id>/sources.json
+- topics/<topic-id>/digest.md
+- 已配置的 digest template 文件；如果没有 topic-specific template，使用 digest/templates/default-digest.md
+
+注意：
+- digest.md 是排序、排除和判断规则，不是输出布局模板。
+- template 文件控制输出布局：标题、统一 line box、每条信源、---、## 系统提示 / ## System。
+- 正式定时输出保存为 runs/<topic-id>/digest-YYYYMMDDTHHMMSS+0800.md。
+- latest-digest.md 只能作为指向最新正式 digest 的软链接或 pointer，不是 canonical 文件名。
+- 只投递到绑定 channel/conversation，除非用户明确配置了其他支持的目标。
+- host 支持时，发送后验证投递内容非空。
+- 不要把 test run 藏在自动化 prompt 里；只有用户另行要求时才试跑。
+```
 
 ## 旅程 4：一次性研究
 
@@ -204,15 +238,17 @@ python3 -m skrya_orchestrator.main data-root --root .
 期望流程：
 
 1. 先按当前 channel/conversation 找到绑定到这个通道的定时 topic，而不是扫出今天所有生成过的 digest。
-2. 检查该 topic 的生成状态和投递状态，区分“采集为空”“生成为空”“消息发送为空/未展开”。
-3. 如果生成内容存在但消息为空，使用显式消息工具补发当前 channel 绑定的那一份，并在支持时校验消息体非空。
-4. 如果同一 channel 绑定了多个 topic，先问用户要补发哪一个。
-5. 不要把另一个 channel 创建的 topic 一起补发到当前 channel。
+2. 读取当前通道匹配的 `delivery-bindings.json` 记录；如果没有匹配绑定，先说明当前通道没有明确绑定，并询问用户是哪一个 topic。
+3. 检查该 topic 的生成状态和投递状态，区分“采集为空”“生成为空”“消息发送为空/未展开”。
+4. 如果生成内容存在但消息为空，使用显式消息工具补发当前 channel 绑定的那一份，并在支持时校验消息体非空。
+5. 如果同一 channel 绑定了多个 topic，先问用户要补发哪一个。
+6. 不要把另一个 channel 创建的 topic 一起补发到当前 channel。
 
 不应该：
 
 - 因为两个 topic 都在 08:00 生成，就把它们拼成一条补发消息
 - 把“军民融合”这种另一个通道的日报发到韩国时政通道
+- 当前通道绑定不明确时，为了“帮忙”扫描所有 topic 并逐个补发
 - 用后台 announce 成功代替显式消息发送和非空校验
 
 ## 旅程 10：确认主题后必须确认信源
@@ -262,7 +298,7 @@ agent 发现已有「新能源汽车」topic，建议扩展。用户回复：
 1. 直接输出测试简报正文，不要先发一段“我跑一轮测试”的闲聊。
 2. 使用正式日报同一套模板：标题、统一 line box、每条信源、`---`、`## 系统提示`。
 3. `## 系统提示` 里说明这是测试/预览、扫描时间范围、后续可用操作，并解释 `A 2` 这类指令是什么意思。
-4. 测试结果默认不保存为 latest digest，也不要在用户可见输出里说“已写入测试产物”。
+4. 测试结果默认不保存为正式 digest artifact，也不要更新 latest pointer，或在用户可见输出里说“已写入测试产物”。
 5. 如果测试输出没有命中足够条目，可以在 `## 系统提示` 或 digest 判断中说明，不要用模板外废话包裹正文。
 
 不应该：
@@ -270,7 +306,7 @@ agent 发现已有「新能源汽车」topic，建议扩展。用户回复：
 - 在正文前输出“蛋糕实验开始”这类状态句
 - 结尾缺少 `## 系统提示`
 - 只说“可以回复 A 2”，但不解释 A/B/C 的含义
-- 把测试产物写入或宣称写入 `latest-digest.md`
+- 把测试产物写入 timestamped digest 文件，或更新/宣称更新 `latest-digest.md`
 
 ## 旅程 12：agent 自主卸载 Skrya
 

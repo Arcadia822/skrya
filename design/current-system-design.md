@@ -109,7 +109,7 @@ Durable topic configuration lives under `<skrya-data-root>/topics/<topic-id>/`:
 
 Generated outputs live under `<skrya-data-root>/runs/<topic-id>/`.
 
-The checked-in `topics/` directory is treated as examples and fixtures. It is no longer the default location for user topic memory.
+Checked-in topic examples now live under `tests/fixtures/topics/`. The repository root no longer carries topic memory.
 
 ## Main Architectural Shift
 

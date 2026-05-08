@@ -10,6 +10,7 @@ from skrya_orchestrator.main import main
 
 
 ROOT = Path(__file__).resolve().parents[1]
+FIXTURE_TOPICS_ROOT = ROOT / "tests" / "fixtures" / "topics"
 TEST_TEMP_ROOT = ROOT / "tmp" / "unit-tests"
 TEST_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -379,7 +380,7 @@ class MainIntelligenceCommandTests(unittest.TestCase):
     @staticmethod
     def _copy_new_energy_topic_fixture(root: Path) -> None:
         destination = root / "topics" / "new-energy-vehicles"
-        shutil.copytree(ROOT / "topics" / "new-energy-vehicles", destination)
+        shutil.copytree(FIXTURE_TOPICS_ROOT / "new-energy-vehicles", destination)
 
     @staticmethod
     def _write_sample_events(root: Path) -> None:
