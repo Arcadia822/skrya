@@ -2,67 +2,67 @@
 
 # Skrya
 
-**把“每天帮我关注这个方向”变成可长期运行的 AI 简报。**
+**Turn "keep me updated on this" into a durable AI briefing workflow.**
 
 [![Python](https://img.shields.io/badge/python-%E2%89%A53.10-3776ab.svg)](https://www.python.org)
 ![Skrya](https://img.shields.io/badge/skrya-v0.1.0-0ea5e9.svg)
 
-**简体中文** · [English](README.en.md)
+[Chinese](README.zh-CN.md) · **English**
 
 </div>
 
-Skrya 是一个给 AI agent 用的简报技能包。用户只需要说清楚想长期关注什么，agent 负责把它变成一个稳定的 topic：确认范围、确认信源、创建定时任务、生成每日简报、接受反馈、持续修正。
+Skrya is a briefing skill pack for AI agents. The user describes what they want to track; the agent turns that into a durable topic with confirmed scope, confirmed sources, recurring delivery, daily digests, follow-up analysis, and long-term feedback memory.
 
-## 它最后长什么样
+## What You Get
 
 ```text
-User: 每天帮我追踪 AI 浏览器重要动态。
+User: Track important AI browser developments for me every day.
 
 Skrya turns it into:
-1. topic scope: AI 浏览器、浏览器 agent、搜索/浏览器入口变化
-2. source policy: 官方发布、主流科技媒体、产品更新、社交信号分层确认
-3. recurring briefing: 每天在原会话投递，失败时说明缺失前提
-4. daily digest: 统一格式、紧凑来源、可继续深挖
-5. follow-up threads: 对同一条持续事件线接着讲，而不是每天重开标题
+1. topic scope: AI browsers, browser agents, search/browser distribution shifts
+2. source policy: official releases, major tech media, product updates, social signals
+3. recurring briefing: delivered back to the original conversation or channel
+4. daily digest: uniform format, compact sources, follow-up commands
+5. follow-up threads: continuing stories stay connected instead of resetting every day
 ```
 
 ```markdown
-# 2026-05-08｜AI 浏览器｜每日简报
+# 2026-05-08 | AI Browsers | Daily Briefing
 
-┌─ **【简讯1】OpenAI 浏览器入口传闻升温，重点不只是“做浏览器”**
-│ 判断：如果浏览器成为 agent 的执行入口，真正变化是身份、工具调用和网页状态会被放进同一个工作流。
+┌─ **【Brief 1】OpenAI browser rumors matter because the browser can become the agent runtime**
+│ Judgment: the durable shift is not "another browser"; it is identity, page state, and tool use moving into one workflow.
 │
-│ 信源：官方博客 / 主流科技媒体 / 产品发布页
+│ Sources: official blog / major tech media / product pages
 └
 
-┌─ **【简讯2】Perplexity、Arc 等产品继续把搜索、浏览和 agent 操作揉在一起**
-│ 判断：AI 浏览器不是一个单点功能，而是搜索分发、网页操作和个人上下文的重新打包。
+┌─ **【Brief 2】Perplexity, Arc, and adjacent products keep blending search, browsing, and agent actions**
+│ Judgment: AI browsers are a distribution change for search and task execution, not a single feature category.
 │
-│ 信源：产品更新 / 媒体报道 / 用户反馈
+│ Sources: product updates / media reports / user feedback
 └
 
 ---
 
-## 系统提示
+## System
 
-- 可回复 `A 1` 深挖第 1 条。
-- 可回复 `B 2 AI 浏览器产品线` 把第 2 条变成持续 thread。
-- 可回复 `C 低质量传闻少推` 调整后续简报偏好。
+- Reply `A 1` for deeper analysis of item 1.
+- Reply `B 2 AI browser product line` to keep item 2 as a continuing thread.
+- Reply `C fewer low-quality rumors` to update future briefing preferences.
 ```
 
 See more demos: [AI browser daily briefing](examples/ai-browser-daily-briefing.md), [new energy thread](examples/new-energy-thread-demo.md), and [research agent watchlist](examples/research-agent-watchlist.md).
 
-## 30 秒开始
+## Quick Start
 
-把这句话发给你的 agent：
+Send this to your agent:
 
 ```text
-请安装 Skrya：https://github.com/Arcadia822/skrya 。安装后，帮我每天关注 AI 浏览器的重要动态。
+Install Skrya from https://github.com/Arcadia822/skrya. After installation, send me a daily briefing about important AI browser developments.
 ```
 
-Agent 会读取仓库里的安装说明完成安装。你不需要手动复制命令。安装后，它应该先确认你真正想看的内容，再确认信源和投递方式。它不应该立刻丢一堆搜索结果给你。这种克制目前仍然算进步。
+The agent should read the repository installation instructions and handle the setup. You should not need to copy shell commands manually. After installation, it should clarify what you actually want, then confirm sources and delivery. It should not dump search results immediately. We are all grateful for this restraint.
 
-也可以手动安装：
+Manual install:
 
 ```bash
 git clone https://github.com/Arcadia822/skrya.git
@@ -71,74 +71,74 @@ python3 -m pip install -e .
 ./setup --host auto
 ```
 
-## 核心能力
+## Core Value
 
-### 每日简报
+### Daily Briefings
 
-把长期关注的方向变成稳定、可复用的每日简报。每条信息都带来源、判断和后续可操作入口。
+Turn a standing area of interest into a reusable daily briefing. Each item has source references, judgment, and follow-up actions.
 
-### 信源把关
+### Source Discipline
 
-在创建任务前先确认信源。Skrya 会区分能自动接入的来源、需要运行时检索的来源、暂时不能自动接入的来源。
+Skrya confirms sources before declaring a topic ready. It distinguishes automatically connected sources, runtime retrieval sources, and sources that cannot be connected yet.
 
-### 组合扩展
+### Skill Composition
 
-Skrya 会自主寻找本地可用的 skill，尽量扩大信源覆盖。比如用 `agent-reach` 扩展公开网页与社交检索，用 `wechat-article-search` 补微信公众号文章。Skrya 不关注绕过登录墙或访问限制的手段，只负责把可用信源组织成可复用的简报流程。
+Skrya looks for useful local skills and uses them to widen source coverage. For example, it can work with `agent-reach` for public web and social retrieval, or `wechat-article-search` for WeChat Official Account articles. Skrya does not focus on bypassing login walls or access restrictions; it organizes available sources into reusable briefing workflows.
 
-### 持续 thread
+### Continuing Threads
 
-同一件事不会每天被拆成互不相关的新标题。Skrya 会把持续发展的事件串成 thread，方便回看上下文。
+The same developing story should not become unrelated headlines every day. Skrya links related items into a continuing thread so the context stays visible.
 
-### 反馈会变成记忆
+### Feedback Becomes Memory
 
-你说“这类少推”“这条继续跟”“展开第 3 条”，Skrya 会把反馈转成后续简报的长期偏好，而不是只在当前聊天里回应。
+When you say "show fewer items like this", "keep tracking this", or "expand item 3", Skrya turns that into durable preferences instead of treating it as disposable chat.
 
-### 通道不串台
+### Channel Isolation
 
-在有 channel/conversation 的 host 里，哪个通道创建的日报，就默认发回哪个通道。补发和空日报诊断也只处理当前通道绑定的内容。
+In hosts with channels or conversations, a briefing created in one channel stays bound to that channel by default. Resends and empty-briefing diagnosis do not pull in another channel's topic.
 
-## 语言
+## Language
 
-安装 Skrya 时不需要指定语言。语言跟着 topic 走：
+Skrya does not need an install-time language setting. Language belongs to the topic:
 
-- 新建 topic 时，默认使用你创建 topic 时的语言。
-- 你也可以明确要求某个 topic 用中文或英文输出。
-- 当前只支持中文和英文输出。
-- 你后续用什么语言反馈，agent 就用什么语言和你交流；除非你明确要求，否则不会改变 topic 的简报语言。
+- New topics default to the language used when the topic is created.
+- You can explicitly ask for a topic to output in Chinese or English.
+- The project currently supports Chinese and English output.
+- If you give feedback in another language later, the agent should answer in your feedback language without changing the topic's briefing language unless you ask.
 
-## 隐私
+## Privacy
 
-Skrya 完全本地运作，不包含遥测、云同步或托管后端，不会主动上传你的 topic 配置、历史简报、反馈偏好或本地数据。你让 agent 组合使用的联网检索、浏览器、微信公众号检索等其他 skill，会按那些 skill 自己的规则访问外部来源。
+Skrya runs fully locally. It has no telemetry, cloud sync, or hosted backend, and it does not proactively upload your topic config, briefing history, feedback preferences, or local data. Other networked skills you ask the agent to combine with Skrya, such as web retrieval, browser tools, or WeChat article search, follow their own external-access rules.
 
-## 卸载
+## Uninstall
 
-Skrya 支持三种卸载方式：
+Skrya supports three uninstall modes:
 
-| 模式 | 删除 | 保留 |
+| Mode | Removes | Keeps |
 | --- | --- | --- |
-| `skills-keep-data` | 已安装 skill | topic 配置、历史简报、数据配置 |
-| `data-keep-skills` | Skrya 数据和数据配置 | 已安装 skill |
-| `complete` | skill、数据、全局指令里的 Skrya routing note | 无关用户指令 |
+| `skills-keep-data` | Installed skills | Topic config, history, data-root config |
+| `data-keep-skills` | Skrya data and data-root config | Installed skills |
+| `complete` | Skills, data, and Skrya routing notes in global instructions | Unrelated user instructions |
 
-对 agent 说：
+Tell your agent:
 
 ```text
-卸载 Skrya。先告诉我三种卸载模式的区别，然后等我确认再执行。
+Uninstall Skrya. First explain the three uninstall modes, then wait for my confirmation before acting.
 ```
 
-完全卸载只会移除带 `SKRYA-ROUTING-NOTE` 标记的 Skrya 全局指令块，不应该清空整份 `AGENTS.md`、`CLAUDE.md`、`TOOLS.md` 或 `tools.md`。
+Complete uninstall removes only marked Skrya instruction blocks such as `SKRYA-ROUTING-NOTE`. It should not wipe unrelated `AGENTS.md`, `CLAUDE.md`, `TOOLS.md`, or `tools.md` content.
 
-## 更多文档
+## More Docs
 
-| 文档 | 内容 |
+| Doc | Covers |
 | --- | --- |
-| [安装说明](INSTALL.md) | 给 agent 读取的安装、卸载和升级步骤 |
-| [用户旅程](docs/user-journeys.md) | agent 面向普通用户时应该怎么行动 |
-| [thread](docs/threads.md) | 如何持续跟踪同一条事件线 |
-| [通道绑定](docs/delivery-bindings.md) | 如何把 topic 投递隔离在创建它的通道和用户上下文里 |
-| [外部检索接口](docs/external-retrieval-interface.md) | 如何接入运行时检索结果 |
-| [领域模型](docs/domain-model.md) | topic、request、source、thread、channel 等实体 |
-| [贡献指南](CONTRIBUTING.md) | 开发、测试、代码结构和技术设计 |
+| [Install](INSTALL.md) | Agent-facing install, uninstall, and upgrade steps |
+| [User journeys](docs/user-journeys.md) | How agents should behave for nontechnical users |
+| [Threads](docs/threads.md) | Continuing event timelines |
+| [Delivery bindings](docs/delivery-bindings.md) | How topic delivery stays isolated to the creating channel and user context |
+| [External retrieval](docs/external-retrieval-interface.md) | Runtime retrieval normalization |
+| [Domain model](docs/domain-model.md) | Topic, request, source, thread, channel, and related entities |
+| [Contributing](CONTRIBUTING.md) | Development, tests, code layout, and technical design |
 
 ## License
 

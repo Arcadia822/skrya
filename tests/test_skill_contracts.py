@@ -8,14 +8,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class SkillContractTests(unittest.TestCase):
     def test_readme_documents_installable_skill_pack_model(self) -> None:
-        content = (ROOT / "README.md").read_text(encoding="utf-8")
+        content = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
 
         self.assertIn('<div align="center">', content)
         self.assertIn("# Skrya", content)
         self.assertIn("python-%E2%89%A53.10", content)
         self.assertIn("skrya-v0.1.0", content)
         self.assertEqual(2, content.count("img.shields.io"))
-        self.assertIn("[English](README.en.md)", content)
+        self.assertIn("[English](README.md)", content)
         self.assertIn("## 核心能力", content)
         self.assertIn("每日简报", content)
         self.assertIn("信源把关", content)
@@ -65,11 +65,11 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("docs/upgrade.md", content)
 
     def test_english_readme_is_available_from_homepage(self) -> None:
-        zh_readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        en_readme = (ROOT / "README.en.md").read_text(encoding="utf-8")
+        zh_readme = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+        en_readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn("**简体中文** · [English](README.en.md)", zh_readme)
-        self.assertIn("[Chinese](README.md) · **English**", en_readme)
+        self.assertIn("**简体中文** · [English](README.md)", zh_readme)
+        self.assertIn("[Chinese](README.zh-CN.md) · **English**", en_readme)
         self.assertIn('<div align="center">', en_readme)
         self.assertEqual(2, en_readme.count("img.shields.io"))
         self.assertIn("Turn \"keep me updated on this\"", en_readme)
@@ -123,7 +123,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("比亚迪兆瓦闪充站", seeds["threads"][0]["match_terms"])
 
     def test_thread_docs_align_on_user_flow_and_runtime_artifacts(self) -> None:
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
         threads = (ROOT / "docs" / "threads.md").read_text(encoding="utf-8")
         user_journeys = (ROOT / "docs" / "user-journeys.md").read_text(encoding="utf-8")
 
@@ -161,7 +161,7 @@ class SkillContractTests(unittest.TestCase):
     def test_uninstall_journey_and_skill_contract_are_documented(self) -> None:
         root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         journeys = (ROOT / "docs" / "user-journeys.md").read_text(encoding="utf-8")
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
 
         for phrase in [
             "skills-keep-data",
@@ -194,7 +194,8 @@ class SkillContractTests(unittest.TestCase):
 
     def test_root_and_bundled_skill_docs_exist(self) -> None:
         self.assertTrue((ROOT / "SKILL.md").exists(), "root umbrella skill should exist")
-        self.assertTrue((ROOT / "README.en.md").exists(), "English README should exist")
+        self.assertTrue((ROOT / "README.md").exists(), "English README should exist")
+        self.assertTrue((ROOT / "README.zh-CN.md").exists(), "Chinese README should exist")
         self.assertTrue((ROOT / "INSTALL.md").exists(), "agent-facing install guide should exist")
         self.assertTrue((ROOT / "skrya" / "SKILL.md").exists(), "installer-facing skrya skill should exist")
         self.assertTrue((ROOT / "topic-curation" / "SKILL.md").exists(), "topic-curation skill should exist")
@@ -206,7 +207,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertTrue((ROOT / "LICENSE").exists(), "license should exist")
 
     def test_license_and_contributing_are_documented(self) -> None:
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
         contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
         license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
@@ -251,8 +252,8 @@ class SkillContractTests(unittest.TestCase):
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         topic_curation = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
         digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        english_readme = (ROOT / "README.en.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+        english_readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
         for content in [root_skill, agents, topic_curation]:
             self.assertIn("topic.json.language", content)
