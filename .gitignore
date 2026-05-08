@@ -1,5 +1,7 @@
 __pycache__/
 *.pyc
+node_modules/
+.obsidian/
 .venv/
 .pytest_cache/
 dist/
@@ -10,6 +12,15 @@ build/
 tmp/
 runs/
 .skrya/
+agent-skills-workspace/
 src/skrya_orchestrator/__pycache__/
 tests/__pycache__/
 src/skrya_orchestrator.egg-info/
+excalidraw.log
+*.log
+agent-skills-eval.yaml
+package-lock.json
+package.json
+scripts/check-agent-skills-eval.mjs
+skrya/evals/evals.json
+tests/test_agent_skills_eval.py
