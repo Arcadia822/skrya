@@ -661,6 +661,74 @@ class IntelligenceServiceTests(unittest.TestCase):
         ]
         (topic_dir / "sample-events.json").write_text(json.dumps(events, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    def test_agi_news_fixture_generates_digest(self) -> None:
+        root = self._make_root("agi-news-digest")
+        self._write_agi_news_topic(root)
+
+        service = IntelligenceService(root)
+        digest = service.generate_digest("agi-news", prefer_live=False)
+
+        self.assertIn("｜最重要的 AGI 新闻｜每日简报", digest.markdown)
+        self.assertIn("┌─ **【简讯1】", digest.markdown)
+        self.assertIn("通用推理基准", digest.markdown)
+        self.assertIn("AGI 安全治理框架", digest.markdown)
+        self.assertIn("---\n\n## 系统提示", digest.markdown)
+        self.assertIn("- 执行状态：完成：生成 3 条简讯", digest.markdown)
+        self.assertTrue(digest.digest_path.exists())
+
+    def test_agi_news_fixture_deep_analysis(self) -> None:
+        root = self._make_root("agi-news-deep-analysis")
+        self._write_agi_news_topic(root)
+
+        service = IntelligenceService(root)
+        digest = service.generate_digest("agi-news", prefer_live=False)
+        self.assertTrue(digest.artifact_path.exists())
+
+        analysis = service.generate_deep_analysis("agi-news", event_number=1)
+        self.assertIn("通用推理基准突破", analysis.markdown)
+        self.assertTrue(analysis.artifact_path.exists())
+
+    def test_preview_does_not_write_artifacts(self) -> None:
+        root = self._make_root("preview-no-artifacts")
+        self._write_topic(root)
+        self._write_sample_events(root)
+
+        service = IntelligenceService(root)
+        result = service.generate_digest("k-entertainment", preview=True)
+
+        self.assertIn("｜K-Entertainment｜每日简报", result.markdown)
+        self.assertIn("┌─ **【简讯1】", result.markdown)
+        self.assertTrue(result.preview)
+        self.assertEqual(Path(""), result.digest_path)
+        self.assertEqual(Path(""), result.artifact_path)
+
+        runs_dir = root / "runs" / "k-entertainment"
+        self.assertFalse(runs_dir.exists())
+
+    def test_preview_and_real_digest_produce_same_markdown(self) -> None:
+        root = self._make_root("preview-vs-real")
+        self._write_topic(root)
+        self._write_sample_events(root)
+
+        service = IntelligenceService(root)
+        preview_result = service.generate_digest("k-entertainment", preview=True)
+        real_result = service.generate_digest("k-entertainment", preview=False)
+
+        self.assertEqual(preview_result.markdown, real_result.markdown)
+        self.assertTrue(real_result.digest_path.exists())
+        self.assertTrue(preview_result.preview)
+        self.assertFalse(real_result.preview)
+
+    @staticmethod
+    def _write_agi_news_topic(root: Path) -> None:
+        fixture_dir = ROOT / "tests" / "fixtures" / "topics" / "agi-news"
+        topic_dir = root / "topics" / "agi-news"
+        topic_dir.mkdir(parents=True)
+        for name in ("topic.json", "brief.json", "sources.json", "digest.md", "deep-analysis.md", "sample-events.json"):
+            src = fixture_dir / name
+            if src.exists():
+                (topic_dir / name).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
 
 if __name__ == "__main__":
     unittest.main()

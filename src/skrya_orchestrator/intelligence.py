@@ -23,6 +23,7 @@ class DigestResult:
     markdown: str
     digest_path: Path
     artifact_path: Path
+    preview: bool = False
 
 
 @dataclass(slots=True)
@@ -50,7 +51,7 @@ class IntelligenceService:
         self._fetcher = fetcher or self._default_fetch
         self._translator = translator or self._default_translate
 
-    def generate_digest(self, topic_id: str, prefer_live: bool = True) -> DigestResult:
+    def generate_digest(self, topic_id: str, prefer_live: bool = True, preview: bool = False) -> DigestResult:
         topic_id = self.resolve_topic_id(topic_id)
         events = self._load_events(topic_id, prefer_live=prefer_live)
         events = self._rank_events(topic_id, events)
@@ -94,6 +95,14 @@ class IntelligenceService:
         )
 
         markdown = "\n".join(lines).strip() + "\n"
+
+        if preview:
+            return DigestResult(
+                markdown=markdown,
+                digest_path=Path(""),
+                artifact_path=Path(""),
+                preview=True,
+            )
 
         artifact_dir = self._data_root / "runs" / topic_id
         artifact_dir.mkdir(parents=True, exist_ok=True)

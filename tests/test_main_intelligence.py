@@ -416,6 +416,57 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         ]
         (topic_dir / "sample-events.json").write_text(json.dumps(events, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    def test_digest_preview_flag_does_not_write_artifacts(self) -> None:
+        root = self._make_root("cli-digest-preview")
+        self._write_topic(root)
+        self._write_sample_events(root)
+
+        stdout = io.StringIO()
+        with patch(
+            "sys.argv",
+            ["skrya", "digest", "--topic", "k-entertainment", "--root", str(root), "--preview"],
+        ):
+            with redirect_stdout(stdout):
+                exit_code = main()
+
+        self.assertEqual(0, exit_code)
+        output = stdout.getvalue()
+        self.assertIn("┌─ **【简讯1】", output)
+        self.assertIn("## 系统提示", output)
+        runs_dir = root / "runs" / "k-entertainment"
+        self.assertFalse(runs_dir.exists())
+
+    def test_digest_test_run_alias_does_not_write_artifacts(self) -> None:
+        root = self._make_root("cli-digest-test-run")
+        self._write_topic(root)
+        self._write_sample_events(root)
+
+        stdout = io.StringIO()
+        with patch(
+            "sys.argv",
+            ["skrya", "digest", "--topic", "k-entertainment", "--root", str(root), "--test-run"],
+        ):
+            with redirect_stdout(stdout):
+                exit_code = main()
+
+        self.assertEqual(0, exit_code)
+        output = stdout.getvalue()
+        self.assertIn("┌─ **【简讯1】", output)
+        runs_dir = root / "runs" / "k-entertainment"
+        self.assertFalse(runs_dir.exists())
+
+    def test_digest_preview_and_test_run_are_mutually_exclusive(self) -> None:
+        root = self._make_root("cli-digest-preview-exclusive")
+        self._write_topic(root)
+        self._write_sample_events(root)
+
+        with patch(
+            "sys.argv",
+            ["skrya", "digest", "--topic", "k-entertainment", "--root", str(root), "--preview", "--test-run"],
+        ):
+            with self.assertRaises(SystemExit):
+                main()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,22 @@
+{
+  "sources": [
+    {
+      "id": "arxiv-agi",
+      "name": "arXiv AGI Papers",
+      "type": "runtime-retrieval",
+      "enabled": true,
+      "capabilities": ["web_search"],
+      "queries": ["AGI benchmark", "artificial general intelligence progress"],
+      "languages": ["en"]
+    },
+    {
+      "id": "major-ai-labs",
+      "name": "Major AI Lab Announcements",
+      "type": "runtime-retrieval",
+      "enabled": true,
+      "capabilities": ["web_search", "news_search"],
+      "queries": ["OpenAI AGI", "DeepMind AGI", "Anthropic safety"],
+      "languages": ["en", "zh"]
+    }
+  ]
+}

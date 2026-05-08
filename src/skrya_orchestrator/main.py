@@ -24,6 +24,9 @@ def build_parser() -> argparse.ArgumentParser:
     digest_parser.add_argument("--root", default=".", help="Workspace root")
     digest_parser.add_argument("--data-root", default=None, help="Skrya data root for topics and runs")
     digest_parser.add_argument("--sample", action="store_true", help="Use sample-events.json even when live sources exist")
+    preview_group = digest_parser.add_mutually_exclusive_group()
+    preview_group.add_argument("--preview", action="store_true", help="Preview digest output without writing artifacts")
+    preview_group.add_argument("--test-run", action="store_true", help="Alias for --preview")
 
     analysis_parser = subparsers.add_parser("deep-analysis")
     analysis_parser.add_argument("--topic", required=True, help="Topic id")
@@ -135,7 +138,8 @@ def main() -> int:
 
     if args.command == "digest":
         service = IntelligenceService(root, data_root=args.data_root)
-        result = service.generate_digest(args.topic, prefer_live=not args.sample)
+        is_preview = getattr(args, "preview", False) or getattr(args, "test_run", False)
+        result = service.generate_digest(args.topic, prefer_live=not args.sample, preview=is_preview)
         print(result.markdown, end="")
         return 0
 

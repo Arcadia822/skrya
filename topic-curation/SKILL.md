@@ -163,7 +163,7 @@ Include these fields or instructions:
 - topic-state binding: create or update `delivery-bindings.json` for that host/channel/user/workspace binding; the automation must not rely on later chat context
 - required reads before generation: `topic.json`, `brief.json`, `sources.json`, `digest.md`, and the configured digest template file
 - default template fallback: use `digest/templates/default-digest.md` when no topic-specific digest template is configured
-- distinction that `digest.md` contains ranking and judgment rules, while the template file controls output layout
+- distinction that `digest.md` contains ranking and judgment rules, while the template file provides writing and format guidance
 - output rules from the template, including uniform line boxes, source references, `---`, and the topic-language system section
 - artifact policy: save real scheduled digests as `digest-YYYYMMDDTHHMMSS+0800.md` under `<skrya-data-root>/runs/<topic-id>/`, then update `latest-digest.md` as a symlink or pointer
 - delivery policy: send only to the bound channel/conversation unless the user explicitly configured another supported target, and verify non-empty delivery when the host supports it
