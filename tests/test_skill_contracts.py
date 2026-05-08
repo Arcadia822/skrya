@@ -329,7 +329,7 @@ class SkillContractTests(unittest.TestCase):
         for phrase in [
             "dig: <numbers>",
             "track: <numbers>",
-            "feedback: <numbers",
+            "Plain-language preference feedback",
             "thread-seeds.json",
             "为什么没有",
             "这个很重要",
@@ -344,7 +344,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("漏报诊断", request_curation)
         self.assertIn("check latest digest", request_curation)
         self.assertIn("track: <numbers>", digest)
-        self.assertIn("feedback: <numbers", digest)
+        self.assertIn("plain-language preference feedback", digest)
         self.assertIn("durable topic memory", digest)
 
     def test_skill_descriptions_include_chinese_end_user_trigger_phrases(self) -> None:
@@ -594,7 +594,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("dig: <编号>", root_skill)
         self.assertIn("旅程 11：试跑输出必须等同正式日报模板", user_journeys)
         self.assertIn("不要先发一段“我跑一轮测试”的闲聊", user_journeys)
-        self.assertIn("只说“可以回复 dig: 2”，但不解释 `dig:` / `track:` / `feedback:` 的含义", user_journeys)
+        self.assertIn("只说“可以回复 dig: 2”，但不解释 `dig:`、`track:` 和自然语言偏好反馈的含义", user_journeys)
         self.assertIn("把测试产物写入 timestamped digest 文件", user_journeys)
         self.assertIn("## 系统提示` 之后不要再追加保存路径", user_journeys)
 

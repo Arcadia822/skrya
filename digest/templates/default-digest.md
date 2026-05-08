@@ -25,7 +25,7 @@ This template is writing and reference guidance for the agent producing a digest
 - 可继续操作：
   - dig: 详细分析指定今日简讯，例如：`dig: 3 5 12`。
   - track: 创建或更新持续事件线，例如：`track: 3 4 5 持续关注`。
-  - feedback: 调整简讯和事件线的获取策略，例如：`feedback: 6 7 我不喜欢，如果是 xxx 不要关注`。
+  - 偏好反馈：直接用自然语言回复，例如：`低质量传闻少推`。
 ```
 
 ## Rules
@@ -35,4 +35,4 @@ This template is writing and reference guidance for the agent producing a digest
 - Put source references after one blank line inside the line box.
 - Do not add a conversational preface before the title.
 - Do not append saved-file notes after the system section.
-- For English topics, use the same structure with English labels, `## System`, and the same `dig:` / `track:` / `feedback:` commands.
+- For English topics, use the same structure with English labels, `## System`, and `dig:` / `track:` commands plus plain-language preference feedback.

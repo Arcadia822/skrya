@@ -47,7 +47,7 @@ Skrya turns it into:
 
 - Reply `dig: 1` for deeper analysis of item 1.
 - Reply `track: 2 AI browser product line` to keep item 2 as a continuing thread.
-- Reply `feedback: fewer low-quality rumors` to update future briefing preferences.
+- Reply `fewer low-quality rumors` to update future briefing preferences.
 ```
 
 See more demos: [AI browser daily briefing](examples/ai-browser-daily-briefing.md), [new energy thread](examples/new-energy-thread-demo.md), and [research agent watchlist](examples/research-agent-watchlist.md).

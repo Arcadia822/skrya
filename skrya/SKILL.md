@@ -72,7 +72,7 @@ Treat repeated user feedback as topic state, not disposable chat.
 
 - `dig: <numbers>` means route those visible digest numbers to deep analysis.
 - `track: <numbers> <name/intent>` means propose or update a thread seed in `thread-seeds.json` after confirmation.
-- `feedback: <numbers/reason>` means route to request curation and translate the feedback into durable topic memory.
+- Plain-language preference feedback, such as "低质量传闻少推", means route to request curation and translate the feedback into durable topic memory.
 - If the user says "这个很重要", convert it into a watchpoint, tracked angle, or ranking preference.
 - If the user asks "为什么没有 X", run 漏报诊断: check latest digest, ingest artifact, source coverage, query terms, and ranking rules before proposing a config or source update.
 - Clarify ambiguous shorthand entities once. For ambiguous shorthand entities such as "李", confirm the real entity and relationship, then store the stable name, aliases, and watchpoints.
@@ -143,7 +143,7 @@ When the user agrees to a test run, treat it as a preview of the daily digest, n
 - Do not write conversational prefaces such as "我跑一轮测试" before the digest body.
 - Do not append implementation notes such as saved file paths after the digest or after `## 系统提示`.
 - Do not save test-run output as a timestamped digest artifact or update `latest-digest.md` unless the user explicitly asks to save it.
-- In `## 系统提示`, explain feedback commands in natural Chinese: `dig: <编号>` means deep analysis, `track: <编号> <名称/意图>` means continue tracking as a thread, and `feedback: <编号/原因>` means update durable topic preferences.
+- In `## 系统提示`, explain follow-ups in natural Chinese: `dig: <编号>` means deep analysis, `track: <编号> <名称/意图>` means continue tracking as a thread, and preference changes can be sent as plain language.
 
 ## Automation Prompt Contract
 
