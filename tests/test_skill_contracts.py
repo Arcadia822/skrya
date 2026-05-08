@@ -30,6 +30,8 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("信源策略", content)
         self.assertIn("查看更多演示", content)
         self.assertIn("可以直接要求 Skrya 调整模板", content)
+        self.assertIn("[OpenAI：ChatGPT Atlas](https://openai.com/index/introducing-chatgpt-atlas/)", content)
+        self.assertIn("[Perplexity：Comet](https://www.perplexity.ai/comet)", content)
         self.assertIn("## 隐私", content)
         self.assertIn("完全本地运作", content)
         self.assertIn("不会主动上传", content)

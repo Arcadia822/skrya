@@ -32,13 +32,13 @@ Skrya 会把它变成：
 ┌─ **【简讯1】OpenAI 浏览器入口传闻升温，重点不只是“做浏览器”**
 │ 判断：如果浏览器成为智能体的执行入口，真正变化是身份、工具调用和网页状态会被放进同一个工作流。
 │
-│ 信源：官方博客 / 主流科技媒体 / 产品发布页
+│ 信源：[OpenAI：ChatGPT Atlas](https://openai.com/index/introducing-chatgpt-atlas/) [OpenAI：ChatGPT agent](https://openai.com/index/introducing-chatgpt-agent/) [The Verge：OpenAI launches ChatGPT Atlas](https://www.theverge.com/news/802765/openai-chatgpt-atlas-browser-agent)
 └
 
 ┌─ **【简讯2】Perplexity、Arc 等产品继续把搜索、浏览和智能体操作揉在一起**
 │ 判断：AI 浏览器不是一个单点功能，而是搜索分发、网页操作和个人上下文的重新打包。
 │
-│ 信源：产品更新 / 媒体报道 / 用户反馈
+│ 信源：[Perplexity：Comet](https://www.perplexity.ai/comet) [Arc：Browser](https://arc.net/) [Perplexity：Comet Assistant](https://www.perplexity.ai/help-center/en/articles/11914212-comet-assistant)
 └
 
 ---
