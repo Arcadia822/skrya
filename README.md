@@ -7,7 +7,7 @@
 [![Python](https://img.shields.io/badge/python-%E2%89%A53.10-3776ab.svg)](https://www.python.org)
 ![Skrya](https://img.shields.io/badge/skrya-v0.1.0-0ea5e9.svg)
 
-[Chinese](README.zh-CN.md) · **English**
+[简体中文](README.zh-CN.md) · **English**
 
 </div>
 

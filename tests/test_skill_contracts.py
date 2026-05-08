@@ -69,7 +69,7 @@ class SkillContractTests(unittest.TestCase):
         en_readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
         self.assertIn("**简体中文** · [English](README.md)", zh_readme)
-        self.assertIn("[Chinese](README.zh-CN.md) · **English**", en_readme)
+        self.assertIn("[简体中文](README.zh-CN.md) · **English**", en_readme)
         self.assertIn('<div align="center">', en_readme)
         self.assertEqual(2, en_readme.count("img.shields.io"))
         self.assertIn("Turn \"keep me updated on this\"", en_readme)
@@ -103,7 +103,8 @@ class SkillContractTests(unittest.TestCase):
             "data-root --root",
         ]:
             self.assertNotIn(command_detail, en_readme)
-        self.assertNotRegex(en_readme, r"[\u4e00-\u9fff]")
+        en_without_language_link = en_readme.replace("[简体中文](README.zh-CN.md) · **English**", "")
+        self.assertNotRegex(en_without_language_link, r"[\u4e00-\u9fff]")
 
     def test_new_energy_vehicles_topic_fixture_models_thread_journey(self) -> None:
         topic_dir = ROOT / "tests" / "fixtures" / "topics" / "new-energy-vehicles"
