@@ -13,6 +13,45 @@
 
 Skrya is a briefing skill pack for AI agents. The user describes what they want to track; the agent turns that into a durable topic with confirmed scope, confirmed sources, recurring delivery, daily digests, follow-up analysis, and long-term feedback memory.
 
+## What You Get
+
+```text
+User: Track important AI browser developments for me every day.
+
+Skrya turns it into:
+1. topic scope: AI browsers, browser agents, search/browser distribution shifts
+2. source policy: official releases, major tech media, product updates, social signals
+3. recurring briefing: delivered back to the original conversation or channel
+4. daily digest: uniform format, compact sources, follow-up commands
+5. follow-up threads: continuing stories stay connected instead of resetting every day
+```
+
+```markdown
+# 2026-05-08 | AI Browsers | Daily Briefing
+
+┌─ **【Brief 1】OpenAI browser rumors matter because the browser can become the agent runtime**
+│ Judgment: the durable shift is not "another browser"; it is identity, page state, and tool use moving into one workflow.
+│
+│ Sources: official blog / major tech media / product pages
+└
+
+┌─ **【Brief 2】Perplexity, Arc, and adjacent products keep blending search, browsing, and agent actions**
+│ Judgment: AI browsers are a distribution change for search and task execution, not a single feature category.
+│
+│ Sources: product updates / media reports / user feedback
+└
+
+---
+
+## System
+
+- Reply `A 1` for deeper analysis of item 1.
+- Reply `B 2 AI browser product line` to keep item 2 as a continuing thread.
+- Reply `C fewer low-quality rumors` to update future briefing preferences.
+```
+
+See more demos: [AI browser daily briefing](examples/ai-browser-daily-briefing.md), [new energy thread](examples/new-energy-thread-demo.md), and [research agent watchlist](examples/research-agent-watchlist.md).
+
 ## Quick Start
 
 Send this to your agent:
@@ -22,6 +61,15 @@ Install Skrya from https://github.com/Arcadia822/skrya. After installation, send
 ```
 
 The agent should read the repository installation instructions and handle the setup. You should not need to copy shell commands manually. After installation, it should clarify what you actually want, then confirm sources and delivery. It should not dump search results immediately. We are all grateful for this restraint.
+
+Manual install:
+
+```bash
+git clone https://github.com/Arcadia822/skrya.git
+cd skrya
+python3 -m pip install -e .
+./setup --host auto
+```
 
 ## Core Value
 

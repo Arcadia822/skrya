@@ -24,8 +24,9 @@ python3 -m skrya_orchestrator.main install-skill-pack --root . --host openclaw
 Convenience scripts:
 
 ```bash
-./scripts/install.sh --host auto
-pwsh ./scripts/install.ps1 -Host auto
+python3 -m pip install -e .
+./setup --host auto
+pwsh ./setup.ps1 --host auto
 ```
 
 ## Data Root

@@ -13,6 +13,45 @@
 
 Skrya 是一个给 AI agent 用的简报技能包。用户只需要说清楚想长期关注什么，agent 负责把它变成一个稳定的 topic：确认范围、确认信源、创建定时任务、生成每日简报、接受反馈、持续修正。
 
+## 它最后长什么样
+
+```text
+User: 每天帮我追踪 AI 浏览器重要动态。
+
+Skrya turns it into:
+1. topic scope: AI 浏览器、浏览器 agent、搜索/浏览器入口变化
+2. source policy: 官方发布、主流科技媒体、产品更新、社交信号分层确认
+3. recurring briefing: 每天在原会话投递，失败时说明缺失前提
+4. daily digest: 统一格式、紧凑来源、可继续深挖
+5. follow-up threads: 对同一条持续事件线接着讲，而不是每天重开标题
+```
+
+```markdown
+# 2026-05-08｜AI 浏览器｜每日简报
+
+┌─ **【简讯1】OpenAI 浏览器入口传闻升温，重点不只是“做浏览器”**
+│ 判断：如果浏览器成为 agent 的执行入口，真正变化是身份、工具调用和网页状态会被放进同一个工作流。
+│
+│ 信源：官方博客 / 主流科技媒体 / 产品发布页
+└
+
+┌─ **【简讯2】Perplexity、Arc 等产品继续把搜索、浏览和 agent 操作揉在一起**
+│ 判断：AI 浏览器不是一个单点功能，而是搜索分发、网页操作和个人上下文的重新打包。
+│
+│ 信源：产品更新 / 媒体报道 / 用户反馈
+└
+
+---
+
+## 系统提示
+
+- 可回复 `A 1` 深挖第 1 条。
+- 可回复 `B 2 AI 浏览器产品线` 把第 2 条变成持续 thread。
+- 可回复 `C 低质量传闻少推` 调整后续简报偏好。
+```
+
+See more demos: [AI browser daily briefing](examples/ai-browser-daily-briefing.md), [new energy thread](examples/new-energy-thread-demo.md), and [research agent watchlist](examples/research-agent-watchlist.md).
+
 ## 30 秒开始
 
 把这句话发给你的 agent：
@@ -22,6 +61,15 @@ Skrya 是一个给 AI agent 用的简报技能包。用户只需要说清楚想�
 ```
 
 Agent 会读取仓库里的安装说明完成安装。你不需要手动复制命令。安装后，它应该先确认你真正想看的内容，再确认信源和投递方式。它不应该立刻丢一堆搜索结果给你。这种克制目前仍然算进步。
+
+也可以手动安装：
+
+```bash
+git clone https://github.com/Arcadia822/skrya.git
+cd skrya
+python3 -m pip install -e .
+./setup --host auto
+```
 
 ## 核心能力
 

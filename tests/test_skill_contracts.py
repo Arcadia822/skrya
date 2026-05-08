@@ -37,15 +37,16 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("data-keep-skills", content)
         self.assertIn("complete", content)
         self.assertIn("CONTRIBUTING.md", content)
+        self.assertIn("## 它最后长什么样", content)
+        self.assertIn("examples/ai-browser-daily-briefing.md", content)
+        self.assertIn("git clone https://github.com/Arcadia822/skrya.git", content)
+        self.assertIn("./setup --host auto", content)
         for command_detail in [
             "install-skill-pack",
             "uninstall-skill-pack",
-            "python3 -m",
-            "git clone",
             "git pull",
             "upgrade --root",
             "data-root --root",
-            "```bash",
         ]:
             self.assertNotIn(command_detail, content)
 
@@ -89,16 +90,17 @@ class SkillContractTests(unittest.TestCase):
         self.assertNotIn("## Where Data Lives", en_readme)
         self.assertIn("## Uninstall", en_readme)
         self.assertIn("INSTALL.md", en_readme)
+        self.assertIn("## What You Get", en_readme)
+        self.assertIn("examples/ai-browser-daily-briefing.md", en_readme)
+        self.assertIn("git clone https://github.com/Arcadia822/skrya.git", en_readme)
+        self.assertIn("./setup --host auto", en_readme)
         self.assertNotIn("## Digest Example", en_readme)
         for command_detail in [
             "install-skill-pack",
             "uninstall-skill-pack",
-            "python3 -m",
-            "git clone",
             "git pull",
             "upgrade --root",
             "data-root --root",
-            "```bash",
         ]:
             self.assertNotIn(command_detail, en_readme)
         self.assertNotRegex(en_readme, r"[\u4e00-\u9fff]")
