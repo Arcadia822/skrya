@@ -1,0 +1,209 @@
+{
+  "skill_name": "skrya",
+  "evals": [
+    {
+      "id": "journey-01-1",
+      "name": "旅程 1：新的长期追踪请求 / 测试 1",
+      "prompt": "用户说：帮我收集 LLM 实时资讯。请按 Skrya 行为回应下一步。",
+      "expected_output": "The answer follows Skrya user journey 1: 新的长期追踪请求.",
+      "assertions": [
+        "The response classifies the request as ongoing tracking rather than one-off search.",
+        "The response asks to clarify the durable briefing intent before creating topic files or producing a digest.",
+        "The response does not dump search results or generate an immediate digest.",
+        "The response keeps automation and test-run decisions separate."
+      ]
+    },
+    {
+      "id": "journey-01-2",
+      "name": "旅程 1：新的长期追踪请求 / 测试 2",
+      "prompt": "用户说：之后帮我长期看 AI infra 新闻。请不要直接生成新闻摘要，说明你会如何推进。",
+      "expected_output": "The answer follows Skrya user journey 1: 新的长期追踪请求.",
+      "assertions": [
+        "The response classifies the request as ongoing tracking rather than one-off search.",
+        "The response asks to clarify the durable briefing intent before creating topic files or producing a digest.",
+        "The response does not dump search results or generate an immediate digest.",
+        "The response keeps automation and test-run decisions separate."
+      ]
+    },
+    {
+      "id": "journey-01-3",
+      "name": "旅程 1：新的长期追踪请求 / 测试 3",
+      "prompt": "用户说：帮我每天关注具身智能融资和产品动态。当前还没有 topic。请回应。",
+      "expected_output": "The answer follows Skrya user journey 1: 新的长期追踪请求.",
+      "assertions": [
+        "The response classifies the request as ongoing tracking rather than one-off search.",
+        "The response asks to clarify the durable briefing intent before creating topic files or producing a digest.",
+        "The response does not dump search results or generate an immediate digest.",
+        "The response keeps automation and test-run decisions separate."
+      ]
+    },
+    {
+      "id": "journey-01-4",
+      "name": "旅程 1：新的长期追踪请求 / 测试 4",
+      "prompt": "用户说：持续跟踪国产大模型进展，过去24小时重要信息就行。请处理。",
+      "expected_output": "The answer follows Skrya user journey 1: 新的长期追踪请求.",
+      "assertions": [
+        "The response classifies the request as ongoing tracking rather than one-off search.",
+        "The response asks to clarify the durable briefing intent before creating topic files or producing a digest.",
+        "The response does not dump search results or generate an immediate digest.",
+        "The response keeps automation and test-run decisions separate."
+      ]
+    },
+    {
+      "id": "journey-01-5",
+      "name": "旅程 1：新的长期追踪请求 / 测试 5",
+      "prompt": "用户说：我想以后定期看机器人产业重要信息。请给出符合 Skrya 的下一步。",
+      "expected_output": "The answer follows Skrya user journey 1: 新的长期追踪请求.",
+      "assertions": [
+        "The response classifies the request as ongoing tracking rather than one-off search.",
+        "The response asks to clarify the durable briefing intent before creating topic files or producing a digest.",
+        "The response does not dump search results or generate an immediate digest.",
+        "The response keeps automation and test-run decisions separate."
+      ]
+    },
+    {
+      "id": "journey-04-1",
+      "name": "旅程 4：一次性研究 / 测试 1",
+      "prompt": "用户说：现在帮我总结一下今天 LLM 圈最重要的三件事。请回应。",
+      "expected_output": "The answer follows Skrya user journey 4: 一次性研究.",
+      "assertions": [
+        "The response handles the request as a one-off immediate research request rather than starting durable tracking, without requiring the exact phrase 'one-off research'.",
+        "The response does not force creation of a topic or recurring automation.",
+        "The response is allowed to proceed with direct research or answer planning for the immediate request.",
+        "If the response mentions ongoing tracking, it frames that as an optional future setup rather than a current requirement."
+      ]
+    },
+    {
+      "id": "journey-04-2",
+      "name": "旅程 4：一次性研究 / 测试 2",
+      "prompt": "用户说：今天 AI 浏览器有什么大新闻？只要现在这一次。请回应。",
+      "expected_output": "The answer follows Skrya user journey 4: 一次性研究.",
+      "assertions": [
+        "The response classifies the request as one-off research rather than durable tracking.",
+        "The response does not force creation of a topic or recurring automation.",
+        "The response may mention that Skrya can turn this into ongoing tracking if the user wants.",
+        "The response is allowed to proceed with direct research or answer planning for the immediate request."
+      ]
+    },
+    {
+      "id": "journey-04-3",
+      "name": "旅程 4：一次性研究 / 测试 3",
+      "prompt": "用户说：帮我查一下今天新能源汽车最值得看的三条。请回应。",
+      "expected_output": "The answer follows Skrya user journey 4: 一次性研究.",
+      "assertions": [
+        "The response classifies the request as one-off research rather than durable tracking.",
+        "The response does not force creation of a topic or recurring automation.",
+        "The response may mention that Skrya can turn this into ongoing tracking if the user wants.",
+        "The response is allowed to proceed with direct research or answer planning for the immediate request."
+      ]
+    },
+    {
+      "id": "journey-04-4",
+      "name": "旅程 4：一次性研究 / 测试 4",
+      "prompt": "用户说：快速总结今天机器人赛道发生了什么，不用每天跟。请回应。",
+      "expected_output": "The answer follows Skrya user journey 4: 一次性研究.",
+      "assertions": [
+        "The response classifies the request as one-off research rather than durable tracking.",
+        "The response does not force creation of a topic or recurring automation.",
+        "The response may mention that Skrya can turn this into ongoing tracking if the user wants.",
+        "The response is allowed to proceed with direct research or answer planning for the immediate request."
+      ]
+    },
+    {
+      "id": "journey-04-5",
+      "name": "旅程 4：一次性研究 / 测试 5",
+      "prompt": "用户说：给我一个即时概览：今天 Claude Code 有什么新闻？请回应。",
+      "expected_output": "The answer follows Skrya user journey 4: 一次性研究.",
+      "assertions": [
+        "The response classifies the request as one-off research rather than durable tracking.",
+        "The response does not force creation of a topic or recurring automation.",
+        "The response may mention that Skrya can turn this into ongoing tracking if the user wants.",
+        "The response is allowed to proceed with direct research or answer planning for the immediate request."
+      ]
+    },
+    {
+      "id": "journey-06-1",
+      "name": "旅程 6：持续事件的时间线追踪 / 测试 1",
+      "prompt": "用户说：新能源汽车这个 topic 里，帮我持续跟比亚迪闪充站这条线；以后有新进展就接着往下讲。请回应。",
+      "expected_output": "The answer follows Skrya user journey 6: 持续事件的时间线追踪.",
+      "assertions": [
+        "The response treats the request as a thread within an existing topic, not a new top-level topic.",
+        "The response confirms the thread name and boundary in natural language before any durable change.",
+        "The response says confirmation is needed before durable thread state is recorded or updated, or explains it would record/update a thread seed after confirmation, without claiming the current bare chat response has already written files.",
+        "The response preserves concrete timeline facts and watchpoints instead of generic 'progress happened' language."
+      ]
+    },
+    {
+      "id": "journey-06-2",
+      "name": "旅程 6：持续事件的时间线追踪 / 测试 2",
+      "prompt": "用户说：把这个 topic 里的 OpenAI 浏览器传闻作为一条线持续跟。请回应。",
+      "expected_output": "The answer follows Skrya user journey 6: 持续事件的时间线追踪.",
+      "assertions": [
+        "The response treats the request as a thread within an existing topic, not a new top-level topic.",
+        "The response confirms the thread name and boundary in natural language before any durable change.",
+        "The response explains that an agent runtime would record or continue the thread, without claiming a bare chat response has already written files.",
+        "The response preserves concrete timeline facts and watchpoints instead of generic 'progress happened' language."
+      ]
+    },
+    {
+      "id": "journey-10-1",
+      "name": "旅程 10：确认主题后必须确认信源 / 测试 1",
+      "prompt": "用户说：使用 skrya，每天给我一份 BYD，以及新能源汽车，储能相关的简报。主要关注国内外主流媒体内容。用户随后确认主题范围。请回应。",
+      "expected_output": "The answer follows Skrya user journey 10: 确认主题后必须确认信源.",
+      "assertions": [
+        "The response acknowledges the confirmed BYD/new-energy/storage scope as a source-planning step, not as completed source connection.",
+        "The response proposes concrete source groups such as mainstream Chinese media, international media, industry/finance media, and official traceable sources.",
+        "The response labels each source group in user-facing terms as automatically connectable or temporarily not connectable.",
+        "The response asks the user to confirm the source plan before writing sources.json or creating/updating automation."
+      ]
+    },
+    {
+      "id": "journey-10-2",
+      "name": "旅程 10：确认主题后必须确认信源 / 测试 2",
+      "prompt": "用户确认 BYD/新能源汽车/储能的主题范围后，agent 准备说已接入。请给出正确行为。",
+      "expected_output": "The answer follows Skrya user journey 10: 确认主题后必须确认信源.",
+      "assertions": [
+        "The response corrects the premature 'already connected' behavior.",
+        "The response says topic scope confirmation is not enough to write durable sources.",
+        "The response moves to source-plan confirmation with concrete candidate groups.",
+        "The response does not create or update the daily task before source confirmation."
+      ]
+    },
+    {
+      "id": "journey-10-3",
+      "name": "旅程 10：确认主题后必须确认信源 / 测试 3",
+      "prompt": "当前环境有 web/news search、X、微信公众号检索能力。用户确认新 topic 范围后请回应信源计划。",
+      "expected_output": "The answer follows Skrya user journey 10: 确认主题后必须确认信源.",
+      "assertions": [
+        "The response includes every exposed retrieval channel in the source plan, specifically web/news search, X, and WeChat official-account retrieval.",
+        "The response explains why each channel is useful for the confirmed topic scope.",
+        "The response labels source groups as automatically connectable or temporarily not connectable in user-facing terms.",
+        "The response asks for source-plan confirmation before writing sources.json or creating automation."
+      ]
+    },
+    {
+      "id": "journey-10-4",
+      "name": "旅程 10：确认主题后必须确认信源 / 测试 4",
+      "prompt": "已有新能源汽车 topic 信源部分足够，但 BYD/储能扩展有缺口。请回应。",
+      "expected_output": "The answer follows Skrya user journey 10: 确认主题后必须确认信源.",
+      "assertions": [
+        "The response distinguishes already-covered sources from BYD/storage-specific source gaps.",
+        "The response proposes concrete additional source candidates for the uncovered BYD/storage scope.",
+        "The response explains whether each added source group can be automatically connected.",
+        "The response asks for confirmation before updating durable sources or automation."
+      ]
+    },
+    {
+      "id": "journey-10-5",
+      "name": "旅程 10：确认主题后必须确认信源 / 测试 5",
+      "prompt": "用户确认信源计划前要求你创建每日任务。请按 Skrya 行为回应。",
+      "expected_output": "The answer follows Skrya user journey 10: 确认主题后必须确认信源.",
+      "assertions": [
+        "The response refuses to create or update the daily task before the source plan is confirmed.",
+        "The response explains that source confirmation is the current gate after topic-scope confirmation.",
+        "The response proposes or restates the source plan that still needs confirmation.",
+        "The response keeps any test-run question separate from automation creation."
+      ]
+    }
+  ]
+}

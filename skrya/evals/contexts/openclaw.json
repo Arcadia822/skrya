@@ -1,0 +1,135 @@
+{
+  "schema_version": "skrya.eval-context.v1",
+  "id": "openclaw-gateway-runtime",
+  "name": "OpenClaw Gateway Runtime Context",
+  "source_notes": [
+    "OpenClaw docs describe it as a self-hosted multi-channel Gateway for AI agents.",
+    "The Gateway is the source of truth for sessions, routing, and channel connections.",
+    "OpenClaw setup documents OPENCLAW_HOME, OPENCLAW_STATE_DIR, and OPENCLAW_CONFIG_PATH for host-specific paths.",
+    "The OpenClaw vision document describes plugins, memory, MCP, skills, and channel/tool extension surfaces."
+  ],
+  "host": {
+    "name": "OpenClaw",
+    "kind": "self-hosted-agent-gateway",
+    "execution_model": "gateway routes channel messages into stateful agent sessions with tool access",
+    "channel_aware": true,
+    "workspace_mounted": true,
+    "default_data_root": "<workspace>/.skrya/data",
+    "fallback_data_root": "~/.skrya",
+    "environment_variables": {
+      "OPENCLAW_HOME": "~/.openclaw",
+      "OPENCLAW_STATE_DIR": "~/.openclaw/state",
+      "OPENCLAW_CONFIG_PATH": "~/.openclaw/openclaw.json"
+    }
+  },
+  "gateway": {
+    "session_id": "oc-session-skrya-eval-001",
+    "workspace_id": "oc-workspace-skrya",
+    "agent_id": "skrya-agent",
+    "current_channel": {
+      "provider": "telegram",
+      "workspace": "arcadia-lab",
+      "conversation_id": "telegram:chat:-1002450001001",
+      "conversation_name": "韩国时政日报",
+      "message_id": "telegram:msg:88734",
+      "created_by_user": "user:arcadia"
+    },
+    "other_channels": [
+      {
+        "provider": "slack",
+        "workspace": "arcadia-lab",
+        "conversation_id": "slack:C0245ENERGY",
+        "conversation_name": "新能源汽车"
+      },
+      {
+        "provider": "telegram",
+        "workspace": "arcadia-lab",
+        "conversation_id": "telegram:chat:-1002450002002",
+        "conversation_name": "军民融合日报"
+      }
+    ]
+  },
+  "capabilities": {
+    "automation": {
+      "available": true,
+      "type": "openclaw-scheduled-workflow",
+      "requires_user_confirmation": true,
+      "supports_channel_bound_delivery": true
+    },
+    "filesystem": {
+      "read": true,
+      "write": true,
+      "migrate_data": true,
+      "workspace_root": "/workspace/skrya",
+      "skrya_data_root": "/workspace/skrya/.skrya/data"
+    },
+    "messaging": {
+      "send_explicit_message": true,
+      "verify_non_empty_delivery": true,
+      "cross_channel_delivery_default": "blocked"
+    },
+    "retrieval": {
+      "web_news_search": true,
+      "x_search": true,
+      "wechat_official_accounts": true,
+      "rss_fetch": true,
+      "site_fetch": true
+    },
+    "runtime_tools": [
+      "read_file",
+      "write_file",
+      "shell",
+      "openclaw_schedule_workflow",
+      "openclaw_send_message",
+      "openclaw_verify_message",
+      "web_search",
+      "x_search",
+      "wechat_search"
+    ]
+  },
+  "topic_state": {
+    "delivery_bindings_path": "/workspace/skrya/.skrya/data/topics/korea-politics/delivery-bindings.json",
+    "same_channel_binding": {
+      "topic_id": "korea-politics",
+      "topic_name": "韩国时政",
+      "channel_provider": "telegram",
+      "conversation_id": "telegram:chat:-1002450001001",
+      "created_by_user": "user:arcadia",
+      "schedule": "daily 08:00 Asia/Shanghai"
+    },
+    "cross_channel_binding": {
+      "topic_id": "military-civil-fusion",
+      "topic_name": "军民融合",
+      "channel_provider": "telegram",
+      "conversation_id": "telegram:chat:-1002450002002"
+    },
+    "existing_topics": [
+      {
+        "topic_id": "new-energy-vehicles",
+        "name": "新能源汽车",
+        "has_sources": true,
+        "has_automation": true
+      },
+      {
+        "topic_id": "ai-browser",
+        "name": "AI 浏览器",
+        "has_sources": true,
+        "has_automation": false
+      },
+      {
+        "topic_id": "korea-politics",
+        "name": "韩国时政",
+        "has_sources": true,
+        "has_automation": true
+      }
+    ]
+  },
+  "policy": {
+    "do_not_scan_all_topics_when_channel_binding_missing": true,
+    "do_not_deliver_across_channels_without_explicit_request": true,
+    "do_not_claim_automation_created_without_tool_result": true,
+    "do_not_claim_sources_connected_before_source_confirmation": true,
+    "test_runs_do_not_update_latest_digest_by_default": true,
+    "destructive_uninstall_requires_mode_confirmation": true
+  }
+}

@@ -115,7 +115,10 @@ topic state: 写入或更新 topics/<topic-id>/delivery-bindings.json，使用 s
 - 只投递到绑定 channel/conversation，除非用户明确配置了其他支持的目标。
 - host 支持时，发送后验证投递内容非空。
 - 不要把 test run 藏在自动化 prompt 里；只有用户另行要求时才试跑。
+- 如果 topic 文件、信源、模板或投递绑定缺失，报告缺失前置条件，不要生成普通新闻摘要来凑数。
 ```
+
+执行前检查：如果 `topic-id`、data root、delivery context、required reads、template fallback、artifact policy、delivery policy、test-run policy 或 failure policy 任一项缺失，agent 应补齐、写 `unknown` 加 fallback，或向用户说明阻塞；不要提交一个半截自动化 prompt。
 
 ## 旅程 4：一次性研究
 
@@ -295,11 +298,12 @@ agent 发现已有「新能源汽车」topic，建议扩展。用户回复：
 
 期望流程：
 
-1. 直接输出测试简报正文，不要先发一段“我跑一轮测试”的闲聊。
+1. 第一行直接输出测试简报标题，不要先发一段“我跑一轮测试”的闲聊。
 2. 使用正式日报同一套模板：标题、统一 line box、每条信源、`---`、`## 系统提示`。
 3. `## 系统提示` 里说明这是测试/预览、扫描时间范围、后续可用操作，并解释 `A 2` 这类指令是什么意思。
 4. 测试结果默认不保存为正式 digest artifact，也不要更新 latest pointer，或在用户可见输出里说“已写入测试产物”。
 5. 如果测试输出没有命中足够条目，可以在 `## 系统提示` 或 digest 判断中说明，不要用模板外废话包裹正文。
+6. `## 系统提示` 之后不要再追加保存路径、运行日志或实现说明。
 
 不应该：
 
@@ -326,7 +330,7 @@ agent 发现已有「新能源汽车」topic，建议扩展。用户回复：
 3. 对 `data-keep-skills`，先读取并展示当前 data root，确认要删除的是哪一份长期配置/历史数据。
 4. 对 `complete`，同时确认技能目录、data root、data-root config，以及全局 `AGENTS.md` / `CLAUDE.md` / `TOOLS.md` / `tools.md` 或 documented global memory 里的 Skrya routing note 都会被清理。
 5. 只移除 Skrya 相关的全局指令块。优先删除带 `SKRYA-ROUTING-NOTE` 标记的块；如果没有标记，只删除明确属于 Skrya 的最小段落，不要清空整份全局指令文件。
-6. 执行后汇报删除了哪些类别：skill、data-root、data-config、global-instruction。
+6. 执行后必须用固定四类汇总：`skill`、`data-root`、`data-config`、`global-instruction`。每类标记 `removed`、`kept`、`not found` 或 `skipped`，并说明执行的是哪个 mode。
 
 可用命令示例：
 
@@ -342,3 +346,4 @@ python3 -m skrya_orchestrator.main uninstall-skill-pack --root . --host auto --m
 - 清空整份全局 `AGENTS.md`
 - 把当前 workspace 的示例 fixture 当成用户长期数据删除，除非 data root 明确指向这里且用户确认
 - 删除非 Skrya 技能或其他 agent 的记忆
+- 用一句“已完成”代替四类执行结果汇总

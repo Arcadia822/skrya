@@ -129,6 +129,7 @@ Infer the underlying preference and rewrite that into stable configuration langu
 13. Do not create or update recurring digest automation until the source plan is confirmed, unless the topic already has adequate confirmed sources and the user is only changing ranking or scope.
 14. If the user wants ongoing tracking, discuss recurring digest automation before producing any digest output.
 15. After sources and recurring delivery are configured, proactively ask whether the user wants a test run instead of waiting for the user to ask.
+16. When clarifying a new recurring topic, include a compact setup boundary: topic scope is confirmed first, sources are confirmed next, automation/schedule is handled only after source confirmation, and the test run remains a separate yes/no decision.
 
 ## Automation Behavior
 
@@ -149,6 +150,7 @@ For ongoing tracking, a recurring digest is the default target experience.
 - Do not hide the test run decision inside the automation prompt.
 - Do not assume the user wants a test run.
 - Do not present collected results in chat as if that replaces the recurring workflow the user asked for.
+- Before creating automation or handing the user a prompt, validate that the prompt contains every field in the contract below. If a value is not exposed by the host, include `unknown` plus the fallback rule instead of silently dropping the field.
 
 ## Automation Prompt Contract
 
@@ -156,18 +158,18 @@ When creating a recurring digest automation directly, or giving the user a ready
 
 Include these fields or instructions:
 
-- use Skrya and the `digest` workflow for a resolved topic, not a generic news summary
-- resolved `topic-id` and visible topic name
-- Skrya data root policy, including workspace `.skrya/data` for OpenClaw or mounted-workspace environments when applicable
-- delivery context: creating user and current channel/conversation when the host exposes them
-- topic-state binding: create or update `delivery-bindings.json` for that host/channel/user/workspace binding; the automation must not rely on later chat context
-- required reads before generation: `topic.json`, `brief.json`, `sources.json`, `digest.md`, and the configured digest template file
-- default template fallback: use `digest/templates/default-digest.md` when no topic-specific digest template is configured
-- distinction that `digest.md` contains ranking and judgment rules, while the template file provides writing and format guidance
-- output rules from the template, including uniform line boxes, source references, `---`, and the topic-language system section
-- artifact policy: save real scheduled digests as `digest-YYYYMMDDTHHMMSS+0800.md` under `<skrya-data-root>/runs/<topic-id>/`, then update `latest-digest.md` as a symlink or pointer
-- delivery policy: send only to the bound channel/conversation unless the user explicitly configured another supported target, and verify non-empty delivery when the host supports it
-- do not perform or save a test run unless the user separately asks for one
+- `workflow`: use Skrya and the `digest` workflow for a resolved topic, not a generic news summary
+- `topic`: resolved `topic-id` and visible topic name
+- `data_root`: resolved Skrya data root; use workspace `.skrya/data` for OpenClaw or mounted-workspace environments when applicable
+- `delivery_context`: creating user, workspace, host, and current channel/conversation id or stable label when the host exposes them
+- `topic_state_binding`: create or update `<skrya-data-root>/topics/<topic-id>/delivery-bindings.json` using schema `skrya.delivery-bindings.v1`; the automation must not rely on later chat context
+- `required_reads`: `topic.json`, `brief.json`, `sources.json`, `digest.md`, and the configured digest template file
+- `template_fallback`: use `digest/templates/default-digest.md` when no topic-specific digest template is configured
+- `format_contract`: `digest.md` contains ranking and judgment rules; the template file controls title, uniform line boxes, source references, `---`, and the topic-language system section
+- `artifact_policy`: save real scheduled digests as `digest-YYYYMMDDTHHMMSS+0800.md` under `<skrya-data-root>/runs/<topic-id>/`, then update `latest-digest.md` as a symlink or pointer
+- `delivery_policy`: send only to the bound channel/conversation unless the user explicitly configured another supported target, and verify non-empty delivery when the host supports it
+- `test_run_policy`: do not perform, save, or include a test run unless the user separately asks for one
+- `failure_policy`: if required topic files, sources, template, or delivery binding are missing, report the missing precondition instead of generating a generic summary
 
 ## File Strategy
 
@@ -186,7 +188,9 @@ Prefer the smallest config change that matches the user's intent.
 When the user confirms a new or expanded recurring topic, source confirmation is a required gate before "已接入" or automation creation.
 
 - For a request such as "每天给我一份 BYD、新能源汽车、储能相关简报，主要关注国内外主流媒体内容", first propose source groups that fit those angles.
+- When the prompt or host names available retrieval capabilities, produce the source plan now instead of merely listing capabilities or saying a plan will come later.
 - Explain source fit in natural Chinese, for example "覆盖比亚迪和车企动态", "覆盖海外主流财经/产业报道", or "覆盖储能项目和政策".
+- For each source group, include the group name, why it fits the confirmed topic, the retrieval channel or capability, and status: 自动接入 or 暂时不能自动接入.
 - Mark each group or source as 自动接入 or 暂时不能自动接入 under current connector limits.
 - If the current environment has configured X, WeChat official account, or other source-channel skills, include them in the source plan and explain what they add compared with generic web/news search.
 - Ask the user to confirm the source plan before writing `sources.json` or claiming the daily task is connected.

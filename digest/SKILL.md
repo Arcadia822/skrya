@@ -72,6 +72,7 @@ Digest generation and digest delivery are separate steps.
 - Put feedback choices inside the system section and explain them in the topic language: `A <numbers>` for deep analysis, `B <numbers> <name/intent>` for thread creation or updates, and `C <numbers/reason>` for durable topic memory changes.
 - Do not put chatty prefaces before the digest body.
 - Do not append implementation notes such as saved file paths after the `## 系统提示` section.
+- For a test run, the first visible line must be the digest title. Do not write "我先跑一下", "测试结果如下", saved-file notes, or any other prose before or after the templated digest.
 
 ## Required Behavior
 
@@ -85,7 +86,7 @@ Digest generation and digest delivery are separate steps.
 8. Preserve enough traceability so that if the user later asks for the source of an item, you can return the complete corresponding sources.
 9. If a seeded thread matches today’s items, write a concise line-box thread update before the normal numbered items. Do not include a "today matched digest items" line in the thread update.
 10. End the digest body, insert `---`, and write a `## 系统提示` section with execution metadata and A/B/C feedback options.
-11. For a test run, still use the same digest template and `## 系统提示` format, but mark execution status as test/preview and do not mention saved artifacts.
+11. For a test run, still use the same digest template and `## 系统提示` format, mark execution status as test/preview, explain `A <编号>`, `B <编号> <名称/意图>`, and `C <编号/原因>`, and do not mention saved artifacts.
 
 ## Feedback Handling
 

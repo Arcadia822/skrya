@@ -1,0 +1,22 @@
+root: ./skrya
+workspace: ./agent-skills-workspace
+baseline: true
+target: gpt-4o-mini
+judge: gpt-4o-mini
+baseUrl: https://api.openai.com/v1
+apiKeyEnv: OPENAI_API_KEY
+include: []
+concurrency: 2
+layout: iteration
+strict: true
+report:
+  enabled: true
+  title: Skrya User Journey Skill Evals
+logging:
+  format: pretty
+  verbose: false
+  color: auto
+targetParams:
+  temperature: 0
+judgeParams:
+  temperature: 0

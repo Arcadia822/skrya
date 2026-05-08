@@ -49,6 +49,7 @@ After a new or expanded recurring topic is confirmed, source curation is not opt
 6. For runtime retrieval channels, write capabilities such as `web_search`, `news_search`, `site_search`, `social_search`, or `document_fetch`, not third-party skill names.
 7. Do not let an agent claim "已接入" or create recurring automation for a new source scope until the source plan has been confirmed.
 8. When source-channel skills such as X or WeChat official account retrieval are configured, include them in the recommendation or explain why they do not fit the confirmed topic intent.
+9. When the topic intent is clear and the prompt or host names available retrieval capabilities, produce the concrete source plan now instead of only describing the capability list or future process.
 
 ## Output Rules
 
@@ -57,6 +58,7 @@ After a new or expanded recurring topic is confirmed, source curation is not opt
 - File names are internal execution details; do not show file names in normal user-facing replies unless the user asks for implementation details.
 - Prefer sources that repeatedly surface the kinds of events the user actually wants.
 - For broad requests like "BYD / 新能源汽车 / 储能，国内外主流媒体优先", propose a concise source plan grouped by coverage area before writing files.
+- For each source group, show why it fits, which retrieval channel/capability would be used, and whether it is 自动接入 or 暂时不能自动接入.
 - Distinguish delivery channels from retrieval/source channels; WeChat as a delivery target is different from WeChat official accounts as a source channel.
 
 ## Success Criteria

@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "eval:skills": "agent-skills-eval --config agent-skills-eval.yaml",
+    "eval:skills:check": "node scripts/check-agent-skills-eval.mjs",
+    "eval:skills:runtime": "node scripts/runtime-openclaw-harness.mjs"
+  },
+  "devDependencies": {
+    "agent-skills-eval": "0.1.1"
+  }
+}

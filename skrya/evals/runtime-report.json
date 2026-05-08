@@ -1,0 +1,358 @@
+{
+  "summary": {
+    "runner": "mock-openclaw-runtime",
+    "note": "This validates runtime contracts, fake tool traces, and final-output shape. It does not call a real LLM or real OpenClaw gateway.",
+    "total": 25,
+    "passed": 25,
+    "failed": 0
+  },
+  "results": [
+    {
+      "id": "journey-02-1",
+      "name": "旅程 2：有直接自动化能力 / 测试 1",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "create_automation"
+      ],
+      "final": "已按确认的主题、信源和时间创建每日 Skrya digest 自动化。是否现在单独试跑一次？"
+    },
+    {
+      "id": "journey-02-2",
+      "name": "旅程 2：有直接自动化能力 / 测试 2",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [],
+      "final": "这是持续追踪设置。请先确认 durable topic scope、信源计划，以及是否创建每日 digest 任务和运行时间。测试运行会作为单独决定处理。"
+    },
+    {
+      "id": "journey-02-3",
+      "name": "旅程 2：有直接自动化能力 / 测试 3",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "create_automation"
+      ],
+      "final": "已按确认的主题、信源和时间创建每日 Skrya digest 自动化。是否现在单独试跑一次？"
+    },
+    {
+      "id": "journey-02-4",
+      "name": "旅程 2：有直接自动化能力 / 测试 4",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [],
+      "final": "这是持续追踪设置。请先确认 durable topic scope、信源计划，以及是否创建每日 digest 任务和运行时间。测试运行会作为单独决定处理。"
+    },
+    {
+      "id": "journey-02-5",
+      "name": "旅程 2：有直接自动化能力 / 测试 5",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "create_automation"
+      ],
+      "final": "已按确认的主题、信源和时间创建每日 Skrya digest 自动化。是否现在单独试跑一次？"
+    },
+    {
+      "id": "journey-07-1",
+      "name": "旅程 7：安装时选择数据位置 / 测试 1",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "configure_data_root"
+      ],
+      "final": "已配置数据位置：/workspace/skrya/.skrya/data。长期 topic 配置、历史 digest、ingest 和 thread 状态会保存在这里。"
+    },
+    {
+      "id": "journey-07-2",
+      "name": "旅程 7：安装时选择数据位置 / 测试 2",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "configure_data_root"
+      ],
+      "final": "已配置数据位置：~/.skrya。长期 topic 配置、历史 digest、ingest 和 thread 状态会保存在这里。"
+    },
+    {
+      "id": "journey-07-3",
+      "name": "旅程 7：安装时选择数据位置 / 测试 3",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "configure_data_root",
+        "migrate_data"
+      ],
+      "final": "已配置数据位置：~/.skrya。长期 topic 配置、历史 digest、ingest 和 thread 状态会保存在这里。"
+    },
+    {
+      "id": "journey-07-4",
+      "name": "旅程 7：安装时选择数据位置 / 测试 4",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "configure_data_root"
+      ],
+      "final": "已配置数据位置：~/.skrya。长期 topic 配置、历史 digest、ingest 和 thread 状态会保存在这里。"
+    },
+    {
+      "id": "journey-07-5",
+      "name": "旅程 7：安装时选择数据位置 / 测试 5",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "configure_data_root"
+      ],
+      "final": "已配置数据位置：~/.skrya。长期 topic 配置、历史 digest、ingest 和 thread 状态会保存在这里。"
+    },
+    {
+      "id": "journey-08-1",
+      "name": "旅程 8：用户询问或修改数据位置 / 测试 1",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "resolve_data_root"
+      ],
+      "final": "当前 Skrya 数据位置是 /workspace/skrya/.skrya/data，里面保存 topic 配置、历史简报和运行状态。"
+    },
+    {
+      "id": "journey-08-2",
+      "name": "旅程 8：用户询问或修改数据位置 / 测试 2",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "resolve_data_root"
+      ],
+      "final": "迁移会影响后续新 topic、digest、ingest 和 thread 历史的写入位置；旧数据不会自动删除。请确认目标位置和是否迁移。"
+    },
+    {
+      "id": "journey-08-3",
+      "name": "旅程 8：用户询问或修改数据位置 / 测试 3",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "resolve_data_root",
+        "configure_data_root",
+        "migrate_data"
+      ],
+      "final": "已迁移到新的长期记忆位置：/workspace/skrya/.skrya/data。旧位置未自动删除。"
+    },
+    {
+      "id": "journey-08-4",
+      "name": "旅程 8：用户询问或修改数据位置 / 测试 4",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "resolve_data_root"
+      ],
+      "final": "切换回 ~/.skrya 会影响以后新 topic、digest、ingest 和 thread 历史的写入位置。请确认是否迁移现有数据。"
+    },
+    {
+      "id": "journey-08-5",
+      "name": "旅程 8：用户询问或修改数据位置 / 测试 5",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "resolve_data_root"
+      ],
+      "final": "当前 Skrya 数据位置是 /workspace/skrya/.skrya/data，里面保存 topic 配置、历史简报和运行状态。"
+    },
+    {
+      "id": "journey-11-1",
+      "name": "旅程 11：试跑输出必须等同正式日报模板 / 测试 1",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "render_digest"
+      ],
+      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- A 2：深度分析第 2 条。\n- B 2 事件线：把第 2 条作为持续 thread。\n- C 2 原因：更新长期偏好。"
+    },
+    {
+      "id": "journey-11-2",
+      "name": "旅程 11：试跑输出必须等同正式日报模板 / 测试 2",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "render_digest"
+      ],
+      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- A 2：深度分析第 2 条。\n- B 2 事件线：把第 2 条作为持续 thread。\n- C 2 原因：更新长期偏好。"
+    },
+    {
+      "id": "journey-11-3",
+      "name": "旅程 11：试跑输出必须等同正式日报模板 / 测试 3",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "render_digest"
+      ],
+      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- A 2：深度分析第 2 条。\n- B 2 事件线：把第 2 条作为持续 thread。\n- C 2 原因：更新长期偏好。"
+    },
+    {
+      "id": "journey-11-4",
+      "name": "旅程 11：试跑输出必须等同正式日报模板 / 测试 4",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "write_file",
+        "write_file",
+        "render_digest"
+      ],
+      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- A 2：深度分析第 2 条。\n- B 2 事件线：把第 2 条作为持续 thread。\n- C 2 原因：更新长期偏好。"
+    },
+    {
+      "id": "journey-11-5",
+      "name": "旅程 11：试跑输出必须等同正式日报模板 / 测试 5",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "render_digest"
+      ],
+      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- A 2：深度分析第 2 条。\n- B 2 事件线：把第 2 条作为持续 thread。\n- C 2 原因：更新长期偏好。"
+    },
+    {
+      "id": "journey-12-1",
+      "name": "旅程 12：agent 自主卸载 Skrya / 测试 1",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [],
+      "final": "Skrya 支持三种卸载模式：skills-keep-data、data-keep-skills、complete。请确认模式后再执行；不会因为一句“卸载”就删除数据。"
+    },
+    {
+      "id": "journey-12-2",
+      "name": "旅程 12：agent 自主卸载 Skrya / 测试 2",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "uninstall_skrya"
+      ],
+      "final": "mode: skills-keep-data\nskill: removed\ndata-root: kept\ndata-config: kept\nglobal-instruction: kept"
+    },
+    {
+      "id": "journey-12-3",
+      "name": "旅程 12：agent 自主卸载 Skrya / 测试 3",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "uninstall_skrya"
+      ],
+      "final": "mode: data-keep-skills\nskill: kept\ndata-root: removed\ndata-config: removed\nglobal-instruction: kept"
+    },
+    {
+      "id": "journey-12-4",
+      "name": "旅程 12：agent 自主卸载 Skrya / 测试 4",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [
+        "uninstall_skrya"
+      ],
+      "final": "mode: complete\nskill: removed\ndata-root: removed\ndata-config: removed\nglobal-instruction: removed"
+    },
+    {
+      "id": "journey-12-5",
+      "name": "旅程 12：agent 自主卸载 Skrya / 测试 5",
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ],
+      "passed": true,
+      "failures": [],
+      "tool_calls": [],
+      "final": "只清理 global-instruction 中最小的 Skrya routing note，优先匹配 SKRYA-ROUTING-NOTE；保留其他 agent 记忆，不清空整份 AGENTS.md。"
+    }
+  ]
+}

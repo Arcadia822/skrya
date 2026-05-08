@@ -23,6 +23,7 @@ Skrya is an umbrella skill pack. Route requests to the bundled skills that best 
 - `complete` means remove installed skills, remove Skrya data/config, and remove Skrya routing notes from global instruction memory such as `AGENTS.md`, `CLAUDE.md`, `TOOLS.md`, `tools.md`, or documented global memory.
 - Before `data-keep-skills` or `complete`, confirm the data root being removed. This result is intentionally destructive; observe the specimen carefully.
 - For global instruction cleanup, remove only Skrya routing notes or blocks. Prefer marked blocks such as `SKRYA-ROUTING-NOTE`; do not erase unrelated user instructions.
+- After any uninstall action, report a fixed four-category summary: `skill`, `data-root`, `data-config`, and `global-instruction`. For each category say `removed`, `kept`, `not found`, or `skipped`, and include the mode that was executed. Do not replace this with a vague "done".
 - Do not ask nontechnical users for raw `topic-id` values. Ask for or confirm the natural topic name instead, then map it to the internal `topic-id` yourself.
 - When the host exposes a channel/conversation concept, topic automation is channel-scoped by default. Bind each recurring digest task to the creating user and the channel or conversation where it was created.
 - In channel-aware hosts, scheduled delivery, manual resend, and "why was today's digest empty" diagnosis must resolve both topic identity and channel or conversation binding before sending content.
@@ -37,8 +38,10 @@ Skrya is an umbrella skill pack. Route requests to the bundled skills that best 
 - If the user asks for scheduled pushes such as "每天早上8点推送", "每天定时发", or "每天提醒我看" about a topical news area, treat it as a Skrya ongoing tracking setup before using generic reminders or automation tools.
 - Requests for "国内外", "官媒", "官方来源", "信息和新闻", "过去24小时", or similar source/scope constraints are topic configuration requirements, not plain reminder text.
 - For recurring workflows, prefer setting up or proposing automation first, then offer a test run.
+- During initial clarification for a new recurring topic, still name the process boundary: confirm topic scope first, confirm sources next, handle automation/schedule separately after source confirmation, then ask about a test run as a separate yes/no decision.
 - After the user confirms a new or expanded topic's scope and standards, do not immediately say sources or automation are connected. First route to source curation: propose concrete source candidates, mark which are 自动接入 versus 暂时不能自动接入, and ask for confirmation.
 - The source plan must consider all relevant retrieval/source channels exposed by the current environment, including web/news search, X, WeChat official accounts, site search, document fetch, and configured source skills. Do not reduce the plan to generic search if richer channels are available.
+- If the current prompt or host names available retrieval capabilities, produce concrete source groups now with fit rationale, retrieval channel, and 自动接入/暂时不能自动接入 status; do not merely list capabilities or defer the source plan.
 - Only create or update the recurring task after the source plan is confirmed, unless the topic already has adequate confirmed sources and the user is only changing ranking or scope.
 - Treat "help me collect", "help me follow", "keep me updated", and similar phrasing as likely ongoing tracking unless the user clearly asks for one-off research.
 - Prefer real data by default.
@@ -115,6 +118,7 @@ When the user sounds like they want recurring tracking rather than one-off resea
 - if the current agent is user-mediated for automation, explicitly suggest creating a recurring automation and give the user a ready-to-send prompt
 - if the current agent is non-automation, say that automation is unavailable in this environment and still give the user a ready-to-send prompt they can use elsewhere
 - when creating or proposing automation, write the automation prompt as a self-contained Skrya digest contract: name the topic id, data root policy, delivery context, required topic files, digest template file, output artifact policy, and send verification behavior
+- before calling an automation tool or telling the user to forward a prompt, check the automation contract against the required field list below; if a field is unknown, write `unknown` or the concrete fallback rule instead of omitting it
 - after configuration and automation handling, ask whether the user wants a test run now
 - keep the test run as a separate explicit decision instead of assuming it or hiding it inside the automation prompt
 - do not jump straight into a test run or a digest unless the user says yes
@@ -126,13 +130,31 @@ Use one-off research behavior only when the user clearly wants a single immediat
 
 When the user agrees to a test run, treat it as a preview of the daily digest, not as a loose chat summary.
 
+- The first visible line of the response must be the digest title. Do not put status text, commentary, saved-file notes, or implementation notes before the title.
 - Use the same digest template file as the real daily digest: top-level title, uniform line boxes, source references, `---`, and `## 系统提示`.
 - In `## 系统提示`, include the current Skrya version. Include the agent framework/version and LLM model only when the host exposes them; silently omit unknown fields.
 - When the host can inspect the Skrya repository, check the latest visible Skrya version or upstream revision. If a newer version is available, ask the user whether to update and follow `docs/upgrade.md` before changing runtime data.
 - Do not write conversational prefaces such as "我跑一轮测试" before the digest body.
-- Do not append implementation notes such as saved file paths after the digest.
+- Do not append implementation notes such as saved file paths after the digest or after `## 系统提示`.
 - Do not save test-run output as a timestamped digest artifact or update `latest-digest.md` unless the user explicitly asks to save it.
 - In `## 系统提示`, explain feedback commands in natural Chinese: `A <编号>` means deep analysis, `B <编号> <名称/意图>` means continue tracking as a thread, and `C <编号/原因>` means update durable topic preferences.
+
+## Automation Prompt Contract
+
+When creating or proposing a recurring digest automation, use this checklist as the contract. The prompt must be able to run in a fresh scheduled agent session without relying on the current chat.
+
+- workflow: use Skrya's `digest` workflow for a resolved topic; do not ask for a generic news summary
+- topic identity: include `topic-id` and visible topic name
+- data root: include the resolved Skrya data root, with workspace `.skrya/data` for OpenClaw or mounted-workspace hosts when applicable
+- delivery context: include host name, creating user, workspace, and current channel/conversation id or stable label when exposed by the host
+- binding: create or update `<skrya-data-root>/topics/<topic-id>/delivery-bindings.json` using schema `skrya.delivery-bindings.v1`; put host-specific extras under `host_metadata`
+- required reads: read `topic.json`, `brief.json`, `sources.json`, `digest.md`, and the configured topic digest template before generating
+- template fallback: use `digest/templates/default-digest.md` if no topic-specific template is configured
+- output format: render title, uniform line boxes, source references, `---`, and `## 系统提示` / `## System`
+- artifact policy: scheduled real digests are saved as `digest-YYYYMMDDTHHMMSS+0800.md` under `<skrya-data-root>/runs/<topic-id>/`, and `latest-digest.md` is a symlink or pointer to the newest real artifact
+- delivery policy: send only to the bound channel/conversation unless the user explicitly configured another supported target; verify the sent body is non-empty when the host supports verification
+- test-run separation: do not perform, save, or mention a test run inside the recurring automation unless the user separately asks for that preview
+- failure behavior: if a required file, source set, template, or delivery binding is missing, report the missing precondition rather than generating an unrelated summary
 
 ## Delivery And Resend
 

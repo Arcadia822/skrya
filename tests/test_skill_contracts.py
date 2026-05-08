@@ -174,6 +174,12 @@ class SkillContractTests(unittest.TestCase):
 
         self.assertIn("旅程 12：agent 自主卸载 Skrya", journeys)
         self.assertIn("不要清空整份全局指令文件", journeys)
+        self.assertIn("skill", root_skill)
+        self.assertIn("data-root", root_skill)
+        self.assertIn("data-config", root_skill)
+        self.assertIn("global-instruction", root_skill)
+        self.assertIn("fixed four-category summary", root_skill)
+        self.assertIn("用一句“已完成”代替四类执行结果汇总", journeys)
 
     def test_agents_routes_unconfigured_topic_info_requests_to_topic_curation(self) -> None:
         content = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
@@ -509,9 +515,15 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("confirmed", source_curation)
 
         self.assertIn("do not immediately say sources or automation are connected", root_skill)
+        self.assertIn("confirm sources next, handle automation/schedule separately", root_skill)
+        self.assertIn("produce concrete source groups now", root_skill)
         self.assertIn("Source Confirmation Gate", topic_curation)
         self.assertIn("Do not create or update recurring digest automation until the source plan is confirmed", topic_curation)
+        self.assertIn("produce the source plan now", topic_curation)
+        self.assertIn("why it fits the confirmed topic", topic_curation)
         self.assertIn("Do not let an agent claim \"已接入\"", source_curation)
+        self.assertIn("produce the concrete source plan now", source_curation)
+        self.assertIn("which retrieval channel/capability would be used", source_curation)
         self.assertIn("Do not skip source curation", agents)
 
         for content in [full_prompt, lite_prompt]:
@@ -564,6 +576,8 @@ class SkillContractTests(unittest.TestCase):
             self.assertIn("latest-digest.md", content)
 
         self.assertIn("Do not write conversational prefaces", root_skill)
+        self.assertIn("first visible line must be the digest title", digest)
+        self.assertIn("The first visible line of the response must be the digest title", root_skill)
         self.assertIn("Do not append implementation notes", digest)
         self.assertIn("Do not save test-run previews by default", digest)
         self.assertIn("A <编号>", root_skill)
@@ -571,6 +585,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("不要先发一段“我跑一轮测试”的闲聊", user_journeys)
         self.assertIn("只说“可以回复 A 2”，但不解释 A/B/C 的含义", user_journeys)
         self.assertIn("把测试产物写入 timestamped digest 文件", user_journeys)
+        self.assertIn("## 系统提示` 之后不要再追加保存路径", user_journeys)
 
     def test_digest_template_and_automation_prompt_contract_are_file_based(self) -> None:
         root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -598,6 +613,11 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("自动化 prompt 合同", user_journeys)
         self.assertIn("self-contained automation prompt", user_prompt)
         self.assertIn("digest.md` contains ranking and judgment rules", topic_curation)
+        self.assertIn("failure_policy", topic_curation)
+        self.assertIn("test_run_policy", topic_curation)
+        self.assertIn("delivery_policy", topic_curation)
+        self.assertIn("delivery-bindings.json", user_prompt)
+        self.assertIn("failure policy for missing prerequisites", user_prompt)
         self.assertIn("not the output format template", digest)
         self.assertIn("┌─ **【简讯1】事件标题**", default_template)
 
