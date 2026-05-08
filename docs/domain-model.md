@@ -34,7 +34,7 @@ Skrya is topic-driven. The important entities are:
 | `automation` | A recurring task that generates and/or sends a digest. |
 | `schedule` | The recurrence and timezone for automation. |
 | `send verification` | A post-send check that delivered body content was non-empty. |
-| `feedback command` | Digest continuation shorthand: `A` deep analysis, `B` thread, `C` durable preference update. |
+| `feedback command` | Digest continuation shorthand: `dig:` for deep analysis, `track:` for thread updates, and `feedback:` for durable preference updates. |
 | `skill pack` | The installable Skrya repository shape. |
 | `umbrella skill` | The root Skrya skill that routes to bundled skills. |
 | `bundled skill` | A focused subskill such as `topic-curation`, `source-curation`, `digest`, or `deep-analysis`. |
@@ -62,7 +62,7 @@ flowchart TD
   Channel --> DeliveryBinding
   Automation --> DeliveryBinding
   DeliveryBinding --> Delivery["delivery context"]
-  DigestItem --> Feedback["A/B/C feedback"]
+  DigestItem --> Feedback["dig/track/feedback command"]
   Feedback --> Request
   Feedback --> ThreadSeed
 ```

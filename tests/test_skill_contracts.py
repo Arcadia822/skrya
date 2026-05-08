@@ -143,7 +143,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("thread更新不要压成一行泛泛而谈", threads)
         self.assertIn("┌─ **【thread】比亚迪闪充站**", threads)
         self.assertNotIn("今天命中的简讯：1、2", threads)
-        self.assertIn("A. 详细分析指定今日简讯", threads)
+        self.assertIn("dig: 详细分析指定今日简讯", threads)
         self.assertIn("refresh-threads", threads)
         self.assertIn("帮我持续跟比亚迪闪充站这条线；以后有新进展就接着往下讲", user_journeys)
         self.assertIn("thread` seed", user_journeys)
@@ -327,9 +327,9 @@ class SkillContractTests(unittest.TestCase):
         digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
 
         for phrase in [
-            "A <numbers>",
-            "B <numbers>",
-            "C <numbers",
+            "dig: <numbers>",
+            "track: <numbers>",
+            "feedback: <numbers",
             "thread-seeds.json",
             "为什么没有",
             "这个很重要",
@@ -343,8 +343,8 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("active topic", topic_curation)
         self.assertIn("漏报诊断", request_curation)
         self.assertIn("check latest digest", request_curation)
-        self.assertIn("B <numbers>", digest)
-        self.assertIn("C <numbers", digest)
+        self.assertIn("track: <numbers>", digest)
+        self.assertIn("feedback: <numbers", digest)
         self.assertIn("durable topic memory", digest)
 
     def test_skill_descriptions_include_chinese_end_user_trigger_phrases(self) -> None:
@@ -591,10 +591,10 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("The first visible line of the response must be the digest title", root_skill)
         self.assertIn("Do not append implementation notes", digest)
         self.assertIn("Do not save test-run previews by default", digest)
-        self.assertIn("A <编号>", root_skill)
+        self.assertIn("dig: <编号>", root_skill)
         self.assertIn("旅程 11：试跑输出必须等同正式日报模板", user_journeys)
         self.assertIn("不要先发一段“我跑一轮测试”的闲聊", user_journeys)
-        self.assertIn("只说“可以回复 A 2”，但不解释 A/B/C 的含义", user_journeys)
+        self.assertIn("只说“可以回复 dig: 2”，但不解释 `dig:` / `track:` / `feedback:` 的含义", user_journeys)
         self.assertIn("把测试产物写入 timestamped digest 文件", user_journeys)
         self.assertIn("## 系统提示` 之后不要再追加保存路径", user_journeys)
 

@@ -228,7 +228,7 @@
       "tool_calls": [
         "render_digest"
       ],
-      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- A 2：深度分析第 2 条。\n- B 2 事件线：把第 2 条作为持续 thread。\n- C 2 原因：更新长期偏好。"
+      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- dig: 2：深度分析第 2 条。\n- track: 2 事件线：把第 2 条作为持续 thread。\n- feedback: 2 原因：更新长期偏好。"
     },
     {
       "id": "journey-11-2",
@@ -242,7 +242,7 @@
       "tool_calls": [
         "render_digest"
       ],
-      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- A 2：深度分析第 2 条。\n- B 2 事件线：把第 2 条作为持续 thread。\n- C 2 原因：更新长期偏好。"
+      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- dig: 2：深度分析第 2 条。\n- track: 2 事件线：把第 2 条作为持续 thread。\n- feedback: 2 原因：更新长期偏好。"
     },
     {
       "id": "journey-11-3",
@@ -256,7 +256,7 @@
       "tool_calls": [
         "render_digest"
       ],
-      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- A 2：深度分析第 2 条。\n- B 2 事件线：把第 2 条作为持续 thread。\n- C 2 原因：更新长期偏好。"
+      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- dig: 2：深度分析第 2 条。\n- track: 2 事件线：把第 2 条作为持续 thread。\n- feedback: 2 原因：更新长期偏好。"
     },
     {
       "id": "journey-11-4",
@@ -272,7 +272,7 @@
         "write_file",
         "render_digest"
       ],
-      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- A 2：深度分析第 2 条。\n- B 2 事件线：把第 2 条作为持续 thread。\n- C 2 原因：更新长期偏好。"
+      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- dig: 2：深度分析第 2 条。\n- track: 2 事件线：把第 2 条作为持续 thread。\n- feedback: 2 原因：更新长期偏好。"
     },
     {
       "id": "journey-11-5",
@@ -286,7 +286,7 @@
       "tool_calls": [
         "render_digest"
       ],
-      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- A 2：深度分析第 2 条。\n- B 2 事件线：把第 2 条作为持续 thread。\n- C 2 原因：更新长期偏好。"
+      "final": "# 2026-05-08｜新能源汽车｜每日简报\n\n┌─ **【简讯1】测试事件**\n│ 这是 mock runtime 生成的模板化测试项。\n│\n│ 信源：[示例来源](https://example.com)\n└\n\n---\n\n## 系统提示\n\n- 执行状态：测试/预览\n- dig: 2：深度分析第 2 条。\n- track: 2 事件线：把第 2 条作为持续 thread。\n- feedback: 2 原因：更新长期偏好。"
     },
     {
       "id": "journey-12-1",

@@ -198,9 +198,9 @@ class IntelligenceService:
                 f"- Scan window: {self._scan_time_range_label(topic_id, language)}",
                 *runtime_metadata_lines(self._root, language=language),
                 "- Available follow-ups:",
-                "  - A. Deep-analyze specified brief items, for example: `A 3 5 12`.",
-                "  - B. Create a new thread, for example: `B 3 4 5 keep tracking`.",
-                "  - C. Adjust briefing and thread strategy, for example: `C 6 7 I dislike this; skip xxx next time`.",
+                "  - dig: deep-analyze specified brief items, for example: `dig: 3 5 12`.",
+                "  - track: create or update a continuing thread, for example: `track: 3 4 5 keep tracking`.",
+                "  - feedback: adjust briefing and thread strategy, for example: `feedback: 6 7 I dislike this; skip xxx next time`.",
             ]
         status = f"完成：生成 {event_count} 条简讯，更新 {thread_count} 条thread。" if event_count else "未抓到足够新的真实内容。"
         return [
@@ -213,9 +213,9 @@ class IntelligenceService:
             f"- 扫描时间范围：{self._scan_time_range_label(topic_id, language)}",
             *runtime_metadata_lines(self._root, language=language),
             "- 可继续操作：",
-            "  - A. 详细分析指定今日简讯，例如：`A 3 5 12`。",
-            "  - B. 创建新的thread，例如：`B 3 4 5 持续关注`。",
-            "  - C. 调整简讯和thread的获取策略，例如：`C 6 7 我不喜欢，如果是 xxx 不要关注`。",
+            "  - dig: 详细分析指定今日简讯，例如：`dig: 3 5 12`。",
+            "  - track: 创建或更新持续事件线，例如：`track: 3 4 5 持续关注`。",
+            "  - feedback: 调整简讯和事件线的获取策略，例如：`feedback: 6 7 我不喜欢，如果是 xxx 不要关注`。",
         ]
 
     def _scan_time_range_label(self, topic_id: str, language: str = "zh-CN") -> str:

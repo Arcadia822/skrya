@@ -62,9 +62,9 @@ class MockOpenClawRuntime {
       "## 系统提示",
       "",
       "- 执行状态：测试/预览",
-      "- A 2：深度分析第 2 条。",
-      "- B 2 事件线：把第 2 条作为持续 thread。",
-      "- C 2 原因：更新长期偏好。",
+      "- dig: 2：深度分析第 2 条。",
+      "- track: 2 事件线：把第 2 条作为持续 thread。",
+      "- feedback: 2 原因：更新长期偏好。",
     ].join("\n");
     if (save) {
       this.writeFile(`/workspace/skrya/.skrya/data/runs/${topicId}/digest-20260508T174500+0800.md`, body);
@@ -237,7 +237,7 @@ function validate(evalCase, trace) {
     if (!hasCall(trace, "render_digest")) failures.push("expected render_digest call");
     if (!trace.final.startsWith("# ")) failures.push("test run final answer should start with digest title");
     if (!trace.final.includes("## 系统提示")) failures.push("digest should include system section");
-    if (!includesAll(trace.final, ["A 2", "B 2", "C 2"])) failures.push("system section should explain A/B/C follow-ups");
+    if (!includesAll(trace.final, ["dig: 2", "track: 2", "feedback: 2"])) failures.push("system section should explain dig/track/feedback follow-ups");
     const savedDigest = Object.keys(trace.files).some((filePath) => filePath.includes("digest-"));
     const updatedLatest = Object.keys(trace.files).some((filePath) => filePath.endsWith("latest-digest.md"));
     if (evalCase.prompt.includes("保存试跑结果为正式 digest")) {

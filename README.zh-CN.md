@@ -45,9 +45,9 @@ Skrya 会把它变成：
 
 ## 系统提示
 
-- 可回复 `A 1` 深挖第 1 条。
-- 可回复 `B 2 AI 浏览器产品线` 把第 2 条变成持续事件线。
-- 可回复 `C 低质量传闻少推` 调整后续简报偏好。
+- 可回复 `dig: 1` 深挖第 1 条。
+- 可回复 `track: 2 AI 浏览器产品线` 把第 2 条变成持续事件线。
+- 可回复 `feedback: 低质量传闻少推` 调整后续简报偏好。
 ```
 
 查看更多演示：[AI 浏览器每日简报](examples/ai-browser-daily-briefing.md)、[新能源事件线](examples/new-energy-thread-demo.md)、[研究智能体观察清单](examples/research-agent-watchlist.md)。

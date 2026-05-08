@@ -34,10 +34,10 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         self.assertIn("某女团练习生出圈片段从 INS 扩散到韩媒", output)
         self.assertIn("│ 信源：[source.test]", output)
         self.assertNotIn("### 1.", output)
-        self.assertIn("A. 详细分析指定今日简讯", output)
-        self.assertIn("B. 创建新的thread", output)
+        self.assertIn("dig: 详细分析指定今日简讯", output)
+        self.assertIn("track: 创建或更新持续事件线", output)
         self.assertIn("## 系统提示", output)
-        self.assertIn("C. 调整简讯和thread的获取策略", output)
+        self.assertIn("feedback: 调整简讯和事件线的获取策略", output)
 
     def test_digest_command_sample_mode_uses_fixture_events_for_demo_topic(self) -> None:
         root = self._make_root("cli-digest-sample")
