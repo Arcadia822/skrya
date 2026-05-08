@@ -37,15 +37,15 @@ Digest generation and digest delivery are separate steps.
 ## Output Rules
 
 - Use the topic's configured output language from `topic.json.language`. Supported output languages are Chinese and English; keep the template model extensible for future languages.
-- Use the configured digest template file as the output layout contract. Do not reconstruct the report shape from memory when a template file is available.
-- Treat `digest.md` as ranking, exclusion, and judgment guidance; it is not the output layout template.
+- Use the configured digest template file as writing and reference guidance for the digest layout. Do not reconstruct the report shape from memory when a template file is available.
+- Treat `digest.md` as ranking, exclusion, and judgment guidance; it is not the output format template.
 - Do not derive digest language from install-time settings. Installation is language-neutral.
 - The top-level title must include the execution date and visible topic name. Chinese format: `# YYYY-MM-DD｜主题名｜每日简报`. English format: `# YYYY-MM-DD | Topic Name | Daily Briefing`.
 - Treat events as the primary unit, not articles.
 - Show concise source references in a separate source line for every digest item.
 - Do not show internal debug fields such as matched request ids.
 - Fold ranking judgment into natural prose. Avoid rigid labels such as "why it matters".
-- Render every event as a lightweight line box with the visible number and title merged into the first line:
+- Write every event as a lightweight line box with the visible number and title merged into the first line:
   ```markdown
   ┌─ **【简讯1】事件标题**
   │ 一句判断或摘要。

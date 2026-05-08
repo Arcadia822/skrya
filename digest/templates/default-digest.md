@@ -1,6 +1,6 @@
 # Default Digest Template
 
-Use this template for every scheduled or user-requested real digest unless a topic-specific digest template is configured.
+This template is writing and reference guidance for the agent producing a digest. Follow the structure and rules below unless a topic-specific digest template is configured.
 
 ## Structure
 
@@ -30,7 +30,7 @@ Use this template for every scheduled or user-requested real digest unless a top
 
 ## Rules
 
-- Render every digest item as the same compact line box.
+- Write every digest item as the same compact line box.
 - Put the visible number and title on the first line.
 - Put source references after one blank line inside the line box.
 - Do not add a conversational preface before the title.

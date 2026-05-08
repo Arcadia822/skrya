@@ -40,7 +40,7 @@ This workspace is topic-driven.
 - Topic language controls digest and deep-analysis output. If the user gives feedback in another language, reply to that feedback in the feedback language without changing the topic output language unless the user asks.
 - Show compact source references in default daily digest output.
 - Daily digest layout is controlled by a digest template file. Use the configured topic template when present; otherwise use the default template file `digest/templates/default-digest.md`.
-- Treat `digest.md` as ranking, exclusion, and judgment guidance, not as the output layout template.
+- Treat `digest.md` as ranking, exclusion, and judgment guidance, not as the output format template.
 - Real digest artifacts should use absolute execution-time filenames such as `digest-YYYYMMDDTHHMMSS+0800.md`; `latest-digest.md` should be a symlink or pointer to the newest real artifact.
 - Do not show internal debug fields, request ids, or implementation metadata in user-facing output.
 - Keep enough traceability so complete sources can be returned later if the user asks.
@@ -51,7 +51,7 @@ This workspace is topic-driven.
 - Save real scheduled or user-requested digest output under `<skrya-data-root>/runs/<topic-id>/` with an absolute execution-time filename, then update `latest-digest.md` as a symlink or pointer to that artifact.
 - When resending or diagnosing a scheduled digest in a channel-aware host, first resolve the topic and channel/conversation binding for the current message. If multiple same-channel topics are plausible, ask a short clarification instead of sending all of them.
 - After scheduled delivery, prefer explicit message-tool sending and verify that the sent content is non-empty in the target channel when the host supports verification.
-- Render every digest item as a compact line box, with the number and title merged into the first line and source references after a blank separator line.
+- Write every digest item as a compact line box, with the number and title merged into the first line and source references after a blank separator line.
 - Do not split the first few items into a special format.
 - End the digest with a natural follow-up line that invites the user to reply with a number for deeper analysis, without mentioning internal skill names.
 

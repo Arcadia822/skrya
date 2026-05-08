@@ -598,7 +598,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("自动化 prompt 合同", user_journeys)
         self.assertIn("self-contained automation prompt", user_prompt)
         self.assertIn("digest.md` contains ranking and judgment rules", topic_curation)
-        self.assertIn("not the output layout template", digest)
+        self.assertIn("not the output format template", digest)
         self.assertIn("┌─ **【简讯1】事件标题**", default_template)
 
 

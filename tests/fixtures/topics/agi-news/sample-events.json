@@ -1,0 +1,35 @@
+[
+  {
+    "key": "agi-benchmark-breakthrough",
+    "title": "某研究团队在通用推理基准上达到人类水平，论文通过同行评审",
+    "headline_summary": "新论文显示某多模态模型在 ARC-AGI 基准上首次达到人类平均表现，结果经独立复现确认。这是 AGI 能力评估的重要进展。",
+    "list_summary": "某多模态模型在通用推理基准上达到人类水平，经独立复现确认。",
+    "analysis_title": "通用推理基准突破",
+    "analysis_body": "该结果标志着通用推理能力评估的一个重要节点，但距离真正的 AGI 仍有距离——基准表现不等于通用智能。",
+    "sources": [
+      "https://source.test/agi-benchmark"
+    ]
+  },
+  {
+    "key": "lab-safety-governance",
+    "title": "多家顶级 AI 实验室联合发布 AGI 安全治理框架，承诺分阶段部署",
+    "headline_summary": "OpenAI、Anthropic、DeepMind 等联合发布治理框架，包含能力评估阈值和分阶段部署承诺。业内反应积极但也有人质疑执行力。",
+    "list_summary": "多家顶级 AI 实验室联合发布 AGI 安全治理框架，包含能力评估阈值和分阶段部署承诺。",
+    "analysis_title": "AGI 安全治理框架发布",
+    "analysis_body": "框架的核心价值在于将能力评估与部署决策绑定，但关键在于各实验室是否真正遵守承诺，以及监管机构如何监督。",
+    "sources": [
+      "https://source.test/safety-framework"
+    ]
+  },
+  {
+    "key": "agi-policy-impact",
+    "title": "某国发布 AGI 国家战略白皮书，明确投入规模和监管路线图",
+    "headline_summary": "白皮书提出未来五年投入数百亿用于 AGI 基础设施和安全研究，同时建立分级监管制度。这是首个将 AGI 纳入国家战略的正式文件。",
+    "list_summary": "某国发布 AGI 国家战略白皮书，明确投入规模和监管路线图。",
+    "analysis_title": "AGI 国家战略白皮书",
+    "analysis_body": "该白皮书的战略意义在于将 AGI 从技术议题提升为国家政策议题，分级监管制度的设计值得关注。",
+    "sources": [
+      "https://source.test/agi-policy"
+    ]
+  }
+]
