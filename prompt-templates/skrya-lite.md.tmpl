@@ -4,6 +4,8 @@ Injected into a `{{HOST_NAME}}` coding session for small, bounded work in this r
 
 ## Working Rules
 
+Before applying any other rule to a topic-scoped request, check the resolved data-root source. If it is `default-home` and the user did not already choose a location, use the exact initialization question from `SKILL.md`. It must be the sole user-facing response, with no preface or suffix.
+
 1. Read `{{INSTRUCTION_FILE}}` and the relevant local docs before editing.
 2. If the task changes skill behavior, edit `skill-pack.json`, `SKILL.md.tmpl`, the root skill directories, and `prompt-templates/`, not runtime artifacts under `.skrya/`.
 3. Scheduled topical news pushes, including "每天早上8点推送国内外 X 的官媒信息和新闻", should route to Skrya/topic-curation before generic reminders or automation.

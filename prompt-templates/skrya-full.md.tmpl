@@ -4,6 +4,8 @@ Injected into a `{{HOST_NAME}}` coding session for substantial work in this repo
 
 ## Full Pipeline
 
+Before any pipeline step, check the resolved data-root source. If it is `default-home` and the user did not already choose a location, use the exact initialization question from `SKILL.md`. It must be the sole user-facing response, with no preface or suffix.
+
 1. Read `{{INSTRUCTION_FILE}}`, `README.md`, `design/current-system-design.md`, and `design/core-skills-spec.md`.
 2. Treat `skill-pack.json`, `SKILL.md.tmpl`, the root skill directories, and `prompt-templates/` as the source of truth for agent-facing assets.
 3. If the request concerns unconfigured ongoing tracking, route through `topic-curation` before digest or deep-analysis behavior.

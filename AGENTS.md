@@ -4,6 +4,7 @@ This workspace is topic-driven.
 
 ## Topic Rules
 
+- Before the first topic-scoped action, resolve the Skrya data root. If the source is `default-home` and the user has not already supplied a data location, output only the fixed initialization question from `SKILL.md`; it must be the sole user-facing response, with no preface or suffix.
 - Any topic-scoped task must resolve an explicit internal `topic-id` before reading or writing files.
 - Do not ask nontechnical users for raw `topic-id` values when a natural topic name can be mapped or confirmed.
 - When the host exposes a channel/conversation concept, topic automation is channel-scoped by default. Bind each recurring digest task to the creating user and the channel/conversation where it was created.

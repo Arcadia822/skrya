@@ -347,3 +347,31 @@ python3 -m skrya_orchestrator.main uninstall-skill-pack --root . --host auto --m
 - 把当前 workspace 的示例 fixture 当成用户长期数据删除，除非 data root 明确指向这里且用户确认
 - 删除非 Skrya 技能或其他 agent 的记忆
 - 用一句“已完成”代替四类执行结果汇总
+
+## 旅程 13：首次使用只输出初始化问题
+
+用户第一次提出 topic-scoped Skrya 请求，但 `skrya data-root` 的来源仍是 `default-home`，而且用户没有在请求里指定数据位置。
+
+期望的完整回复只能是：
+
+```text
+Skrya 的长期数据保存在哪里？
+
+1. 用户级 `~/.skrya`（推荐，所有项目共享）
+2. 当前项目 `.skrya/data`（仅当前项目）
+3. 自定义目录（请同时提供路径）
+```
+
+期望流程：
+
+1. 初始化问题先于 topic 范围确认、信源选择、自动化和试跑。
+2. 这段问题是当轮唯一的用户可见回复，不要加问候、状态说明、原因解释或下一步预告。
+3. 用户选择后写入 data-root 配置，再恢复原来的 topic 请求。
+4. 如果已有显式 data root、`SKRYA_DATA_ROOT`、workspace config 或 home config，不重复提问。
+
+不应该：
+
+- 先复述或推断用户要跟踪的主题，再问数据位置
+- 同一条回复里解释“范围 → 信源 → 自动化 → 试跑”的后续流程
+- 在问题前写“我先检查一下”或在问题后写“回复编号即可”
+- 在用户回答前创建 topic、抓取数据或创建自动化

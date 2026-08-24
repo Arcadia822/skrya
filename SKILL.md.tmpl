@@ -16,6 +16,19 @@ Skrya is an umbrella skill pack. Route requests to the bundled skills that best 
 
 ## Global Rules
 
+- Before the first topic-scoped action, check the resolved data-root source. If `skrya data-root` reports `default-home`, and the user has not already supplied a data location in the current request, treat Skrya as not initialized.
+- When Skrya is not initialized, pause the original workflow. The initialization question must be the sole user-facing response: no greeting, status text, rationale, capability summary, topic clarification, source plan, or next-step preview before or after it.
+- In Chinese, output exactly this question interaction; translate it faithfully when the user's current language is English:
+
+```text
+Skrya 的长期数据保存在哪里？
+
+1. 用户级 `~/.skrya`（推荐，所有项目共享）
+2. 当前项目 `.skrya/data`（仅当前项目）
+3. 自定义目录（请同时提供路径）
+```
+
+- After the user answers, persist the selection with the data-root flow, then resume the original request. Do not ask this initialization question when an explicit data root, `SKRYA_DATA_ROOT`, a workspace config, or a home config already resolves the data location.
 - Topic-scoped work requires the agent to resolve an explicit internal `topic-id` before reading or writing files.
 - When the user asks to uninstall, remove, disable, clear, or reset Skrya, treat it as a lifecycle operation and explain the three supported modes before changing files.
 - `skills-keep-data` means uninstall Skrya skill files while preserving topic configuration and run data.

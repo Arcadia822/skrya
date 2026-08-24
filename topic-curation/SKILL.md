@@ -6,6 +6,20 @@ description: Use when the user wants to create a new topic, adjust an existing t
 
 # Topic Curation
 
+## First-Use Gate
+
+Before reading topic files, proposing a topic, or explaining the setup sequence, resolve the Skrya data root. If the source is `default-home` and the user did not already provide a data location, stop. The initialization question must be the sole user-facing response:
+
+```text
+Skrya 的长期数据保存在哪里？
+
+1. 用户级 `~/.skrya`（推荐，所有项目共享）
+2. 当前项目 `.skrya/data`（仅当前项目）
+3. 自定义目录（请同时提供路径）
+```
+
+Do not add a greeting, status update, explanation, inferred topic scope, source plan, setup sequence, or next-step preview. After the user answers, persist the data-root selection and resume topic curation. Do not ask again when the source is not `default-home`.
+
 Handle the full user journey for creating or iterating a topic through natural language.
 
 This skill is the single entry point for topic configuration work.

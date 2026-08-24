@@ -598,6 +598,27 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("把测试产物写入 timestamped digest 文件", user_journeys)
         self.assertIn("## 系统提示` 之后不要再追加保存路径", user_journeys)
 
+    def test_first_use_initialization_is_a_question_only_interaction(self) -> None:
+        root_template = (ROOT / "SKILL.md.tmpl").read_text(encoding="utf-8")
+        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        topic_template = (ROOT / "topic-curation" / "SKILL.md.tmpl").read_text(encoding="utf-8")
+        topic_skill = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
+        user_prompt = (ROOT / "prompt-templates" / "skrya-user.md.tmpl").read_text(encoding="utf-8")
+        journeys = (ROOT / "docs" / "user-journeys.md").read_text(encoding="utf-8")
+        exact_question = """Skrya 的长期数据保存在哪里？
+
+1. 用户级 `~/.skrya`（推荐，所有项目共享）
+2. 当前项目 `.skrya/data`（仅当前项目）
+3. 自定义目录（请同时提供路径）"""
+
+        for content in (root_template, root_skill, topic_template, topic_skill, user_prompt):
+            self.assertIn("default-home", content)
+            self.assertIn(exact_question, content)
+            self.assertIn("sole user-facing response", content)
+
+        self.assertIn("旅程 13：首次使用只输出初始化问题", journeys)
+        self.assertIn("不要加问候、状态说明、原因解释或下一步预告", journeys)
+
     def test_digest_template_and_automation_prompt_contract_are_file_based(self) -> None:
         root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
         digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
