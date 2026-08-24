@@ -7,6 +7,16 @@ This template is writing and reference guidance for the agent producing a digest
 ```markdown
 # YYYY-MM-DD｜主题名｜每日简报
 
+## 事件线时间线更新
+
+┌─ **【Thread】事件线名称 (thread-id)**
+│ 今日增量：本轮可核验的新进展。
+│ 时间线位置：承接 YYYY-MM-DD 的最近状态。
+│ 影响判断：这次推进改变了什么。
+│
+│ 下一步观察：后续需要复核的信号。
+└
+
 ┌─ **【简讯1】事件标题**
 │ 一句判断或摘要。
 │ 可以继续换行补充判断。
@@ -31,6 +41,10 @@ This template is writing and reference guidance for the agent producing a digest
 ## Rules
 
 - Write every digest item as the same compact line box.
+- When any effective thread has `status=active`, always include `## 事件线时间线更新` before the normal digest items. Use `## Event Timeline Updates` for English topics.
+- Give every active thread its own line box with the thread name and ID, today's increment, timeline position, impact judgment, and next observation.
+- If the current scan finds no verified increment for an active thread, keep the line box, state `复核结果：已检查，本轮暂无可核验新增。`, and show the latest known timeline date, headline, and concise summary before the next observation.
+- Do not show the event-timeline section when there is no active thread.
 - Put the visible number and title on the first line.
 - Put source references after one blank line inside the line box.
 - Do not add a conversational preface before the title.

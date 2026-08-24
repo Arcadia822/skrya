@@ -653,6 +653,40 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("not the output format template", digest)
         self.assertIn("┌─ **【简讯1】事件标题**", default_template)
 
+    def test_active_threads_are_always_visible_with_latest_state(self) -> None:
+        root_template = (ROOT / "SKILL.md.tmpl").read_text(encoding="utf-8")
+        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        digest_template = (ROOT / "digest" / "SKILL.md.tmpl").read_text(encoding="utf-8")
+        digest_skill = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
+        default_template = (ROOT / "digest" / "templates" / "default-digest.md").read_text(encoding="utf-8")
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        topic_template = (ROOT / "topic-curation" / "SKILL.md.tmpl").read_text(encoding="utf-8")
+        topic_skill = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
+        prompt_templates = [
+            (ROOT / "prompt-templates" / name).read_text(encoding="utf-8")
+            for name in ("skrya-full.md.tmpl", "skrya-lite.md.tmpl", "skrya-user.md.tmpl")
+        ]
+
+        for content in (
+            root_template,
+            root_skill,
+            digest_template,
+            digest_skill,
+            default_template,
+            agents,
+            topic_template,
+            topic_skill,
+            *prompt_templates,
+        ):
+            self.assertIn("status=active", content)
+            self.assertIn("latest", content.lower())
+
+        for content in (digest_template, digest_skill, default_template, agents):
+            self.assertIn("## 事件线时间线更新", content)
+
+        self.assertIn("本轮暂无可核验新增", default_template)
+        self.assertIn("never suppress an active thread", digest_template.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

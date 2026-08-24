@@ -177,9 +177,10 @@ Include these fields or instructions:
 - `data_root`: resolved Skrya data root; use workspace `.skrya/data` for OpenClaw or mounted-workspace environments when applicable
 - `delivery_context`: creating user, workspace, host, and current channel/conversation id or stable label when the host exposes them
 - `topic_state_binding`: create or update `<skrya-data-root>/topics/<topic-id>/delivery-bindings.json` using schema `skrya.delivery-bindings.v1`; the automation must not rely on later chat context
-- `required_reads`: `topic.json`, `brief.json`, `sources.json`, `digest.md`, and the configured digest template file
+- `required_reads`: `topic.json`, `brief.json`, `sources.json`, `digest.md`, the configured digest template file, optional `thread-seeds.json`, and the latest runtime thread artifact when present
 - `template_fallback`: use `digest/templates/default-digest.md` when no topic-specific digest template is configured
 - `format_contract`: `digest.md` contains ranking and judgment rules; the template file controls title, uniform line boxes, source references, `---`, and the topic-language system section
+- `thread_policy`: if any effective thread has `status=active`, always render the event-timeline update section and show each active thread's latest known state even when the scan finds no verified increment
 - `artifact_policy`: save real scheduled digests as `digest-YYYYMMDDTHHMMSS+0800.md` under `<skrya-data-root>/runs/<topic-id>/`, then update `latest-digest.md` as a symlink or pointer
 - `delivery_policy`: send only to the bound channel/conversation unless the user explicitly configured another supported target, and verify non-empty delivery when the host supports it
 - `test_run_policy`: do not perform, save, or include a test run unless the user separately asks for one

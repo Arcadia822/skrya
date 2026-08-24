@@ -59,17 +59,18 @@ class IntelligenceService:
         numbered_events = list(enumerate(events, start=1))
         execution_time = datetime.now(ZoneInfo("Asia/Shanghai"))
         language = self._topic_output_language(topic_id)
-        thread_updates = self._build_digest_thread_updates(topic_id, numbered_events, language)
+        thread_updates, updated_thread_count = self._build_digest_thread_updates(topic_id, numbered_events, language)
 
         lines: list[str] = [self._build_digest_title(topic_id, execution_time, language), ""]
+        if thread_updates:
+            lines.append("## Event Timeline Updates" if language == "en" else "## 事件线时间线更新")
+            lines.append("")
+            for update_lines in thread_updates:
+                lines.extend(update_lines)
+                lines.append("")
+
         if events:
             if thread_updates:
-                lines.append("## Thread Updates" if language == "en" else "## thread更新")
-                lines.append("")
-                for update_lines in thread_updates:
-                    lines.extend(update_lines)
-                    lines.append("")
-
                 lines.append("## Today's Briefs" if language == "en" else "## 今日简讯")
                 lines.append("")
 
@@ -90,6 +91,7 @@ class IntelligenceService:
                 execution_time=execution_time,
                 event_count=len(numbered_events),
                 thread_count=len(thread_updates),
+                updated_thread_count=updated_thread_count,
                 language=language,
             )
         )
@@ -180,12 +182,14 @@ class IntelligenceService:
         execution_time: datetime,
         event_count: int,
         thread_count: int,
+        updated_thread_count: int,
         language: str,
     ) -> list[str]:
         if language == "en":
             status = (
-                f"Complete: generated {event_count} brief items and updated {thread_count} threads."
-                if event_count
+                f"Complete: generated {event_count} brief items, reviewed {thread_count} active threads, "
+                f"and found verified updates for {updated_thread_count}."
+                if event_count or thread_count
                 else "No sufficiently fresh real items were found."
             )
             return [
@@ -202,7 +206,11 @@ class IntelligenceService:
                 "  - track: create or update a continuing thread, for example: `track: 3 4 5 keep tracking`.",
                 "  - Preference changes: reply in plain language, for example: `show fewer unsourced rumors next time`.",
             ]
-        status = f"完成：生成 {event_count} 条简讯，更新 {thread_count} 条thread。" if event_count else "未抓到足够新的真实内容。"
+        status = (
+            f"完成：生成 {event_count} 条简讯，复核 {thread_count} 条 active thread，其中 {updated_thread_count} 条有可核验新增。"
+            if event_count or thread_count
+            else "未抓到足够新的真实内容。"
+        )
         return [
             "---",
             "",
@@ -556,7 +564,7 @@ class IntelligenceService:
         topic_id: str,
         numbered_events: list[tuple[int, dict]],
         language: str = "zh-CN",
-    ) -> list[list[str]]:
+    ) -> tuple[list[list[str]], int]:
         seed_payload = self._load_thread_seed_payload(topic_id)
         existing_payload = self._load_thread_payload(topic_id)
         definitions = self._thread_definitions(
@@ -564,46 +572,98 @@ class IntelligenceService:
             existing_payload.get("threads", []),
         )
         if not definitions:
-            return []
+            return [], 0
 
         items = [self._digest_event_index_item(number, event) for number, event in numbered_events]
         updates: list[list[str]] = []
+        updated_thread_count = 0
         for definition in definitions:
-            matched_items = self._matched_thread_items(definition, items)
-            if not matched_items:
+            if str(definition.get("status", "")).strip().lower() != "active":
                 continue
+            matched_items = self._matched_thread_items(definition, items)
+            if matched_items:
+                updated_thread_count += 1
             updates.append(self._build_digest_thread_update(definition, matched_items, language))
-        return updates
+        return updates, updated_thread_count
 
     def _build_digest_thread_update(self, definition: dict, matched_items: list[dict], language: str = "zh-CN") -> list[str]:
         name = str(definition.get("name") or ("untitled thread" if language == "en" else "未命名thread"))
+        thread_id = str(definition.get("id", "")).strip()
         if language != "en":
             name = self._to_chinese(name)
-        summaries = " ".join(
-            self._build_brief(str(item.get("analysis_body") or item.get("analysis_title") or item.get("title") or ""), language=language)
-            for item in matched_items[:2]
-        )
-        watchpoints = "；".join(
+        watchpoint_separator = "; " if language == "en" else "；"
+        watchpoints = watchpoint_separator.join(
             (str(point) if language == "en" else self._to_chinese(str(point))).rstrip("。！？；：.!?")
             for point in definition.get("watchpoints", [])[:2]
             if str(point).strip()
         )
+        callback_hint = self._build_brief(str(definition.get("callback_hint", "")), language=language)
+        latest_state = self._latest_thread_state(definition, language)
+        title = f"{name} ({thread_id})" if thread_id else name
 
-        lines = [
-            f"┌─ **【thread】{name}**",
-            *self._build_box_content_lines(summaries),
-            "│",
-        ]
+        lines = [f"┌─ **【Thread】{title}**"]
+        if matched_items:
+            increment = " ".join(
+                self._build_brief(str(item.get("title") or item.get("analysis_title") or ""), language=language)
+                for item in matched_items[:2]
+            )
+            impact = " ".join(
+                self._build_brief(
+                    str(item.get("analysis_body") or item.get("analysis_title") or item.get("title") or ""),
+                    language=language,
+                )
+                for item in matched_items[:2]
+            )
+            if language == "en":
+                lines.extend(self._build_box_content_lines(f"Today's update: {increment}"))
+                lines.extend(self._build_box_content_lines(f"Timeline position: continues from {latest_state}"))
+                lines.extend(self._build_box_content_lines(f"Impact: {impact}"))
+            else:
+                lines.extend(self._build_box_content_lines(f"今日增量：{increment}"))
+                lines.extend(self._build_box_content_lines(f"时间线位置：承接 {latest_state}"))
+                lines.extend(self._build_box_content_lines(f"影响判断：{impact}"))
+        else:
+            if language == "en":
+                lines.extend(self._build_box_content_lines("Review result: checked; no verified update was found in the current scan window."))
+                lines.extend(self._build_box_content_lines(f"Latest state: {latest_state}"))
+            else:
+                lines.extend(self._build_box_content_lines("复核结果：已检查，本轮暂无可核验新增。"))
+                lines.extend(self._build_box_content_lines(f"最新状态：{latest_state}"))
+
+        lines.append("│")
         if watchpoints:
-            label = "Watch next" if language == "en" else "后续看点"
+            label = "Watch next" if language == "en" else "下一步观察"
             suffix = "." if language == "en" else "。"
             lines.extend(self._build_box_content_lines(f"{label}: {watchpoints}{suffix}" if language == "en" else f"{label}：{watchpoints}{suffix}"))
         else:
-            callback_hint = self._build_brief(str(definition.get("callback_hint", "")), language=language)
-            label = "Follow-up judgment" if language == "en" else "后续判断"
-            lines.extend(self._build_box_content_lines(f"{label}: {callback_hint}" if language == "en" else f"{label}：{callback_hint}"))
+            label = "Watch next" if language == "en" else "下一步观察"
+            fallback = callback_hint or ("Continue checking the configured thread scope." if language == "en" else "继续按事件线既定范围复核。")
+            lines.extend(self._build_box_content_lines(f"{label}: {fallback}" if language == "en" else f"{label}：{fallback}"))
         lines.append("└")
         return lines
+
+    def _latest_thread_state(self, definition: dict, language: str = "zh-CN") -> str:
+        timeline = [entry for entry in definition.get("timeline", []) if isinstance(entry, dict)]
+        if timeline:
+            dated_entries = [
+                (str(entry.get("date", "")).strip(), index, entry)
+                for index, entry in enumerate(timeline)
+                if str(entry.get("date", "")).strip()
+            ]
+            latest = max(dated_entries, key=lambda item: (item[0], item[1]))[2] if dated_entries else timeline[-1]
+            date = str(latest.get("date", "")).strip()
+            headline = self._build_brief(str(latest.get("headline", "")), language=language)
+            summary = self._build_brief(str(latest.get("summary", "")), language=language)
+            state = " — ".join(part for part in [headline, summary] if part)
+            if date and state:
+                return f"{date}: {state}" if language == "en" else f"{date}：{state}"
+            return state or date
+
+        summary = self._build_brief(str(definition.get("summary", "")), language=language)
+        if summary:
+            prefix = "tracking baseline" if language == "en" else "当前追踪基线"
+            return f"{prefix}: {summary}" if language == "en" else f"{prefix}：{summary}"
+        return "the configured tracking baseline" if language == "en" else "已配置的追踪基线"
 
     def _digest_event_index_item(self, number: int, event: dict) -> dict:
         return {

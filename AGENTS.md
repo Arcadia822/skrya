@@ -54,6 +54,7 @@ This workspace is topic-driven.
 - After scheduled delivery, prefer explicit message-tool sending and verify that the sent content is non-empty in the target channel when the host supports verification.
 - Write every digest item as a compact line box, with the number and title merged into the first line and source references after a blank separator line.
 - Do not split the first few items into a special format.
+- If the effective thread configuration contains any `status=active` thread, always render `## 事件线时间线更新` (or `## Event Timeline Updates`) before normal digest items. Each active thread must show its latest state even when the current scan has no verified increment; never silently omit an active thread under a generic no-update rule.
 - End the digest with a natural follow-up line that invites the user to reply with a number for deeper analysis, without mentioning internal skill names.
 
 ## Deep Analysis Defaults
