@@ -21,7 +21,7 @@ When thread seeds exist, use them to surface continuing thread updates and prese
 
 Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or the equivalent repository instruction file.
 
-If the user asks to create or update the topic-specific digest template itself, route to `topic-curation` and use its template-update notice and pre-save validation gate. Do not overwrite an existing template with an unchecked candidate.
+If the user asks to create or update the topic-specific digest template itself, route to `topic-curation`. Use its separate create/update drafting flows and the shared candidate-only validation and save gate. Do not read an existing topic template as the basis for create, and do not create or overwrite a target with an unchecked candidate.
 
 ## Delivery Context
 

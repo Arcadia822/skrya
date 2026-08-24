@@ -71,7 +71,7 @@ Skrya 的长期数据保存在哪里？
 - If the user replies with only a digest item number and the current topic is known, treat that as a `deep-analysis` continuation request.
 - Digest output format is governed by a template file. Use the topic-specific digest template when configured; otherwise use `digest/templates/default-digest.md`.
 - A digest with any effective `status=active` thread must include the event-timeline update section and show each active thread's latest known state even when the current scan finds no verified increment.
-- Route requests to create or update a topic-specific digest template through `topic-curation`. Before editing, tell the user that the active-Thread timeline section is mandatory and that the candidate will be checked before save. Validate the complete candidate before overwriting the configured template; a failed validation must leave the existing template untouched.
+- Route requests to create or update a topic-specific digest template through `topic-curation`. Classify create versus update first: create drafts from the default contract without reading an existing topic template, while update reads the configured template and drafts a revision. Before drafting, tell the user that the active-Thread timeline section is mandatory. Apply the same candidate-only validation and verified persistence gate after either drafting flow; failed validation must not create or overwrite the target.
 - Treat `digest.md` as topic-specific ranking and judgment guidance, not as the output format template.
 - Save real digest artifacts under `<skrya-data-root>/runs/<topic-id>/` with an absolute execution-time filename such as `digest-YYYYMMDDTHHMMSS+0800.md`; keep `latest-digest.md` as a symlink or pointer to the newest real artifact.
 

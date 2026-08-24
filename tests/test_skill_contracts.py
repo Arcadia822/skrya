@@ -707,12 +707,18 @@ class SkillContractTests(unittest.TestCase):
             self.assertIn("template", content.lower())
             self.assertIn("validation", content.lower())
 
-        self.assertIn("提示：你可以调整简报模板的布局和措辞", topic_template)
+        self.assertIn("提示：你可以创建或调整简报模板的布局和措辞", topic_template)
         self.assertIn("validate-digest-template --file <candidate-path>", topic_template)
-        self.assertIn("failed validation must leave the existing template untouched", root_template)
-        self.assertIn("旅程 14：自建简报模板更新必须先提示并通过保存前检查", user_journeys)
+        self.assertIn("## Digest Template Create And Update Flow", topic_template)
+        self.assertIn("**Create:**", topic_template)
+        self.assertIn("**Update:**", topic_template)
+        self.assertIn("shared save gate", topic_template)
+        self.assertIn("The save gate begins with the completed candidate", topic_template)
+        self.assertIn("Do not read an existing topic-specific template as the drafting basis", topic_template)
+        self.assertIn("failed validation must not create or overwrite the target", root_template)
+        self.assertIn("旅程 14：自建简报模板创建与更新必须先提示并通过保存门禁", user_journeys)
         self.assertEqual(
-            {"journey-14-1", "journey-14-2", "journey-14-3", "journey-14-4", "journey-14-5"},
+            {"journey-14-1", "journey-14-2", "journey-14-3", "journey-14-4", "journey-14-5", "journey-14-6"},
             {item["id"] for item in eval_bank["evals"] if item["id"].startswith("journey-14-")},
         )
 

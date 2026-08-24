@@ -89,22 +89,27 @@ This skill may:
 
 This skill does not implement crawling or adapter logic.
 
-## Digest Template Update Gate
+## Digest Template Create And Update Flow
 
-Treat requests such as "调整简报模板", "更新日报样式", or "使用自建模板" as topic-curation work. Resolve the data root and internal topic id before reading the existing configured template.
+Treat requests such as "创建简报模板", "调整简报模板", "更新日报样式", or "使用自建模板" as topic-curation work. Resolve the data root and internal topic id, then classify the request as create or update before reading any template content.
 
 Before drafting or changing template content, explicitly tell the user, in the user's current language:
 
-> 提示：你可以调整简报模板的布局和措辞，但 active Thread 的“事件线时间线更新”模块属于强制合同；无新增时仍须展示最新状态。保存前我会执行结构检查，未通过不会覆盖现有模板。
+> 提示：你可以创建或调整简报模板的布局和措辞，但 active Thread 的“事件线时间线更新”模块属于强制合同；无新增时仍须展示最新状态。保存前我会执行结构检查，未通过不会创建或覆盖目标模板。
 
-Then follow this save gate:
+Use the matching candidate-drafting flow:
 
-1. Read the current configured topic template, or the default template when creating a new one.
-2. Draft the complete candidate without overwriting the configured template path.
-3. Validate the candidate with `skrya validate-digest-template --file <candidate-path>` when the CLI is available. Otherwise apply the same checklist directly.
-4. The candidate must contain a top-level title; `## 事件线时间线更新` / `## Event Timeline Updates`; Thread name and ID; today's increment; timeline position; impact judgment; explicit no-verified-update review; latest state; next observation; numbered digest items; per-item sources; `---`; and `## 系统提示` / `## System`.
-5. If validation fails, do not overwrite or replace the configured template. Report the missing contract fields, revise the candidate, and validate again.
-6. Save the configured template only after validation succeeds. Report that the pre-save check passed, then offer a separate test-run preview.
+- **Create:** confirm that no topic-specific template is currently configured at the intended target. Do not read an existing topic-specific template as the drafting basis. Draft a new complete candidate from the default digest contract and the user's requested layout. If a target unexpectedly already exists, stop and reclassify the operation as update instead of overwriting it.
+- **Update:** require an existing configured topic-specific template, read it, and draft a revised complete candidate without overwriting the configured path. If no configured template exists, stop and offer the create flow instead.
+
+After either drafting flow, apply this shared save gate. The save gate begins with the completed candidate; it does not read or modify the source template:
+
+1. Validate the complete candidate with `skrya validate-digest-template --file <candidate-path>` when the CLI is available. Otherwise apply the same checklist directly.
+2. The candidate must contain a top-level title; `## 事件线时间线更新` / `## Event Timeline Updates`; Thread name and ID; today's increment; timeline position; impact judgment; explicit no-verified-update review; latest state; next observation; numbered digest items; per-item sources; `---`; and `## 系统提示` / `## System`.
+3. If validation fails, do not create, overwrite, or replace the configured template. Report the missing contract fields, revise the candidate, and validate again.
+4. Immediately before persistence, recheck the operation precondition: create requires an absent target; update requires the same existing target that was read. Stop on a mismatch instead of silently switching modes.
+5. Persist the validated candidate atomically when the filesystem supports it, then re-read and validate the saved target. If post-save verification fails, do not report success; restore the prior update target or remove the incomplete newly created target when safely possible.
+6. Report success only after post-save validation passes, then offer a separate test-run preview.
 
 Topic-specific style choices may change layout and wording, but they may not delete the active-Thread contract. A user can ask to revise how the mandatory module looks; omission is not a supported customization.
 
