@@ -8,6 +8,7 @@ from .agent_assets import SkillPackBuilder, SkillPackInstaller
 from .ingest import IngestService
 from .intelligence import IntelligenceService
 from .paths import migrate_thread_naming, migrate_workspace_data, resolve_data_root, write_data_root_config
+from .template_validation import validate_digest_template
 from .version import check_latest_version
 
 
@@ -44,6 +45,10 @@ def build_parser() -> argparse.ArgumentParser:
     refresh_threads_parser.add_argument("--topic", required=True, help="Topic id or topic name")
     refresh_threads_parser.add_argument("--root", default=".", help="Workspace root")
     refresh_threads_parser.add_argument("--data-root", default=None, help="Skrya data root for topics and runs")
+
+    validate_template_parser = subparsers.add_parser("validate-digest-template")
+    validate_template_parser.add_argument("--file", required=True, help="Candidate digest template file")
+    validate_template_parser.add_argument("--root", default=".", help="Workspace root")
 
     retrieval_parser = subparsers.add_parser("retrieval-request")
     retrieval_parser.add_argument("--topic", required=True, help="Topic id or topic name")
@@ -160,6 +165,17 @@ def main() -> int:
         result = service.refresh_threads(args.topic)
         print(f"Refreshed threads: {result.artifact_path}")
         return 0
+
+    if args.command == "validate-digest-template":
+        template_path = Path(args.file)
+        result = validate_digest_template(template_path.read_text(encoding="utf-8"))
+        if result.valid:
+            print(f"Digest template valid: {template_path}")
+            return 0
+        print(f"Digest template invalid: {template_path}")
+        for issue in result.issues:
+            print(f"- {issue.code}: {issue.message}")
+        return 1
 
     if args.command == "retrieval-request":
         request = IngestService(root, data_root=args.data_root).build_retrieval_request(

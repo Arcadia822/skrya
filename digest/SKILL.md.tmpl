@@ -17,9 +17,11 @@ Read these files before drafting the digest:
 
 If available, also read the latest event candidates or prior digest artifacts for that topic.
 When runtime retrieval was used, consume only normalized `skrya.ingest.v1` artifacts under `<skrya-data-root>/runs/<topic-id>/ingest/`. Do not consume raw provider output directly.
-When thread seeds exist, use them to surface continuing thread updates and preserve durable topic memory.
+When thread seeds exist, use them to surface continuing thread updates and preserve durable topic memory. Every thread whose effective status is `active` must be visible in the digest even when the current scan finds no verified increment.
 
 Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or the equivalent repository instruction file.
+
+If the user asks to create or update the topic-specific digest template itself, route to `topic-curation`. Use its separate create/update drafting flows and the shared candidate-only validation and save gate. Do not read an existing topic template as the basis for create, and do not create or overwrite a target with an unchecked candidate.
 
 ## Delivery Context
 
@@ -55,6 +57,9 @@ Digest generation and digest delivery are separate steps.
   └
   ```
 - Keep the tone concise, calm, and readable in chat.
+- If `thread-seeds.json` or the latest thread runtime artifact contains any `status=active` thread, add a dedicated `## 事件线时间线更新` section (`## Event Timeline Updates` for English topics) before the normal digest items.
+- For every active thread, show its name and ID, today's verified increment, its position relative to the latest known timeline state, an impact judgment, and the next observation point.
+- When an active thread has no verified increment in the current scan window, do not omit it. Show an explicit review result and the latest known timeline state (latest timeline date, headline, and concise summary when available), followed by the next observation point.
 - Save scheduled or user-requested real digests to the Skrya data root run directory with an absolute execution-time filename such as `digest-YYYYMMDDTHHMMSS+0800.md`.
 - Keep `latest-digest.md` as a symlink or pointer to the newest real digest artifact; do not treat it as the canonical digest filename.
 - For test runs, use the same digest template in chat only and do not save a timestamped artifact or update `latest-digest.md` unless the user explicitly asks to save the preview.
@@ -78,9 +83,10 @@ Digest generation and digest delivery are separate steps.
 6. Keep the format uniform from the first item to the last.
 7. Save the digest markdown file under `<skrya-data-root>/runs/<topic-id>/` with an absolute execution-time filename only for scheduled or user-requested real digests; then update `latest-digest.md` as a symlink or pointer to that file. Do not save test-run previews by default.
 8. Preserve enough traceability so that if the user later asks for the source of an item, you can return the complete corresponding sources.
-9. If a seeded thread matches today’s items, write a concise line-box thread update before the normal numbered items. Do not include a "today matched digest items" line in the thread update.
-10. End the digest body, insert `---`, and write a `## 系统提示` section with execution metadata, `dig:` / `track:` options, and a plain-language preference feedback option.
-11. For a test run, still use the same digest template and `## 系统提示` format, mark execution status as test/preview, explain `dig: <编号>`, `track: <编号> <名称/意图>`, and plain-language preference feedback, and do not mention saved artifacts.
+9. Resolve all effective `status=active` threads from `thread-seeds.json` and the latest runtime thread artifact. Always write a line-box entry for every active thread in the dedicated event-timeline section before the normal numbered items.
+10. For an active thread with verified new items, include the thread name/ID, today's increment, the previous timeline position it continues from, impact judgment, and next observation. For an active thread without a verified increment, explicitly state that the current scan found no verified update and show its latest known timeline state plus the next observation. Never suppress an active thread merely because a generic "no material update" rule applies.
+11. End the digest body, insert `---`, and write a `## 系统提示` section with execution metadata, `dig:` / `track:` options, and a plain-language preference feedback option.
+12. For a test run, still use the same digest template and `## 系统提示` format, mark execution status as test/preview, explain `dig: <编号>`, `track: <编号> <名称/意图>`, and plain-language preference feedback, and do not mention saved artifacts.
 
 ## Feedback Handling
 

@@ -38,7 +38,10 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertIn("track: 创建或更新持续事件线", digest.markdown)
         self.assertIn("---\n\n## 系统提示", digest.markdown)
         self.assertIn("- 执行时间：", digest.markdown)
-        self.assertIn("- 执行状态：完成：生成 6 条简讯，更新 0 条thread。", digest.markdown)
+        self.assertIn(
+            "- 执行状态：完成：生成 6 条简讯，复核 0 条 active thread，其中 0 条有可核验新增。",
+            digest.markdown,
+        )
         self.assertIn("- 扫描时间范围：最近 24 小时（默认）", digest.markdown)
         self.assertIn(f"- Skrya：{__version__}", digest.markdown)
         self.assertIn("- 可继续操作：", digest.markdown)
@@ -111,7 +114,10 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertIn("┌─ **【Brief 1】Comet expands enterprise rollout**", digest.markdown)
         self.assertIn("│ Sources: [example.com](https://example.com/comet-enterprise)", digest.markdown)
         self.assertIn("---\n\n## System", digest.markdown)
-        self.assertIn("- Status: Complete: generated 1 brief items and updated 0 threads.", digest.markdown)
+        self.assertIn(
+            "- Status: Complete: generated 1 brief items, reviewed 0 active threads, and found verified updates for 0.",
+            digest.markdown,
+        )
         self.assertIn("- Scan window: last 24 hours (default)", digest.markdown)
         self.assertIn("dig: deep-analyze specified brief items", digest.markdown)
         self.assertNotIn("## 系统提示", digest.markdown)
@@ -307,13 +313,91 @@ class IntelligenceServiceTests(unittest.TestCase):
         service = IntelligenceService(root)
         digest = service.generate_digest("新能源汽车", prefer_live=False)
 
-        self.assertIn("## thread更新", digest.markdown)
-        self.assertIn("┌─ **【thread】比亚迪闪充站**", digest.markdown)
+        self.assertIn("## 事件线时间线更新", digest.markdown)
+        self.assertIn("┌─ **【Thread】比亚迪闪充站 (byd-flash-charge-station)**", digest.markdown)
         self.assertNotIn("今天命中的简讯：", digest.markdown)
-        self.assertIn("│ 后续看点：首批站点在哪些城市真正落地", digest.markdown)
-        self.assertLess(digest.markdown.index("## thread更新"), digest.markdown.index("## 今日简讯"))
+        self.assertIn("│ 今日增量：", digest.markdown)
+        self.assertIn("│ 时间线位置：", digest.markdown)
+        self.assertIn("│ 影响判断：", digest.markdown)
+        self.assertIn("│ 下一步观察：首批站点在哪些城市真正落地", digest.markdown)
+        self.assertLess(digest.markdown.index("## 事件线时间线更新"), digest.markdown.index("## 今日简讯"))
         self.assertIn("dig: 详细分析指定今日简讯", digest.markdown)
-        self.assertIn("- 执行状态：完成：生成 3 条简讯，更新 1 条thread。", digest.markdown)
+        self.assertIn(
+            "- 执行状态：完成：生成 3 条简讯，复核 1 条 active thread，其中 1 条有可核验新增。",
+            digest.markdown,
+        )
+
+    def test_generate_digest_shows_latest_active_thread_state_when_no_new_item_matches(self) -> None:
+        root = self._make_root("thread-digest-no-update")
+        self._write_new_energy_topic(root)
+        self._write_byd_thread_seed(root)
+        self._write_byd_thread(root)
+        runtime_path = root / "runs" / "new-energy-vehicles" / "threads" / "latest-threads.json"
+        runtime_payload = json.loads(runtime_path.read_text(encoding="utf-8"))
+        runtime_payload["threads"][0]["timeline"].reverse()
+        runtime_path.write_text(json.dumps(runtime_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        topic_dir = root / "topics" / "new-energy-vehicles"
+        (topic_dir / "sample-events.json").write_text(
+            json.dumps(
+                [
+                    {
+                        "key": "catl-storage",
+                        "title": "宁德时代更新储能协同方案",
+                        "headline_summary": "这是一条与既有比亚迪闪充事件线无关的独立进展。",
+                        "list_summary": "",
+                        "analysis_title": "宁德时代更新储能协同方案",
+                        "analysis_body": "储能基础设施出现新的独立进展。",
+                        "sources": ["https://example.com/catl-storage"],
+                    }
+                ],
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        digest = IntelligenceService(root).generate_digest("新能源汽车", prefer_live=False)
+
+        self.assertIn("## 事件线时间线更新", digest.markdown)
+        self.assertIn("复核结果：已检查，本轮暂无可核验新增。", digest.markdown)
+        self.assertIn("最新状态：2026-04-27", digest.markdown)
+        self.assertIn("首批站点城市名单开始清晰", digest.markdown)
+        self.assertIn("下一步观察：首批站点在哪些城市真正落地", digest.markdown)
+        self.assertIn(
+            "- 执行状态：完成：生成 1 条简讯，复核 1 条 active thread，其中 0 条有可核验新增。",
+            digest.markdown,
+        )
+
+    def test_generate_digest_shows_active_thread_state_even_when_digest_has_no_events(self) -> None:
+        root = self._make_root("thread-digest-no-events")
+        self._write_new_energy_topic(root)
+        self._write_byd_thread_seed(root)
+        self._write_byd_thread(root)
+
+        digest = IntelligenceService(root).generate_digest("新能源汽车", prefer_live=False)
+
+        self.assertIn("## 事件线时间线更新", digest.markdown)
+        self.assertIn("复核结果：已检查，本轮暂无可核验新增。", digest.markdown)
+        self.assertIn("最新状态：2026-04-27", digest.markdown)
+        self.assertIn("暂时没有抓到足够新的真实内容", digest.markdown)
+        self.assertLess(digest.markdown.index("## 事件线时间线更新"), digest.markdown.index("暂时没有抓到足够新的真实内容"))
+        self.assertIn(
+            "- 执行状态：完成：生成 0 条简讯，复核 1 条 active thread，其中 0 条有可核验新增。",
+            digest.markdown,
+        )
+
+    def test_generate_digest_does_not_show_thread_section_without_active_threads(self) -> None:
+        root = self._make_root("thread-digest-watching-only")
+        self._write_new_energy_topic(root)
+        seed_path = root / "topics" / "new-energy-vehicles" / "thread-seeds.json"
+        payload = json.loads((ROOT / "docs" / "byd-flash-charge-thread-seed.example.json").read_text(encoding="utf-8"))
+        payload["threads"][0]["status"] = "watching"
+        seed_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        digest = IntelligenceService(root).generate_digest("新能源汽车", prefer_live=False)
+
+        self.assertNotIn("## 事件线时间线更新", digest.markdown)
+        self.assertNotIn("【Thread】", digest.markdown)
 
     def test_generate_digest_persists_thread_runtime_artifact_when_seed_matches(self) -> None:
         root = self._make_root("thread-digest-runtime-artifact")

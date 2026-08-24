@@ -76,6 +76,8 @@ Skrya 的长期数据保存在哪里？
 - Preserve enough traceability to return complete sources later if the user asks.
 - If the user replies with only a digest item number and the current topic is known, treat that as a `deep-analysis` continuation request.
 - Digest output format is governed by a template file. Use the topic-specific digest template when configured; otherwise use `digest/templates/default-digest.md`.
+- A digest with any effective `status=active` thread must include the event-timeline update section and show each active thread's latest known state even when the current scan finds no verified increment.
+- Route requests to create or update a topic-specific digest template through `topic-curation`. Classify create versus update first: create drafts from the default contract without reading an existing topic template, while update reads the configured template and drafts a revision. Before drafting, tell the user that the active-Thread timeline section is mandatory. Apply the same candidate-only validation and verified persistence gate after either drafting flow; failed validation must not create or overwrite the target.
 - Treat `digest.md` as topic-specific ranking and judgment guidance, not as the output format template.
 - Save real digest artifacts under `<skrya-data-root>/runs/<topic-id>/` with an absolute execution-time filename such as `digest-YYYYMMDDTHHMMSS+0800.md`; keep `latest-digest.md` as a symlink or pointer to the newest real artifact.
 
@@ -167,9 +169,9 @@ When creating or proposing a recurring digest automation, use this checklist as 
 - data root: include the resolved Skrya data root, with workspace `.skrya/data` for OpenClaw or mounted-workspace hosts when applicable
 - delivery context: include host name, creating user, workspace, and current channel/conversation id or stable label when exposed by the host
 - binding: create or update `<skrya-data-root>/topics/<topic-id>/delivery-bindings.json` using schema `skrya.delivery-bindings.v1`; put host-specific extras under `host_metadata`
-- required reads: read `topic.json`, `brief.json`, `sources.json`, `digest.md`, and the configured topic digest template before generating
+- required reads: read `topic.json`, `brief.json`, `sources.json`, `digest.md`, the configured topic digest template, optional `thread-seeds.json`, and the latest runtime thread artifact when present before generating
 - template fallback: use `digest/templates/default-digest.md` if no topic-specific template is configured
-- output format: render title, uniform line boxes, source references, `---`, and `## 系统提示` / `## System`
+- output format: render title, the mandatory event-timeline update section for every effective `status=active` thread (including its latest state when there is no verified increment), uniform line boxes, source references, `---`, and `## 系统提示` / `## System`
 - artifact policy: scheduled real digests are saved as `digest-YYYYMMDDTHHMMSS+0800.md` under `<skrya-data-root>/runs/<topic-id>/`, and `latest-digest.md` is a symlink or pointer to the newest real artifact
 - delivery policy: send only to the bound channel/conversation unless the user explicitly configured another supported target; verify the sent body is non-empty when the host supports verification
 - test-run separation: do not perform, save, or mention a test run inside the recurring automation unless the user separately asks for that preview

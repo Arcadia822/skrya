@@ -53,8 +53,8 @@ class MainIntelligenceCommandTests(unittest.TestCase):
 
         self.assertEqual(0, exit_code)
         output = stdout.getvalue()
-        self.assertIn("## thread更新", output)
-        self.assertIn("┌─ **【thread】比亚迪闪充站**", output)
+        self.assertIn("## 事件线时间线更新", output)
+        self.assertIn("┌─ **【Thread】比亚迪闪充站 (byd-flash-charge-station)**", output)
         self.assertNotIn("今天命中的简讯：", output)
         self.assertIn("## 今日简讯", output)
         self.assertTrue((root / "runs" / "new-energy-vehicles" / "latest-digest-events.json").exists())

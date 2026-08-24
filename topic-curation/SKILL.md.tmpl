@@ -81,12 +81,37 @@ This skill may:
 - translate user feedback into durable configuration wording
 - update `brief.json`
 - update `digest.md` when ranking or exclusion rules need to change
+- create or update a topic-specific digest template through the guarded template-update flow below
 - propose or update thread seeds when the user wants a continuing thread
 - recommend source candidates and update `sources.json` after confirmation
 - answer and update the user's storage-location preference by using the current Skrya data root and the `skrya data-root` command
 - create or propose recurring digest automation bound to the current channel/conversation by default when the host is channel-aware
 
 This skill does not implement crawling or adapter logic.
+
+## Digest Template Create And Update Flow
+
+Treat requests such as "创建简报模板", "调整简报模板", "更新日报样式", or "使用自建模板" as topic-curation work. Resolve the data root and internal topic id, then classify the request as create or update before reading any template content.
+
+Before drafting or changing template content, explicitly tell the user, in the user's current language:
+
+> 提示：你可以创建或调整简报模板的布局和措辞，但 active Thread 的“事件线时间线更新”模块属于强制合同；无新增时仍须展示最新状态。保存前我会执行结构检查，未通过不会创建或覆盖目标模板。
+
+Use the matching candidate-drafting flow:
+
+- **Create:** confirm that no topic-specific template is currently configured at the intended target. Do not read an existing topic-specific template as the drafting basis. Draft a new complete candidate from the default digest contract and the user's requested layout. If a target unexpectedly already exists, stop and reclassify the operation as update instead of overwriting it.
+- **Update:** require an existing configured topic-specific template, read it, and draft a revised complete candidate without overwriting the configured path. If no configured template exists, stop and offer the create flow instead.
+
+After either drafting flow, apply this shared save gate. The save gate begins with the completed candidate; it does not read or modify the source template:
+
+1. Validate the complete candidate with `skrya validate-digest-template --file <candidate-path>` when the CLI is available. Otherwise apply the same checklist directly.
+2. The candidate must contain a top-level title; `## 事件线时间线更新` / `## Event Timeline Updates`; Thread name and ID; today's increment; timeline position; impact judgment; explicit no-verified-update review; latest state; next observation; numbered digest items; per-item sources; `---`; and `## 系统提示` / `## System`.
+3. If validation fails, do not create, overwrite, or replace the configured template. Report the missing contract fields, revise the candidate, and validate again.
+4. Immediately before persistence, recheck the operation precondition: create requires an absent target; update requires the same existing target that was read. Stop on a mismatch instead of silently switching modes.
+5. Persist the validated candidate atomically when the filesystem supports it, then re-read and validate the saved target. If post-save verification fails, do not report success; restore the prior update target or remove the incomplete newly created target when safely possible.
+6. Report success only after post-save validation passes, then offer a separate test-run preview.
+
+Topic-specific style choices may change layout and wording, but they may not delete the active-Thread contract. A user can ask to revise how the mandatory module looks; omission is not a supported customization.
 
 ## Topic Memory Rules
 
@@ -115,6 +140,7 @@ Map natural-language user input into one or more of these intent types:
 - exclude a kind of item from future digests
 - adjust ranking preference
 - update topic sources
+- create or update a topic-specific digest template
 - ask for important information on an unconfigured area
 
 Never treat a single digest item number as a literal config primitive.
@@ -171,9 +197,10 @@ Include these fields or instructions:
 - `data_root`: resolved Skrya data root; use workspace `.skrya/data` for OpenClaw or mounted-workspace environments when applicable
 - `delivery_context`: creating user, workspace, host, and current channel/conversation id or stable label when the host exposes them
 - `topic_state_binding`: create or update `<skrya-data-root>/topics/<topic-id>/delivery-bindings.json` using schema `skrya.delivery-bindings.v1`; the automation must not rely on later chat context
-- `required_reads`: `topic.json`, `brief.json`, `sources.json`, `digest.md`, and the configured digest template file
+- `required_reads`: `topic.json`, `brief.json`, `sources.json`, `digest.md`, the configured digest template file, optional `thread-seeds.json`, and the latest runtime thread artifact when present
 - `template_fallback`: use `digest/templates/default-digest.md` when no topic-specific digest template is configured
 - `format_contract`: `digest.md` contains ranking and judgment rules; the template file controls title, uniform line boxes, source references, `---`, and the topic-language system section
+- `thread_policy`: if any effective thread has `status=active`, always render the event-timeline update section and show each active thread's latest known state even when the scan finds no verified increment
 - `artifact_policy`: save real scheduled digests as `digest-YYYYMMDDTHHMMSS+0800.md` under `<skrya-data-root>/runs/<topic-id>/`, then update `latest-digest.md` as a symlink or pointer
 - `delivery_policy`: send only to the bound channel/conversation unless the user explicitly configured another supported target, and verify non-empty delivery when the host supports it
 - `test_run_policy`: do not perform, save, or include a test run unless the user separately asks for one

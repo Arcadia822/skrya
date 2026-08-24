@@ -54,6 +54,8 @@ This workspace is topic-driven.
 - After scheduled delivery, prefer explicit message-tool sending and verify that the sent content is non-empty in the target channel when the host supports verification.
 - Write every digest item as a compact line box, with the number and title merged into the first line and source references after a blank separator line.
 - Do not split the first few items into a special format.
+- If the effective thread configuration contains any `status=active` thread, always render `## 事件线时间线更新` (or `## Event Timeline Updates`) before normal digest items. Each active thread must show its latest state even when the current scan has no verified increment; never silently omit an active thread under a generic no-update rule.
+- When entering a topic-specific digest-template flow, classify create versus update first. Create drafts from the default contract without reading an existing topic template; update reads the configured template and drafts a revision. Tell the user that the active-Thread timeline module is mandatory. The shared save gate starts from the completed candidate, validates before persistence, protects create/update preconditions, and verifies the saved target; failed validation must not create or overwrite the target.
 - End the digest with a natural follow-up line that invites the user to reply with a number for deeper analysis, without mentioning internal skill names.
 
 ## Deep Analysis Defaults

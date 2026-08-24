@@ -52,7 +52,7 @@ Skrya 会把它变成：
 
 查看更多演示：[AI 浏览器每日简报](examples/ai-browser-daily-briefing.md)、[新能源事件线](examples/new-energy-thread-demo.md)、[研究智能体观察清单](examples/research-agent-watchlist.md)。
 
-简报的标题、条目样式、来源展示和系统提示都来自模板；你可以直接要求 Skrya 调整模板，例如“把来源放到每条最后一行”或“系统提示写得更短”。
+简报的标题、条目样式、来源展示和系统提示都来自模板；你可以直接要求 Skrya 创建模板，也可以直接要求 Skrya 调整模板，例如“创建一份简洁模板”“把来源放到每条最后一行”。创建会从默认合同起草新候选，更新才会读取现有模板；两者在保存时都必须通过 active Thread 时间线合同检查，失败不会创建或覆盖目标。
 
 ## 30 秒开始
 

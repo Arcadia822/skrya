@@ -52,6 +52,8 @@ Skrya turns it into:
 
 See more demos: [AI browser daily briefing](examples/ai-browser-daily-briefing.md), [new energy thread](examples/new-energy-thread-demo.md), and [research agent watchlist](examples/research-agent-watchlist.md).
 
+Digest templates can be created or updated. Create drafts a new candidate from the default contract without reading an existing topic template; update reads the configured template and drafts a revision. Both use the same active-Thread contract validation and verified save gate, and failed validation neither creates nor overwrites the target.
+
 ## Quick Start
 
 Send this to your agent:
