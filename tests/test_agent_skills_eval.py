@@ -26,17 +26,18 @@ class AgentSkillsEvalTests(unittest.TestCase):
         self.assertEqual("node scripts/check-agent-skills-eval.mjs", package["scripts"]["eval:skills:check"])
         self.assertEqual("node scripts/runtime-openclaw-harness.mjs", package["scripts"]["eval:skills:runtime"])
 
-    def test_eval_bank_has_all_journeys_with_at_least_five_evals_each(self) -> None:
-        """The durable eval bank contains all 12 journeys with ≥5 cases each."""
+    def test_eval_bank_has_all_evaluated_journeys_with_at_least_five_evals_each(self) -> None:
+        """The durable eval bank contains every evaluated journey with at least five cases."""
         bank = json.loads((ROOT / "skrya" / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
 
         self.assertEqual("skrya", bank["skill_name"])
-        self.assertGreaterEqual(len(bank["evals"]), 60)
+        self.assertGreaterEqual(len(bank["evals"]), 65)
 
         counts = Counter(item["id"].split("-")[1] for item in bank["evals"])
-        self.assertEqual({f"{index:02d}" for index in range(1, 13)}, set(counts))
-        for index in range(1, 13):
-            self.assertGreaterEqual(counts[f"{index:02d}"], 5)
+        expected_journeys = {f"{index:02d}" for index in range(1, 13)} | {"14"}
+        self.assertEqual(expected_journeys, set(counts))
+        for journey in expected_journeys:
+            self.assertGreaterEqual(counts[journey], 5)
 
         for item in bank["evals"]:
             self.assertGreaterEqual(len(item["assertions"]), 4)

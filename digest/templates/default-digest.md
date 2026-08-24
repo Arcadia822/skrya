@@ -17,6 +17,15 @@ This template is writing and reference guidance for the agent producing a digest
 │ 下一步观察：后续需要复核的信号。
 └
 
+无可核验新增时，同一模块改为：
+
+┌─ **【Thread】事件线名称 (thread-id)**
+│ 复核结果：已检查，本轮暂无可核验新增。
+│ 最新状态：YYYY-MM-DD：最近时间线标题与简要状态。
+│
+│ 下一步观察：后续需要复核的信号。
+└
+
 ┌─ **【简讯1】事件标题**
 │ 一句判断或摘要。
 │ 可以继续换行补充判断。

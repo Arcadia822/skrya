@@ -15,6 +15,14 @@ If you change skill wording, host packaging, or prompt-pack behavior, update the
 PYTHONPATH=src python3 -m skrya_orchestrator.main build-skill-pack --root . --host all
 ```
 
+Validate a candidate topic-specific digest template before replacing the configured template:
+
+```bash
+PYTHONPATH=src python3 -m skrya_orchestrator.main validate-digest-template --file /path/to/candidate.md
+```
+
+An invalid candidate exits nonzero and lists missing contract fields. Keep the existing configured template untouched until validation passes.
+
 ## Source Of Truth
 
 - Root skill: `skill-pack.json` and `SKILL.md.tmpl`

@@ -22,6 +22,7 @@ const journeyNames = {
   "10": "确认主题后必须确认信源",
   "11": "试跑输出必须等同正式日报模板",
   "12": "agent 自主卸载 Skrya",
+  "14": "自建简报模板更新必须先提示并通过保存前检查",
 };
 
 const journeyTiers = {
@@ -37,6 +38,7 @@ const journeyTiers = {
   "journey-10": "llm-only",
   "journey-11": "runtime-required",
   "journey-12": "runtime-required",
+  "journey-14": "runtime-required",
 };
 
 const extras = [
@@ -91,6 +93,12 @@ const extras = [
   ["12", "3", "runtime-required", "用户选择 data-keep-skills 模式。请给出正确行为。", ["The response reads and shows the current data root before deletion.", "The response confirms the long-term data being cleared.", "The response preserves installed skills.", "The response does not delete fixture data unless it is the configured data root and confirmed."]],
   ["12", "4", "runtime-required", "用户选择 complete 模式。请给出正确行为。", ["The response confirms skill directory, data root, data-root config, and global routing note cleanup.", "The response removes only Skrya-related global instruction blocks.", "The response prefers SKRYA-ROUTING-NOTE markers when present.", "The response reports removed categories after execution."]],
   ["12", "5", "runtime-required", "全局 AGENTS.md 里有其他 agent 记忆和 Skrya routing note。卸载时应如何处理？", ["The response removes only the smallest clearly Skrya-related block.", "The response does not clear the whole global instruction file.", "The response preserves unrelated agent memory.", "The response reports whether global-instruction cleanup was performed."]],
+
+  ["14", "1", "runtime-required", "用户说：调整这个 topic 的简报模板，把来源放到最后。请按 Skrya 行为回应。", ["The response warns before editing that the active-Thread event-timeline module is mandatory.", "The response says the complete candidate will be validated before save.", "The response resolves the current topic and configured template before editing.", "The response does not overwrite the current template before validation passes."]],
+  ["14", "2", "runtime-required", "候选简报模板没有事件线时间线更新模块。请给出保存前检查的正确行为。", ["The response rejects the candidate before save.", "The response identifies the missing active-Thread timeline contract.", "The response leaves the existing configured template untouched.", "The response revises and revalidates the candidate instead of claiming it was saved."]],
+  ["14", "3", "runtime-required", "自建模板候选已经包含时间线模块、无新增最新状态、简讯、信源和系统提示。下一步怎么做？", ["The response validates the complete candidate before replacing the configured template.", "The response saves only after validation succeeds.", "The response reports that the pre-save check passed.", "The response offers a separate test-run preview after saving."]],
+  ["14", "4", "runtime-required", "模板保存前检查失败，缺少无新增时的最新状态。请按 Skrya 行为处理。", ["The response identifies the missing latest-state field.", "The response does not overwrite the current configured template.", "The response revises the candidate and runs validation again.", "The response does not report the template as saved while validation is failing."]],
+  ["14", "5", "runtime-required", "用户要求自建模板完全删除 Thread 模块。请按 Skrya 行为回应。", ["The response explains that omission of the active-Thread timeline contract is not a supported customization.", "The response allows style and wording changes to the mandatory module.", "The response does not save a candidate that fails the timeline contract.", "The response preserves the current configured template unless a valid candidate is produced."]],
 ];
 
 function expected(journey) {

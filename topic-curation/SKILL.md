@@ -87,12 +87,32 @@ This skill may:
 - translate user feedback into durable configuration wording
 - update `brief.json`
 - update `digest.md` when ranking or exclusion rules need to change
+- create or update a topic-specific digest template through the guarded template-update flow below
 - propose or update thread seeds when the user wants a continuing thread
 - recommend source candidates and update `sources.json` after confirmation
 - answer and update the user's storage-location preference by using the current Skrya data root and the `skrya data-root` command
 - create or propose recurring digest automation bound to the current channel/conversation by default when the host is channel-aware
 
 This skill does not implement crawling or adapter logic.
+
+## Digest Template Update Gate
+
+Treat requests such as "调整简报模板", "更新日报样式", or "使用自建模板" as topic-curation work. Resolve the data root and internal topic id before reading the existing configured template.
+
+Before drafting or changing template content, explicitly tell the user, in the user's current language:
+
+> 提示：你可以调整简报模板的布局和措辞，但 active Thread 的“事件线时间线更新”模块属于强制合同；无新增时仍须展示最新状态。保存前我会执行结构检查，未通过不会覆盖现有模板。
+
+Then follow this save gate:
+
+1. Read the current configured topic template, or the default template when creating a new one.
+2. Draft the complete candidate without overwriting the configured template path.
+3. Validate the candidate with `skrya validate-digest-template --file <candidate-path>` when the CLI is available. Otherwise apply the same checklist directly.
+4. The candidate must contain a top-level title; `## 事件线时间线更新` / `## Event Timeline Updates`; Thread name and ID; today's increment; timeline position; impact judgment; explicit no-verified-update review; latest state; next observation; numbered digest items; per-item sources; `---`; and `## 系统提示` / `## System`.
+5. If validation fails, do not overwrite or replace the configured template. Report the missing contract fields, revise the candidate, and validate again.
+6. Save the configured template only after validation succeeds. Report that the pre-save check passed, then offer a separate test-run preview.
+
+Topic-specific style choices may change layout and wording, but they may not delete the active-Thread contract. A user can ask to revise how the mandatory module looks; omission is not a supported customization.
 
 ## Topic Memory Rules
 
@@ -121,6 +141,7 @@ Map natural-language user input into one or more of these intent types:
 - exclude a kind of item from future digests
 - adjust ranking preference
 - update topic sources
+- create or update a topic-specific digest template
 - ask for important information on an unconfigured area
 
 Never treat a single digest item number as a literal config primitive.

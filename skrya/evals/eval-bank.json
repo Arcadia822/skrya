@@ -20,7 +20,8 @@
     "journey-09": "agent-context-required",
     "journey-10": "llm-only",
     "journey-11": "runtime-required",
-    "journey-12": "runtime-required"
+    "journey-12": "runtime-required",
+    "journey-14": "runtime-required"
   },
   "evals": [
     {
@@ -926,6 +927,86 @@
         "The response does not clear the whole global instruction file.",
         "The response preserves unrelated agent memory.",
         "The response reports whether global-instruction cleanup was performed."
+      ],
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ]
+    },
+    {
+      "id": "journey-14-1",
+      "name": "旅程 14：自建简报模板更新必须先提示并通过保存前检查 / 测试 1",
+      "prompt": "用户说：调整这个 topic 的简报模板，把来源放到最后。请按 Skrya 行为回应。",
+      "expected_output": "The answer follows Skrya user journey 14: 自建简报模板更新必须先提示并通过保存前检查.",
+      "assertions": [
+        "The response warns before editing that the active-Thread event-timeline module is mandatory.",
+        "The response says the complete candidate will be validated before save.",
+        "The response resolves the current topic and configured template before editing.",
+        "The response does not overwrite the current template before validation passes."
+      ],
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ]
+    },
+    {
+      "id": "journey-14-2",
+      "name": "旅程 14：自建简报模板更新必须先提示并通过保存前检查 / 测试 2",
+      "prompt": "候选简报模板没有事件线时间线更新模块。请给出保存前检查的正确行为。",
+      "expected_output": "The answer follows Skrya user journey 14: 自建简报模板更新必须先提示并通过保存前检查.",
+      "assertions": [
+        "The response rejects the candidate before save.",
+        "The response identifies the missing active-Thread timeline contract.",
+        "The response leaves the existing configured template untouched.",
+        "The response revises and revalidates the candidate instead of claiming it was saved."
+      ],
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ]
+    },
+    {
+      "id": "journey-14-3",
+      "name": "旅程 14：自建简报模板更新必须先提示并通过保存前检查 / 测试 3",
+      "prompt": "自建模板候选已经包含时间线模块、无新增最新状态、简讯、信源和系统提示。下一步怎么做？",
+      "expected_output": "The answer follows Skrya user journey 14: 自建简报模板更新必须先提示并通过保存前检查.",
+      "assertions": [
+        "The response validates the complete candidate before replacing the configured template.",
+        "The response saves only after validation succeeds.",
+        "The response reports that the pre-save check passed.",
+        "The response offers a separate test-run preview after saving."
+      ],
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ]
+    },
+    {
+      "id": "journey-14-4",
+      "name": "旅程 14：自建简报模板更新必须先提示并通过保存前检查 / 测试 4",
+      "prompt": "模板保存前检查失败，缺少无新增时的最新状态。请按 Skrya 行为处理。",
+      "expected_output": "The answer follows Skrya user journey 14: 自建简报模板更新必须先提示并通过保存前检查.",
+      "assertions": [
+        "The response identifies the missing latest-state field.",
+        "The response does not overwrite the current configured template.",
+        "The response revises the candidate and runs validation again.",
+        "The response does not report the template as saved while validation is failing."
+      ],
+      "tier": "runtime-required",
+      "context_ids": [
+        "openclaw-gateway-runtime"
+      ]
+    },
+    {
+      "id": "journey-14-5",
+      "name": "旅程 14：自建简报模板更新必须先提示并通过保存前检查 / 测试 5",
+      "prompt": "用户要求自建模板完全删除 Thread 模块。请按 Skrya 行为回应。",
+      "expected_output": "The answer follows Skrya user journey 14: 自建简报模板更新必须先提示并通过保存前检查.",
+      "assertions": [
+        "The response explains that omission of the active-Thread timeline contract is not a supported customization.",
+        "The response allows style and wording changes to the mandatory module.",
+        "The response does not save a candidate that fails the timeline contract.",
+        "The response preserves the current configured template unless a valid candidate is produced."
       ],
       "tier": "runtime-required",
       "context_ids": [

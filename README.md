@@ -52,6 +52,8 @@ Skrya turns it into:
 
 See more demos: [AI browser daily briefing](examples/ai-browser-daily-briefing.md), [new energy thread](examples/new-energy-thread-demo.md), and [research agent watchlist](examples/research-agent-watchlist.md).
 
+Digest layout can be customized. Before updating a topic-specific template, Skrya warns that the active-Thread timeline contract is mandatory and validates the complete candidate before save; failed validation does not overwrite the current template.
+
 ## Quick Start
 
 Send this to your agent:

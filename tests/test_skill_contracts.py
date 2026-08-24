@@ -687,6 +687,35 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("本轮暂无可核验新增", default_template)
         self.assertIn("never suppress an active thread", digest_template.lower())
 
+    def test_digest_template_updates_warn_and_validate_before_save(self) -> None:
+        root_template = (ROOT / "SKILL.md.tmpl").read_text(encoding="utf-8")
+        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        digest_template = (ROOT / "digest" / "SKILL.md.tmpl").read_text(encoding="utf-8")
+        digest_skill = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
+        topic_template = (ROOT / "topic-curation" / "SKILL.md.tmpl").read_text(encoding="utf-8")
+        topic_skill = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
+        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        user_journeys = (ROOT / "docs" / "user-journeys.md").read_text(encoding="utf-8")
+        eval_bank = json.loads((ROOT / "skrya" / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
+        prompts = [
+            (ROOT / "prompt-templates" / name).read_text(encoding="utf-8")
+            for name in ("skrya-full.md.tmpl", "skrya-lite.md.tmpl", "skrya-user.md.tmpl")
+        ]
+
+        for content in (root_template, root_skill, digest_template, digest_skill, topic_template, topic_skill, agents, *prompts):
+            self.assertIn("before", content.lower())
+            self.assertIn("template", content.lower())
+            self.assertIn("validation", content.lower())
+
+        self.assertIn("提示：你可以调整简报模板的布局和措辞", topic_template)
+        self.assertIn("validate-digest-template --file <candidate-path>", topic_template)
+        self.assertIn("failed validation must leave the existing template untouched", root_template)
+        self.assertIn("旅程 14：自建简报模板更新必须先提示并通过保存前检查", user_journeys)
+        self.assertEqual(
+            {"journey-14-1", "journey-14-2", "journey-14-3", "journey-14-4", "journey-14-5"},
+            {item["id"] for item in eval_bank["evals"] if item["id"].startswith("journey-14-")},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
