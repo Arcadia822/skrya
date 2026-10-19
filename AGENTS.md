@@ -51,18 +51,21 @@ This workspace is topic-driven.
 - Use the `digest` skill when the user wants a topic digest or daily briefing.
 - Save real scheduled or user-requested digest output under `<skrya-data-root>/runs/<topic-id>/` with an absolute execution-time filename, then update `latest-digest.md` as a symlink or pointer to that artifact.
 - When resending or diagnosing a scheduled digest in a channel-aware host, first resolve the topic and channel/conversation binding for the current message. If multiple same-channel topics are plausible, ask a short clarification instead of sending all of them.
-- After scheduled delivery, prefer explicit message-tool sending and verify that the sent content is non-empty in the target channel when the host supports verification.
-- Write every digest item as a compact line box, with the number and title merged into the first line and source references after a blank separator line.
+- For Feishu, preflight the explicit bound target, then use native card delivery instead of a generic text sender. Verify actual non-empty delivered content when the host permits readback.
+- Write uniform plain Markdown items with N-xx references, facts, judgment and media-name source links. Never use decorative line boxes or tab alignment.
 - Do not split the first few items into a special format.
 - If the effective thread configuration contains any `status=active` thread, always render `## 事件线时间线更新` (or `## Event Timeline Updates`) before normal digest items. Each active thread must show its latest state even when the current scan has no verified increment; never silently omit an active thread under a generic no-update rule.
 - When entering a topic-specific digest-template flow, classify create versus update first. Create drafts from the default contract without reading an existing topic template; update reads the configured template and drafts a revision. Tell the user that the active-Thread timeline module is mandatory. The shared save gate starts from the completed candidate, validates before persistence, protects create/update preconditions, and verifies the saved target; failed validation must not create or overwrite the target.
-- End the digest with a natural follow-up line that invites the user to reply with a number for deeper analysis, without mentioning internal skill names.
+- End with exactly five explained operations: `dig: N-01`, `track: N-02`, `dig: T-01`, `write: T-01`, and natural-language feedback. Do not add runtime metadata or another follow-up line.
 
 ## Deep Analysis Defaults
 
 - Use the `deep-analysis` skill when the user wants to continue from a digest item or asks for a deeper event breakdown.
-- If the user replies with only a visible digest number, resolve it against the latest digest for the same topic.
+- Resolve visible references against the replied-to card's frozen snapshot, or the current binding's latest complete successful delivery when no message ID is available. Local non-channel conversations use the explicit digest artifact. Do not substitute the latest generated but unsent digest.
 - Keep the analysis natural and concise by default, but be ready to provide complete sources on request.
+- `write: T-xx` reads the complete raw timeline and sources and produces a sourced article draft, never automatic publication.
+- Thread history remains append-only and deduplicated with unknown fields preserved. Display only explicitly curated milestones with genuine dates and source URLs. Latest developments retain every real news item separately.
+- New Feishu bindings explicitly record summary+thread. Existing bindings without a layout retain full-card. Keep one host-level recurring scheduler, and wait for all parallel work before completing an IM delivery lifecycle.
 
 ## Topic Curation Defaults
 

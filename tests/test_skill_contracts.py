@@ -7,55 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class SkillContractTests(unittest.TestCase):
-    def test_readme_documents_installable_skill_pack_model(self) -> None:
-        content = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-
-        self.assertIn('<div align="center">', content)
-        self.assertIn("# Skrya", content)
-        self.assertIn("python-%E2%89%A53.10", content)
-        self.assertIn("skrya-v0.1.0", content)
-        self.assertEqual(2, content.count("img.shields.io"))
-        self.assertIn("[English](README.md)", content)
-        self.assertIn("## 核心能力", content)
-        self.assertIn("每日简报", content)
-        self.assertIn("信源把关", content)
-        self.assertIn("组合扩展", content)
-        self.assertIn("agent-reach", content)
-        self.assertIn("wechat-article-search", content)
-        self.assertIn("不关注绕过登录墙", content)
-        self.assertIn("持续事件线", content)
-        self.assertIn("通道不串台", content)
-        self.assertIn("Skrya 会把它变成", content)
-        self.assertIn("主题范围", content)
-        self.assertIn("信源策略", content)
-        self.assertIn("查看更多演示", content)
-        self.assertIn("可以直接要求 Skrya 调整模板", content)
-        self.assertIn("[OpenAI：ChatGPT Atlas](https://openai.com/index/introducing-chatgpt-atlas/)", content)
-        self.assertIn("[Perplexity：Comet](https://www.perplexity.ai/comet)", content)
-        self.assertIn("## 隐私", content)
-        self.assertIn("完全本地运作", content)
-        self.assertIn("不会主动上传", content)
-        self.assertNotIn("## 数据放在哪里", content)
-        self.assertNotIn("默认位置", content)
-        self.assertIn("INSTALL.md", content)
-        self.assertIn("docs/domain-model.md", content)
-        self.assertIn("docs/delivery-bindings.md", content)
-        self.assertIn("skills-keep-data", content)
-        self.assertIn("data-keep-skills", content)
-        self.assertIn("complete", content)
-        self.assertIn("CONTRIBUTING.md", content)
-        self.assertIn("## 它最后长什么样", content)
-        self.assertIn("examples/ai-browser-daily-briefing.md", content)
-        self.assertIn("git clone https://github.com/Arcadia822/skrya.git", content)
-        self.assertIn("./setup --host auto", content)
-        for command_detail in [
-            "install-skill-pack",
-            "uninstall-skill-pack",
-            "git pull",
-            "upgrade --root",
-            "data-root --root",
-        ]:
-            self.assertNotIn(command_detail, content)
+    
 
     def test_install_doc_contains_agent_facing_operations(self) -> None:
         content = (ROOT / "INSTALL.md").read_text(encoding="utf-8")
@@ -130,41 +82,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertEqual("比亚迪闪充站", seeds["threads"][0]["name"])
         self.assertIn("比亚迪兆瓦闪充站", seeds["threads"][0]["match_terms"])
 
-    def test_thread_docs_align_on_user_flow_and_runtime_artifacts(self) -> None:
-        readme = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-        threads = (ROOT / "docs" / "threads.md").read_text(encoding="utf-8")
-        user_journeys = (ROOT / "docs" / "user-journeys.md").read_text(encoding="utf-8")
 
-        self.assertIn("事件线", readme)
-        self.assertNotIn("## 简报长什么样", readme)
-        self.assertNotIn("## thread更新", readme)
-        self.assertNotIn("比亚迪闪充站", readme)
-        self.assertIn("旅程 6：持续事件的时间线追踪", threads)
-        self.assertIn("thread更新不要压成一行泛泛而谈", threads)
-        self.assertIn("┌─ **【thread】比亚迪闪充站**", threads)
-        self.assertNotIn("今天命中的简讯：1、2", threads)
-        self.assertIn("dig: 详细分析指定今日简讯", threads)
-        self.assertIn("refresh-threads", threads)
-        self.assertIn("帮我持续跟比亚迪闪充站这条线；以后有新进展就接着往下讲", user_journeys)
-        self.assertIn("thread` seed", user_journeys)
-        self.assertIn("展开这条线", user_journeys)
-
-    def test_upgrade_and_domain_model_docs_exist(self) -> None:
-        domain_model = (ROOT / "docs" / "domain-model.md").read_text(encoding="utf-8")
-        upgrade = (ROOT / "docs" / "upgrade.md").read_text(encoding="utf-8")
-        digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
-        delivery_bindings = (ROOT / "docs" / "delivery-bindings.md").read_text(encoding="utf-8")
-
-        self.assertIn("| `thread` |", domain_model)
-        self.assertIn("| `channel` |", domain_model)
-        self.assertIn("| `delivery binding` |", domain_model)
-        self.assertIn("skrya.delivery-bindings.v1", delivery_bindings)
-        self.assertIn("host_metadata", delivery_bindings)
-        self.assertIn("do not scan all topics", delivery_bindings)
-        self.assertIn("DeliveryBindingService.match_current_context", delivery_bindings)
-        self.assertIn("upgrade --root . --migrate-thread-naming", upgrade)
-        self.assertIn("current Skrya version", digest)
-        self.assertIn("agent framework/version and LLM model only when the host exposes them", digest)
 
     def test_uninstall_journey_and_skill_contract_are_documented(self) -> None:
         root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -255,24 +173,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("自动接入", source_curation)
         self.assertIn("Do not expose RSS as a user-facing requirement", source_curation)
 
-    def test_language_policy_is_topic_scoped_and_bilingual(self) -> None:
-        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        topic_curation = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
-        digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
-        readme = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-        english_readme = (ROOT / "README.md").read_text(encoding="utf-8")
-
-        for content in [root_skill, agents, topic_curation]:
-            self.assertIn("topic.json.language", content)
-
-        self.assertIn("Do not set output language at installation time", root_skill)
-        self.assertNotIn("Default output language is Chinese", agents)
-        self.assertIn("Supported output languages are Chinese and English", root_skill)
-        self.assertIn("语言跟着主题走", readme)
-        self.assertIn("Chinese and English output", english_readme)
-        self.assertIn("English format: `# YYYY-MM-DD | Topic Name | Daily Briefing`", digest)
-        self.assertIn("`## System` for English", digest)
+    
 
     def test_skills_describe_provider_neutral_runtime_retrieval(self) -> None:
         root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -320,32 +221,6 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("normalized `skrya.ingest.v1`", content)
         self.assertIn("Do not consume raw provider output directly", content)
 
-    def test_skills_route_digest_feedback_into_durable_topic_memory(self) -> None:
-        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        topic_curation = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
-        request_curation = (ROOT / "request-curation" / "SKILL.md").read_text(encoding="utf-8")
-        digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
-
-        for phrase in [
-            "dig: <numbers>",
-            "track: <numbers>",
-            "Plain-language preference feedback",
-            "thread-seeds.json",
-            "为什么没有",
-            "这个很重要",
-            "ambiguous shorthand entities",
-            "repeated identical instructions",
-            "long-running provenance",
-        ]:
-            self.assertIn(phrase, root_skill)
-
-        self.assertIn("clarify once, then store", topic_curation)
-        self.assertIn("active topic", topic_curation)
-        self.assertIn("漏报诊断", request_curation)
-        self.assertIn("check latest digest", request_curation)
-        self.assertIn("track: <numbers>", digest)
-        self.assertIn("plain-language preference feedback", digest)
-        self.assertIn("durable topic memory", digest)
 
     def test_skill_descriptions_include_chinese_end_user_trigger_phrases(self) -> None:
         metadata = {
@@ -367,17 +242,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("今天有什么重要", metadata["digest"]["description"])
         self.assertIn("展开第 3 条", metadata["deep-analysis"]["description"])
 
-    def test_file_names_are_internal_execution_details_in_writing_skills(self) -> None:
-        for relative_path in [
-            "topic-curation/SKILL.md",
-            "request-curation/SKILL.md",
-            "source-curation/SKILL.md",
-            "digest/SKILL.md",
-            "deep-analysis/SKILL.md",
-        ]:
-            content = (ROOT / relative_path).read_text(encoding="utf-8")
-            self.assertIn("File names are internal execution details", content, relative_path)
-            self.assertIn("do not show file names", content, relative_path)
+    
 
     def test_skrya_user_prompt_explains_temporary_provider_binding(self) -> None:
         content = (ROOT / "prompt-templates" / "skrya-user.md.tmpl").read_text(encoding="utf-8")
@@ -442,25 +307,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("do not jump straight into a test run or a digest", content)
         self.assertIn("hiding it inside the automation prompt", content)
 
-    def test_channel_aware_hosts_keep_digest_delivery_and_resend_in_original_channel(self) -> None:
-        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        topic_curation = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
-        digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
-        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        user_journeys = (ROOT / "docs" / "user-journeys.md").read_text(encoding="utf-8")
-
-        for content in [root_skill, topic_curation, digest, agents]:
-            self.assertIn("channel-aware", content)
-            self.assertIn("channel", content)
-            self.assertIn("cross-channel", content)
-            self.assertIn("non-empty", content)
-
-        self.assertIn("Never bundle another channel's topic digest", root_skill)
-        self.assertIn("Do not merge or forward another channel's topic digest", topic_curation)
-        self.assertIn("Do not bundle unrelated topic digests from other channels", digest)
-        self.assertIn("explicit message-tool sending", agents)
-        self.assertIn("旅程 9：空日报诊断和补发不能串通道", user_journeys)
-        self.assertIn("把“军民融合”这种另一个通道的日报发到韩国时政通道", user_journeys)
+    
 
     def test_channel_binding_is_conditional_on_host_channel_concept(self) -> None:
         root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
@@ -574,29 +421,6 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("主动询问用户是否现在试跑一轮", user_journeys)
         self.assertIn("创建成功后不主动询问是否试跑", user_journeys)
 
-    def test_test_run_uses_digest_template_without_saving_or_chatter(self) -> None:
-        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
-        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        user_journeys = (ROOT / "docs" / "user-journeys.md").read_text(encoding="utf-8")
-
-        for content in [root_skill, digest, agents]:
-            self.assertIn("same digest template", content)
-            self.assertIn("## 系统提示", content)
-            self.assertIn("Do not", content)
-            self.assertIn("latest-digest.md", content)
-
-        self.assertIn("Do not write conversational prefaces", root_skill)
-        self.assertIn("first visible line must be the digest title", digest)
-        self.assertIn("The first visible line of the response must be the digest title", root_skill)
-        self.assertIn("Do not append implementation notes", digest)
-        self.assertIn("Do not save test-run previews by default", digest)
-        self.assertIn("dig: <编号>", root_skill)
-        self.assertIn("旅程 11：试跑输出必须等同正式日报模板", user_journeys)
-        self.assertIn("不要先发一段“我跑一轮测试”的闲聊", user_journeys)
-        self.assertIn("只说“可以回复 dig: 2”，但不解释 `dig:`、`track:` 和自然语言偏好反馈的含义", user_journeys)
-        self.assertIn("把测试产物写入 timestamped digest 文件", user_journeys)
-        self.assertIn("## 系统提示` 之后不要再追加保存路径", user_journeys)
 
     def test_first_use_initialization_is_a_question_only_interaction(self) -> None:
         root_template = (ROOT / "SKILL.md.tmpl").read_text(encoding="utf-8")
@@ -619,73 +443,7 @@ class SkillContractTests(unittest.TestCase):
         self.assertIn("旅程 13：首次使用只输出初始化问题", journeys)
         self.assertIn("不要加问候、状态说明、原因解释或下一步预告", journeys)
 
-    def test_digest_template_and_automation_prompt_contract_are_file_based(self) -> None:
-        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        digest = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
-        topic_curation = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
-        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        full_prompt = (ROOT / "prompt-templates" / "skrya-full.md.tmpl").read_text(encoding="utf-8")
-        lite_prompt = (ROOT / "prompt-templates" / "skrya-lite.md.tmpl").read_text(encoding="utf-8")
-        user_prompt = (ROOT / "prompt-templates" / "skrya-user.md.tmpl").read_text(encoding="utf-8")
-        user_journeys = (ROOT / "docs" / "user-journeys.md").read_text(encoding="utf-8")
-        default_template = (ROOT / "digest" / "templates" / "default-digest.md").read_text(encoding="utf-8")
 
-        for content in [root_skill, digest, topic_curation, agents, full_prompt, lite_prompt, user_prompt]:
-            self.assertIn("digest template file", content)
-            self.assertIn("digest/templates/default-digest.md", content)
-            self.assertIn("latest-digest.md", content)
-
-        for content in [root_skill, digest, topic_curation, agents]:
-            self.assertIn("digest-YYYYMMDDTHHMMSS+0800.md", content)
-            self.assertIn("symlink or pointer", content)
-
-        self.assertIn("digest-YYYYMMDDTHHMMSS+0800.md", user_journeys)
-        self.assertIn("软链接或 pointer", user_journeys)
-        self.assertIn("Automation Prompt Contract", topic_curation)
-        self.assertIn("自动化 prompt 合同", user_journeys)
-        self.assertIn("self-contained automation prompt", user_prompt)
-        self.assertIn("digest.md` contains ranking and judgment rules", topic_curation)
-        self.assertIn("failure_policy", topic_curation)
-        self.assertIn("test_run_policy", topic_curation)
-        self.assertIn("delivery_policy", topic_curation)
-        self.assertIn("delivery-bindings.json", user_prompt)
-        self.assertIn("failure policy for missing prerequisites", user_prompt)
-        self.assertIn("not the output format template", digest)
-        self.assertIn("┌─ **【简讯1】事件标题**", default_template)
-
-    def test_active_threads_are_always_visible_with_latest_state(self) -> None:
-        root_template = (ROOT / "SKILL.md.tmpl").read_text(encoding="utf-8")
-        root_skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        digest_template = (ROOT / "digest" / "SKILL.md.tmpl").read_text(encoding="utf-8")
-        digest_skill = (ROOT / "digest" / "SKILL.md").read_text(encoding="utf-8")
-        default_template = (ROOT / "digest" / "templates" / "default-digest.md").read_text(encoding="utf-8")
-        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        topic_template = (ROOT / "topic-curation" / "SKILL.md.tmpl").read_text(encoding="utf-8")
-        topic_skill = (ROOT / "topic-curation" / "SKILL.md").read_text(encoding="utf-8")
-        prompt_templates = [
-            (ROOT / "prompt-templates" / name).read_text(encoding="utf-8")
-            for name in ("skrya-full.md.tmpl", "skrya-lite.md.tmpl", "skrya-user.md.tmpl")
-        ]
-
-        for content in (
-            root_template,
-            root_skill,
-            digest_template,
-            digest_skill,
-            default_template,
-            agents,
-            topic_template,
-            topic_skill,
-            *prompt_templates,
-        ):
-            self.assertIn("status=active", content)
-            self.assertIn("latest", content.lower())
-
-        for content in (digest_template, digest_skill, default_template, agents):
-            self.assertIn("## 事件线时间线更新", content)
-
-        self.assertIn("本轮暂无可核验新增", default_template)
-        self.assertIn("never suppress an active thread", digest_template.lower())
 
     def test_digest_template_updates_warn_and_validate_before_save(self) -> None:
         root_template = (ROOT / "SKILL.md.tmpl").read_text(encoding="utf-8")

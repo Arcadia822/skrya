@@ -62,17 +62,17 @@ Current source feasibility rule:
 
 Rules:
 
-- every item is a compact numbered line box
-- source references appear after a blank separator line inside each digest box
-- no special formatting for the top items
-- end with a natural invitation to reply with a number
+- every item is uniform plain Markdown with a visible N-xx reference
+- source links bind media names and use ` | ` as a separator
+- active Threads have T-xx references, per-news progress and curated historical milestones, while raw history remains complete
+- the footer contains exactly five operations, news dig, news track, full-history Thread dig, sourced Thread article draft and natural-language feedback
 
 `deep-analysis` turns one digest item or one event reference into a deeper breakdown.
 
 Rules:
 
 - accept visible digest numbers
-- resolve numbers against the latest digest for the same topic
+- resolve numbers against the received message's frozen successful delivery snapshot, or the explicit local artifact; never a newer unsent digest
 - keep sources hidden by default but available on request
 
 ## Skill-Pack Packaging

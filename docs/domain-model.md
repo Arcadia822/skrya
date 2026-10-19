@@ -31,10 +31,14 @@ Skrya is topic-driven. The important entities are:
 | `channel` | A conversation/channel binding exposed by some hosts. Required for delivery isolation when available. |
 | `delivery context` | The topic plus user/channel/workspace binding used for scheduled delivery and resend. |
 | `delivery binding` | A normalized Skrya-owned JSON record in `delivery-bindings.json` that maps one topic to one host/channel/conversation/user/workspace automation boundary. |
+| `digest snapshot` | Immutable `.events.json` mapping one artifact's N-xx and T-xx references to stable entities and full sources. |
+| `delivery receipt` | Per-binding `skrya.delivery-receipt.v1` state and message IDs for every required delivery part. |
+| `delivered index` | A frozen snapshot associated with received message IDs. The per-binding latest pointer advances only for complete successful delivery. |
+| `milestone` | A sourced, genuinely dated raw-history entry explicitly selected by an agent with `milestone_reason`. Selection affects display only. |
 | `automation` | A recurring task that generates and/or sends a digest. |
 | `schedule` | The recurrence and timezone for automation. |
 | `send verification` | A post-send check that delivered body content was non-empty. |
-| `feedback command` | Digest continuation shorthand: `dig:` for deep analysis, `track:` for thread updates, and plain-language feedback for durable preference updates. |
+| `feedback command` | Exactly five actions, news dig, news track, full-history Thread dig, sourced Thread article draft without publication, and natural-language feedback. |
 | `skill pack` | The installable Skrya repository shape. |
 | `umbrella skill` | The root Skrya skill that routes to bundled skills. |
 | `bundled skill` | A focused subskill such as `topic-curation`, `source-curation`, `digest`, or `deep-analysis`. |

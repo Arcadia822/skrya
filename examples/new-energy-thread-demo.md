@@ -29,7 +29,7 @@ Skrya can keep one developing story connected across days instead of treating ea
 ```text
 Day 1:
 - digest item 2 mentions the first city list
-- user replies: `track: 2 比亚迪闪充站`
+- user replies `track: N-02 比亚迪闪充站`; resolve it from the received digest snapshot
 - Skrya records a thread seed after confirmation
 
 Day 5:
