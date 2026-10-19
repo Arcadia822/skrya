@@ -30,9 +30,23 @@ def build_parser() -> argparse.ArgumentParser:
     reference_parser = subparsers.add_parser("resolve-reference", help="Resolve a reference against a frozen digest")
     reference_parser.add_argument("--topic", required=True)
     reference_parser.add_argument("--reference", required=True, help="N-xx or T-xx")
-    reference_parser.add_argument("--artifact", required=True, help="Timestamped digest Markdown or latest pointer")
+    reference_source = reference_parser.add_mutually_exclusive_group(required=True)
+    reference_source.add_argument("--artifact", help="Timestamped digest Markdown or latest pointer")
+    reference_source.add_argument("--binding", help="Delivery binding ID")
+    reference_parser.add_argument("--message-id", help="Received message ID; requires --binding")
     reference_parser.add_argument("--root", default=".")
     reference_parser.add_argument("--data-root", default=None)
+    for command in ("deliver", "delivery-check"):
+        delivery_parser = subparsers.add_parser(command, help="Send a bound digest" if command == "deliver" else "Check delivery without sending")
+        delivery_parser.add_argument("--channel", choices=["feishu"], required=True)
+        delivery_parser.add_argument("--topic", required=True)
+        delivery_parser.add_argument("--target", required=True, help="Explicit bound chat, user or configured alias")
+        delivery_parser.add_argument("--binding", default=None, help="Select one binding when multiple match")
+        delivery_parser.add_argument("--root", default=".")
+        delivery_parser.add_argument("--data-root", default=None)
+        if command == "deliver":
+            delivery_parser.add_argument("--file", required=True, help="Complete digest Markdown with its frozen index")
+            delivery_parser.add_argument("--layout", choices=["full-card", "summary+thread"], default=None)
 
 
     digest_parser = subparsers.add_parser("digest")
@@ -171,7 +185,8 @@ def main() -> int:
             print(f"Render failed: {error}", file=sys.stderr)
             return 1
 
-    if args.command == "resolve-reference":
+    if args.command in {"deliver", "delivery-check", "resolve-reference"}:
+        from .feishu_delivery import FeishuDeliveryService
         from .references import load_snapshot, resolve_reference
 
         try:
@@ -180,16 +195,28 @@ def main() -> int:
             if Path(topic_id).name != topic_id or topic_id in {".", ".."}:
                 raise ValueError("Topic ID must name one topic directory")
             data_root = resolve_data_root(root, args.data_root).data_root
-            artifact = Path(args.artifact).resolve()
-            if not artifact.is_relative_to((data_root / "runs" / topic_id).resolve()):
-                raise ValueError("Artifact does not belong to the resolved topic")
-            snapshot = load_snapshot(artifact)
-            if snapshot.get("topic_id") != topic_id:
-                raise ValueError("Snapshot does not belong to the resolved topic")
-            print(json.dumps(resolve_reference(snapshot, args.reference), ensure_ascii=False, indent=2))
-            return 0
-        except (OSError, ValueError) as error:
-            print(f"Reference resolution failed: {error}", file=sys.stderr)
+            delivery = FeishuDeliveryService(data_root)
+            if args.command == "resolve-reference":
+                if args.message_id and not args.binding:
+                    raise ValueError("--message-id requires --binding")
+                if args.artifact:
+                    artifact = Path(args.artifact).resolve()
+                    if not artifact.is_relative_to((data_root / "runs" / topic_id).resolve()):
+                        raise ValueError("Artifact does not belong to the resolved topic")
+                    snapshot = load_snapshot(artifact)
+                else:
+                    snapshot = delivery.load_snapshot(topic_id, args.binding, message_id=args.message_id)
+                if snapshot.get("topic_id") != topic_id:
+                    raise ValueError("Snapshot does not belong to the resolved topic")
+                result = resolve_reference(snapshot, args.reference)
+            elif args.command == "delivery-check":
+                result = delivery.check(topic_id, args.target, binding_id=args.binding)
+            else:
+                result = delivery.deliver(topic_id, Path(args.file), args.target, binding_id=args.binding, layout=args.layout)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0 if result.get("state") not in {"failed", "partial", "unknown"} else 1
+        except (OSError, ValueError, RuntimeError) as error:
+            print(f"{args.command} failed: {error}", file=sys.stderr)
             return 1
 
 
