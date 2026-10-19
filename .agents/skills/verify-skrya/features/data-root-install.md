@@ -10,6 +10,7 @@ Skrya keeps topics and runs in a data root resolved as `--data-root` > `SKRYA_DA
 - `install-refuse-overwrite` refuses to replace an existing non-matching install target.
 - `uninstall-skills` (`skills-keep-data`) removes installed skills, keeps data and config.
 - `uninstall-complete` removes skills, the resolved data root, data-root configs, and marked `SKRYA-ROUTING-NOTE` blocks.
+- `pack-upgrade` builds host assets in scratch, reports version, and runs explicit legacy Thread naming migration.
 
 ## How to get to it (user POV)
 
@@ -21,19 +22,30 @@ Skrya keeps topics and runs in a data root resolved as `--data-root` > `SKRYA_DA
 
 Preconditions:
 
-- Fresh run launched and `$V doctor` clean, with no `[WARN]` about `.skrya/config.json`.
-- The helper sets `HOME` to `$($V path home)` (empty) and `SKRYA_DATA_ROOT` to `$($V path data)`.
+- Fresh run launched and `$V doctor` clean. Installation/uninstall can modify the supplied root's packaging and routing notes: do not use the real checkout as root.
+- Archive the current tracked source into the run's work directory, then use `R` for every command below:
 
-- **Show.** Run `$V skrya dr-show -- data-root --root .`. Stdout `Skrya data root: <scratch>/data` and `Source: SKRYA_DATA_ROOT`.
-- **Install for codex.** Run `$V skrya install -- install-skill-pack --root . --host codex --data-root-mode custom --data-root-path "$($V path work)/installed-data" --data-root-config-scope home` then `$V snapshot after-install`. Stdout lists `codex/skrya: symlink -> <scratch>/home/.codex/skills/skrya` and five `codex/skrya-*` lines, then `data-root: <scratch>/work/installed-data (config: <scratch>/home/.skrya/config.json)`. `tree.txt` shows those symlinks under `home/.codex/skills/`.
-- **Re-install is idempotent.** Run the same install again. Exit `0`; lines read `in-place` instead of `symlink`.
-- **Uninstall skills only.** Run `$V skrya uninstall-skills -- uninstall-skill-pack --root . --host codex --mode skills-keep-data` then `$V snapshot after-uninstall`. Stdout has six `skill: removed -> ...` lines; `home/.skrya/config.json` and `work/installed-data/` still exist.
-- **Complete uninstall (run last).** Run `$V skrya uninstall-complete -- uninstall-skill-pack --root . --host codex --mode complete`. Stdout includes `data-root: removed -> <scratch>/data` and `data-config: removed -> <scratch>/home/.skrya/config.json`. Afterwards `git status --short` shows no tracked changes (`AGENTS.md` has no routing-note block).
+  ```bash
+  R="$($V path work)/checkout"
+  mkdir -p "$R"
+  git archive HEAD | tar -x -C "$R"
+  ```
+
+- The helper still selects checkout code through PYTHONPATH, while `--root "$R"` limits generated assets and instruction edits to scratch. HOME and SKRYA_DATA_ROOT remain isolated by the helper.
+
+- **Show.** `$V skrya dr-show -- data-root --root "$R"` reports the scratch data root with source `SKRYA_DATA_ROOT`.
+- **Persist home config.** `$V skrya dr-set -- data-root --root "$R" --set "$($V path work)/installed-data" --scope home`. Inspect the scratch HOME config and created directories; the helper's environment intentionally still wins over this saved config.
+- **Build and upgrade.** `$V skrya build -- build-skill-pack --root "$R" --host all` and `$V skrya version -- version --root "$R"` must succeed. To prove migration, put a fixture `topics/migration-fixture/event-thread-seeds.json` under the scratch data root, run `$V skrya upgrade -- upgrade --root "$R" --migrate-thread-naming`, and inspect the new `thread-seeds.json`; legacy input remains for audit. Version/upstream checks may use the network.
+- **Install for codex.** `$V skrya install -- install-skill-pack --root "$R" --host codex --data-root-mode custom --data-root-path "$($V path work)/installed-data" --data-root-config-scope home`. Snapshot. Expect root and five bundled skill links under the scratch HOME's `.codex/skills/`, with targets in scratch, plus a home data-root config.
+- **Re-install side-effect invariant.** Save the six host links and list siblings of `R`, repeat the identical install, then compare both. Root output may become `in-place`; that alone is not failure or success. The host links should remain unchanged and no extra skill aliases should appear beside the source checkout. On an unexpected side effect, doctor and clean this session; use a fresh one for uninstall.
+- **Uninstall skills only (fresh installation session).** `$V skrya uninstall-skills -- uninstall-skill-pack --root "$R" --host codex --mode skills-keep-data`. Snapshot: installed links are gone, but custom data and home config remain.
+- **Complete uninstall last.** `$V skrya uninstall-complete -- uninstall-skill-pack --root "$R" --host codex --mode complete`. The helper's SKRYA_DATA_ROOT makes the resolved deletion target its seeded scratch data root. Confirm it and the home config are removed. This is not proof that a different custom data directory was removed.
 
 ## Gotchas
 
 - `SKRYA_DATA_ROOT` set by the helper outranks every config file, so `data-root` (show) never reflects a `--set` you just made. To prove config precedence, compare `cat "$($V path home)/.skrya/config.json"` instead.
-- `data-root --set ... --scope workspace` writes `<repo>/.skrya/config.json` in the real checkout. `$V cleanup` removes it only when it points into this run's scratch dir; never run it when doctor warns about an existing file.
-- `uninstall --mode data-keep-skills|complete` deletes the scratch `data/` (the seeded topics); run it last.
-- `install-skill-pack` rebuilds `.skrya/hosts/` in the repo (gitignored generated output).
+- Workspace-scope config and complete uninstall must use the archived `R`, even if doctor currently reports no real workspace config.
+- Data-deleting uninstall ends that drive's useful lifetime; snapshot evidence, then cleanup and verify evidence retention.
+- Known product gap: repeat install currently resolves the existing root link before calculating bundled target paths (`agent_assets.py:_install_host`), creating five extra `skrya-*` aliases beside `R` while original host links stay unchanged. Record this defect; do not change product code or redefine those extra aliases as intended idempotence.
+- Snapshot `tree.txt` covers data and home, not the archived work tree. The helper separately writes `work-links.txt` for top-level work symlinks, so the extra install aliases remain visible after cleanup. With the real checkout as root those aliases could land beside the repository; this is why scratch `R` is mandatory.
 - `--host auto` falls back to `codex` in the empty scratch HOME; pass `--host` explicitly.

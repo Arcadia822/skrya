@@ -1,13 +1,13 @@
 ---
 name: verify-skrya
-description: Verify Skrya (topic-driven briefing skill pack) by driving its real `skrya_orchestrator` CLI from this checkout — digest, deep-analysis, threads, retrieval/ingest, template validation, data-root and skill-pack install — against an isolated scratch data root and HOME, capturing command/stdout/stderr/exit-code and written-artifact evidence. Use after changing anything under src/skrya_orchestrator/, digest templates, topic fixtures, or install/data-root behavior, or whenever you need proof that a Skrya CLI path works end to end.
+description: Verify Skrya's real CLI from this checkout in isolated HOME and data roots, retaining command/output/artifact evidence. Covers digests, legacy numeric analysis, Threads, retrieval/ingest, template validation, native cards and frozen references, delivery preconditions, and install/uninstall. Use after changes to CLI behavior, templates, fixtures, delivery or installation.
 ---
 
 # verify-skrya
 
 Skrya is a skill pack: agents read `SKILL.md` files and call one deterministic surface, the Python CLI `python3 -m skrya_orchestrator.main <command>` (package `src/skrya_orchestrator/`). That CLI is what this skill drives. There is no server, port, or UI.
 
-Not drivable here: the conversational flows in `topic-curation/`, `source-curation/`, `request-curation/` (pure prompt instructions; verify them by reading the generated SKILL.md, not by running code), and `npm run eval:skills*` (a mock OpenClaw runtime, not the real app).
+Conversational configuration flows and article drafting are agent workflows, not standalone CLI commands. Native cards can be rendered locally; actual Feishu delivery and desktop/mobile appearance require an explicitly approved sandbox application and recipient.
 
 The helper `scripts/verify-skrya` (executable, bash) wraps every call so it:
 
@@ -17,7 +17,7 @@ The helper `scripts/verify-skrya` (executable, bash) wraps every call so it:
 - passes `PYTHONUSERBASE` through so PyYAML from the user site still imports under the fake HOME;
 - records `cmd.txt`, `stdout.txt`, `stderr.txt`, `exit_code` per call.
 
-Runs are fully isolated (unique scratch dir per run), so concurrent runs are safe.
+Use a fresh isolated run for each feature recipe; drive its short-lived CLI processes serially. Run doctor before the first drive in every run and after every nonzero exit, including expected error cases. If doctor fails, do not continue driving until the cause is understood and health restored.
 
 ## Launch
 
@@ -46,11 +46,11 @@ Requires all `[OK]`: scratch dir owned by this run, evidence dir exists, `skrya_
 
 ```bash
 $V skrya <label> -- <cli args...>     # prints stdout, stderr tail, exit code; returns CLI exit code
-$V snapshot <label>                   # copies data/runs/ + ls -lR of data/ and home/ into evidence
+$V snapshot <label>                   # copies data/runs/, data/home tree and top-level work symlinks
 $V path data|home|work|scratch|evidence
 ```
 
-Always pass `--root .` (the helper's cwd is the repo root). Do not pass `--data-root` unless the feature is about data-root precedence; `SKRYA_DATA_ROOT` already isolates. Files you need to feed the CLI (ingest JSON, candidate templates) go in `$($V path work)`.
+Pass `--root .` for ordinary commands. For installation, workspace data-root config and uninstall, first create an archived checkout under the run's `work/` and use it as `--root` (see `features/data-root-install.md`); never let those commands edit the real checkout's packaging or instructions. Do not pass `--data-root` except to verify precedence. Put inputs under `$($V path work)`.
 
 Core commands (exact flags from `main.py`):
 
@@ -58,16 +58,20 @@ Core commands (exact flags from `main.py`):
 |---|---|
 | Daily digest (writes artifacts) | `digest --root . --topic <id-or-name> [--sample]` |
 | Test run / preview (no artifacts) | `digest --root . --topic <id> --preview` (alias `--test-run`) |
-| Follow-up `dig: N` | `deep-analysis --root . --topic <id> --event-number N` |
+| Legacy numeric analysis | `deep-analysis --root . --topic <id> --event-number N`; current agent follow-ups use frozen resolution below |
 | Thread timeline | `thread --root . --topic <id> --thread <id-or-name>` |
 | Rebuild threads | `refresh-threads --root . --topic <id>` |
 | Retrieval request | `retrieval-request --root . --topic <id> [--since ISO] [--until ISO]` |
 | Record normalized retrieval | `ingest --root . --topic <id> --file <skrya.ingest.v1 json> [--raw-file f]` |
 | Template save gate | `validate-digest-template --root . --file <md>` |
 | Data root | `data-root --root . [--set P --scope home\|workspace] [--migrate]` |
-| Install / uninstall | `install-skill-pack --root . --host codex\|claude\|openclaw ...` / `uninstall-skill-pack ...` |
+| Install / uninstall | `install-skill-pack --root "$R" --host codex\|claude\|openclaw ...` / `uninstall-skill-pack --root "$R" ...`; R is the archived scratch checkout |
+| Native card bundle | `render-card --root . --file <digest.md> --format feishu-v2 -o <bundle.json>` |
+| Frozen local reference | `resolve-reference --root . --topic <id> --artifact <digest.md> --reference N-xx\|T-xx` |
+| Delivery preflight / send | `delivery-check` / `deliver --channel feishu --topic <id> --target <bound-target> --binding <id>`; `deliver` also requires `--file` |
+| Received reference | `resolve-reference --root . --topic <id> --binding <id> [--message-id <id>] --reference N-xx\|T-xx` |
 
-Topic arguments accept the topic id or its `topic.json` `name` (e.g. `新能源汽车`). Errors surface as Python tracebacks on stderr with exit 1; the last stderr line is the user-meaningful message.
+Topic arguments accept the id or display name. Legacy digest/analysis/thread errors may end in a Python traceback; render/delivery/reference commands instead print a concise failure and exit 1. Inspect both exit code and captured stdout/stderr, not one assumed error format.
 
 Feature recipes with exact commands and expected observations: `features/README.md`.
 
@@ -81,8 +85,9 @@ Proof standards:
 - Capture the action and the resulting state: the call's stdout/exit code **and** a `snapshot` of what it wrote (`runs/<topic>/digest-*.md`, `latest-digest.md` symlink target, `latest-digest-events.json`, `deep-analysis-N.md`, `threads/latest-threads.json`, `ingest/...`).
 - For mutations, prove with a second read: e.g. after `digest`, `deep-analysis` resolving the same item number; after `ingest`, a `digest --preview` whose items and `扫描时间范围` come from the ingested file.
 - Check side effects by observation, not by name: `--preview` is proven side-effect-free by a snapshot showing no `runs/<topic>/` was created/changed. Do not trust "preview" alone.
-- Known network touches even in "offline" paths: every `digest` runs `git ls-remote origin main` (3 s timeout, for the version-check line); non-`--sample` digest of an RSS topic (`k-entertainment`) fetches live feeds; zh-CN topics call Google Translate for non-Chinese text. Fixtures are Chinese and `--sample` avoids RSS, so seeded runs stay offline apart from `ls-remote`. Report network use if your run depends on it.
-- The `## 系统提示` `Agent：`/`LLM：` lines come from env vars (`CLAUDECODE`, `CODEX_*`, `SKRYA_LLM_MODEL`, `MODEL`…), so they differ between hosts; don't assert on them.
+- Network boundaries: live RSS retrieval and translation of non-Chinese text can use the network. Digest no longer adds a version-check footer. `doctor` invokes `version`, whose upstream check may use the network. Say when fixtures were used.
+- Plain Markdown ends in five actions without model/version/Agent/LLM execution metadata. Native card date badges and layout are checked separately from archive dates.
+- Before delivery-precondition tests, remove inherited `SKRYA_FEISHU_APP_ID`, `SKRYA_FEISHU_APP_SECRET`, and `SKRYA_FEISHU_CONFIG` from the helper's environment. Never borrow real credentials or bindings just to make a path reachable. `delivery-check` can contact the API even though it sends no message.
 
 ## Cleanup
 
@@ -92,12 +97,14 @@ $V cleanup            # or: $V cleanup <run-id>
 
 Removes only `/tmp/verify-skrya-<run>/` and only if its owner marker matches the run id; refuses otherwise. It also deletes `<repo>/.skrya/config.json` when (and only when) that file points into this run's scratch dir, since `data-root --set ... --scope workspace` writes it in the real checkout. No processes are started, so nothing to kill. Evidence under `tmp/verify-skrya/evidence/<run>/` is kept; confirm with `ls tmp/verify-skrya/evidence/<run>/`. Run cleanup after failed iterations too; orphaned runs show up as `ls -d /tmp/verify-skrya-*`, and you clean each one with `$V cleanup <run-id>`. Delete old evidence by hand only when the user no longer needs it.
 
-If a step ran `build-skill-pack` or `install-skill-pack`, it regenerated `.skrya/hosts/` in the repo (gitignored, deterministic output); check `git status --short` shows no tracked changes.
+Always run cleanup in a `finally`/shell trap, including after failed drives. Before cleanup, enumerate the evidence files and record their hashes; afterward confirm they still exist unchanged at the named evidence directory. Scratch removal is not evidence retention proof.
+
+- Build/install operations regenerate host assets under the supplied root. Use the archived root so no generated assets or product instructions are changed in the real checkout.
 
 ## Gotchas
 
 - Never call bare `skrya` or `python3 -m skrya_orchestrator.main` outside the helper for verification: real `~/.skrya` and real `~/.codex/skills` would be used.
 - `deep-analysis` and `thread` read artifacts from the last non-preview `digest`; on a fresh run they fail with `Digest artifact not found` / `Thread artifact not found`. Run a real `digest` first.
 - `uninstall-skill-pack --mode data-keep-skills|complete` deletes the resolved data root — under the helper that is the scratch `data/`, so later steps lose the seeded topics. Do it last or re-launch.
-- `uninstall-skill-pack --mode complete` also strips `SKRYA-ROUTING-NOTE` blocks from `<repo>/AGENTS.md`/`CLAUDE.md` (repo files, not HOME). The current `AGENTS.md` has none; check `git diff --stat` afterward.
+- Complete uninstall may strip routing-note blocks in the supplied root. Use only the archived scratch checkout for this path; do not rely on the real repository currently lacking a marker.
 - `install-skill-pack --host auto` picks hosts by marker dirs in HOME; the scratch HOME has none, so it falls back to `codex`. Pass `--host` explicitly.

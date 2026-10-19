@@ -1,10 +1,10 @@
 # Daily digest
 
-A user asks for today's briefing on a topic (or a scheduled automation runs it). Skrya renders a Chinese or English digest of numbered line-box items with sources, always shows active threads first under `## 事件线时间线更新`, ends with `## 系统提示` follow-up commands, and saves a timestamped artifact plus `latest-digest.md`. A test run renders the same body without saving anything.
+A user asks for today's briefing or a scheduled automation runs it. Skrya writes a readable Markdown digest with N-xx news, active T-xx Threads first, sources, and exactly five follow-up actions under `## 可继续操作` (English: `## Available actions`). Formal runs freeze a timestamped Markdown artifact and matching `.events.json`; previews write nothing. Native Feishu presentation is a separate rendering step.
 
 ## Sub-features
 
-- `digest-real` renders a digest and writes `runs/<topic>/digest-YYYYMMDDTHHMMSS+0800.md`, `latest-digest.md`, and `latest-digest-events.json`.
+- `digest-real` writes a timestamped digest, its immutable `.events.json` sidecar, `latest-digest.md`, and the latest-only compatibility index `latest-digest-events.json`.
 - `digest-latest-pointer` repoints `latest-digest.md` to the newest artifact on each run.
 - `digest-preview` (`--preview` / `--test-run`) renders identically but writes nothing.
 - `digest-thread-section` shows every active thread, with either a verified increment or an explicit "本轮暂无可核验新增" review state.
@@ -26,17 +26,16 @@ Preconditions:
 - No `runs/new-energy-vehicles/` yet.
 
 - **Preview writes nothing.** Run `$V skrya preview -- digest --root . --topic new-energy-vehicles --sample --preview` then `$V snapshot after-preview`. Exit `0`; stdout starts with `# <YYYY-MM-DD>｜新能源汽车｜每日简报`; the snapshot contains `runs-absent.txt` (no `runs/` created).
-- **Real digest.** Run `$V skrya digest -- digest --root . --topic new-energy-vehicles --sample`. Exit `0`; stdout has, in order: `## 事件线时间线更新` with `┌─ **【Thread】比亚迪闪充站 (byd-flash-charge-station)**`, `## 今日简讯`, `【简讯1】`…`【简讯3】` each with a `│ 信源：` line, `---`, `## 系统提示` listing `dig:` and `track:` follow-ups.
-- **Artifacts written.** Run `$V snapshot after-digest`. `runs/new-energy-vehicles/` contains exactly one `digest-*+0800.md` whose content equals the step's `stdout.txt`, `latest-digest.md` as a symlink to it (see `tree.txt`), `latest-digest-events.json` with `items[].number` 1..3, and `threads/latest-threads.json`.
-- **Pointer moves.** Wait ≥1 s, run `$V skrya digest-again -- digest --root . --topic 新能源汽车 --sample` and `$V snapshot after-second`. Two `digest-*.md` files exist and `latest-digest.md ->` names the newer one. This also proves `digest-topic-by-name`.
-- **Thread with no increment.** Run `$V skrya live-empty -- digest --root . --topic new-energy-vehicles --preview` (no `--sample`, no ingest). The thread box still appears with `复核结果：已检查，本轮暂无可核验新增。`, followed by `暂时没有抓到足够新的真实内容，先不拿样例数据冒充日报。`.
+- **Real digest.** Run `$V skrya digest -- digest --root . --topic new-energy-vehicles --sample`. Exit `0`; active `### T-01 比亚迪闪充站` precedes news `### N-01` through `### N-03`, each with sources. The footer contains news dig/track, Thread dig/write, and natural-language feedback; no old line boxes or runtime metadata.
+- **Artifacts written.** Run `$V snapshot after-digest`. The timestamped Markdown equals `stdout.txt`. Its same-stem `.events.json` has schema `skrya.digest-index.v1`, original artifact SHA256, `items` keyed by N-xx and `threads` keyed by T-xx. `latest-digest.md` points to it; the separate latest compatibility index still has `items[]`. Thread raw history remains under `threads/latest-threads.json`.
+- **Pointer moves without rewriting old snapshots.** Run `$V skrya digest-again -- digest --root . --topic 新能源汽车 --sample` and snapshot again. A new Markdown/sidecar pair exists, latest points to it, and the first pair's bytes are unchanged. No sleep is required: same-second runs receive unique suffixes.
+- **Thread with no increment.** Run `$V skrya live-empty -- digest --root . --topic new-energy-vehicles --preview` (no `--sample`, no ingest). The active T-01 remains with an explicit no-verified-update message, latest state and next observation; no sample news is passed off as current.
 - **Empty topic without threads.** Run `$V skrya agi-empty -- digest --root . --topic agi-news --preview`. Stdout has the title, the same "暂时没有抓到足够新的真实内容" line, and no `## 事件线时间线更新`.
 - **Unknown topic.** Run `$V skrya unknown -- digest --root . --topic nope --preview`. Exit `1`; last stderr line `FileNotFoundError: Topic 'nope' not found`.
 
 ## Gotchas
 
-- Artifact names have 1-second resolution; two real digests in the same second overwrite each other. Space them out when proving the pointer.
-- Without `--sample`, `k-entertainment` fetches five live RSS feeds and the output depends on the network; use `--sample` for deterministic proof and say so.
-- Every digest runs `git ls-remote origin main` for the version-check line; offline runs just omit that line.
-- `Agent：` / `LLM：` lines in `## 系统提示` come from host env vars; do not assert on them.
-- A preview does not refresh `latest-digest-events.json`, so `dig: N` after a preview still resolves against the last real digest.
+- Timestamp collisions allocate a suffix instead of overwriting existing Markdown or snapshots.
+- Without `--sample`, `k-entertainment` fetches live RSS feeds; use `--sample` for deterministic proof and report the fixture boundary.
+- The digest footer no longer contains version, Agent or LLM execution metadata.
+- Preview does not refresh `latest-digest-events.json`; the legacy numeric analysis command still uses the last real digest. Current agent follow-ups instead use their explicit artifact or received-message snapshot.
