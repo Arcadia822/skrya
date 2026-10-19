@@ -9,6 +9,7 @@ from .digest_document import (
     DigestItem,
     ThreadView,
     parse_digest,
+    extract_badge,
     render_sources,
 )
 
@@ -64,7 +65,7 @@ def two_col(
 
 
 def section_header(text: str) -> dict[str, Any]:
-    return md(text, align="center")
+    return md(f"✦ ─── {text} ─── ✦", align="center")
 
 
 def count_elements(el: dict[str, Any]) -> int:
@@ -133,6 +134,10 @@ def card_fits_budget(
     return envelope_bytes <= max_payload_bytes
 
 
+def news_badge(value: str) -> str:
+    return re.sub(r"^\d{4}-", "", extract_badge(value))
+
+
 def _render_single_news_block(item: DigestItem, language: str = "zh-CN", suffix: str = "") -> dict[str, Any]:
     """Render a single news item box with linked heading left/date right, and separate body."""
     title_text = item.title + (f" {suffix}" if suffix else "")
@@ -142,7 +147,7 @@ def _render_single_news_block(item: DigestItem, language: str = "zh-CN", suffix:
         title_link = title_text
 
     left_md = md(f'<text_tag color="blue">N-{item.number:02d}</text_tag> **{title_link}**')
-    right_md = md(f'<text_tag color="neutral">{item.badge}</text_tag>', align="right") if item.badge else md("")
+    right_md = md(f'<text_tag color="neutral">{news_badge(item.badge)}</text_tag>', align="right") if item.badge else md("")
     header_row = two_col(left_md, right_md, weights=(7, 1))
 
     children: list[dict[str, Any]] = [header_row]
@@ -271,7 +276,7 @@ def _split_overlarge_news_item(
             title_link = title_text
 
         left_md = md(f'<text_tag color="blue">N-{item.number:02d}</text_tag> **{title_link}**')
-        right_md = md(f'<text_tag color="neutral">{item.badge}</text_tag>', align="right") if item.badge else md("")
+        right_md = md(f'<text_tag color="neutral">{news_badge(item.badge)}</text_tag>', align="right") if item.badge else md("")
         header_row = two_col(left_md, right_md, weights=(7, 1))
 
         children: list[dict[str, Any]] = [header_row]
@@ -290,131 +295,99 @@ def _split_overlarge_news_item(
 
 def _render_thread_subblocks(
     t: ThreadView,
-    language: str = "zh-CN",
-    max_payload_bytes: int = DEFAULT_PAYLOAD_BYTES,
+    language: str,
+    max_payload_bytes: int,
+    base_title: str,
+    subtitle: str,
 ) -> list[dict[str, Any]]:
-    """Render thread into one or more subblocks, repeating entity badge <text_tag color='orange'>T-xx</text_tag>."""
-    latest_dev_label = "最新进展" if language == "zh-CN" else "Latest developments"
-    hist_label = "历史时间线" if language == "zh-CN" else "Historical timeline"
+    """Keep a Thread together, splitting only at the request or component limit."""
+    latest_label = "最新进展" if language == "zh-CN" else "Latest developments"
+    history_label = "历史时间线" if language == "zh-CN" else "Historical timeline"
     comment_label = "点评" if language == "zh-CN" else "Comment"
     watch_label = "下一步观察" if language == "zh-CN" else "Watch next"
-
     safe_text_bytes = max(1000, max_payload_bytes - 3000)
-    subblocks: list[dict[str, Any]] = []
+    sections: list[tuple[str, list[dict[str, Any]]]] = []
 
-    # 1. Progress section
+    def heading(continuation: bool) -> dict[str, Any]:
+        suffix = " (续)" if continuation else ""
+        return md(f'<text_tag color="orange">T-{t.number:02d}</text_tag> **{t.name}{suffix}**')
+
+    def fits(children: list[dict[str, Any]]) -> bool:
+        return card_fits_budget(
+            base_title, subtitle, [box([heading(True), *children], BG_THREAD)],
+            99, 99, max_payload_bytes=max_payload_bytes,
+        )
+
     if t.progress:
-        cur_progress_children: list[dict[str, Any]] = []
-        progress_block_idx = 0
-
-        for p in t.progress:
-            title_link = f"[{p.title}]({p.url})" if p.url else p.title
-            if p.news_number:
-                title_link += f" · N-{p.news_number:02d}"
-            p_badge = p.badge or p.date
-            src_rend = render_sources(p.sources, language=language)
-
-            facts = p.facts or ""
-            fields = [(facts, ""), (p.comment or "", comment_label), (src_rend, "")]
-            if sum(_wire_text_bytes(value) for value, _ in fields) > safe_text_bytes:
-                if cur_progress_children:
-                    subblocks.append(box(cur_progress_children, BG_THREAD))
-                    cur_progress_children = []
+        for progress in t.progress:
+            title = f"[{progress.title}]({progress.url})" if progress.url else progress.title
+            if progress.news_number:
+                title += f" · N-{progress.news_number:02d}"
+            date = progress.badge or progress.date
+            progress_header = two_col(
+                md(f"• {title}"),
+                md(f'<text_tag color="neutral">{date}</text_tag>', align="right") if date else md(""),
+            )
+            fields = [
+                (progress.facts or "", ""),
+                (progress.comment or "", comment_label),
+                (render_sources(progress.sources, language=language), ""),
+            ]
+            children = [progress_header]
+            for value, label in fields:
+                if value:
+                    children.append(md(f'<font color="grey">{label}：{value}</font>' if label else value))
+            if fits([md(f"**{latest_label}**"), *children]):
+                sections.append((latest_label, children))
+            else:
                 for value, label in fields:
                     if not value:
                         continue
                     for chunk in _split_text_to_fit(value, safe_text_bytes):
                         body = f'<font color="grey">{label}：{chunk}</font>' if label else chunk
-                        subblocks.append(box([
-                            md(f'<text_tag color="orange">T-{t.number:02d}</text_tag> **{t.name} (续)**\n\n**{latest_dev_label}**'),
-                            two_col(md(f"• {title_link}"), md(f'<text_tag color="neutral">{p_badge}</text_tag>', align="right") if p_badge else md("")),
-                            md(body),
-                        ], BG_THREAD))
-                progress_block_idx += 1
-                continue
-
-            p_header = two_col(
-                md(f"• {title_link}"),
-                md(f'<text_tag color="neutral">{p_badge}</text_tag>', align="right") if p_badge else md(""),
-            )
-            p_elements: list[dict[str, Any]] = [p_header]
-            if facts:
-                p_elements.append(md(facts))
-            if p.comment:
-                p_elements.append(md(f'<font color="grey">{comment_label}：{p.comment}</font>'))
-            if src_rend:
-                p_elements.append(md(src_rend))
-
-            if cur_progress_children and (
-                len(cur_progress_children) + len(p_elements) > 16
-                or estimate_request_envelope_bytes(build_card_dict(
-                    t.name, "", [box(cur_progress_children + p_elements, BG_THREAD)], 99, 99
-                )) > max_payload_bytes - 1000
-            ):
-                subblocks.append(box(cur_progress_children, BG_THREAD))
-                progress_block_idx += 1
-                cont_suffix = " (续)" if progress_block_idx > 0 else ""
-                cur_progress_children = [
-                    md(f'<text_tag color="orange">T-{t.number:02d}</text_tag> **{t.name}{cont_suffix}**\n\n**{latest_dev_label}**')
-                ]
-            elif not cur_progress_children:
-                cont_suffix = " (续)" if progress_block_idx > 0 else ""
-                cur_progress_children = [
-                    md(f'<text_tag color="orange">T-{t.number:02d}</text_tag> **{t.name}{cont_suffix}**\n\n**{latest_dev_label}**')
-                ]
-
-            cur_progress_children.extend(p_elements)
-
-        if cur_progress_children:
-            subblocks.append(box(cur_progress_children, BG_THREAD))
+                        sections.append((latest_label, [progress_header, md(body)]))
     else:
-        no_dev_msg = (
-            "本轮暂无可核验新增。"
-            if language == "zh-CN"
-            else "No verified update in this scan."
-        )
+        message = "本轮暂无可核验新增。" if language == "zh-CN" else "No verified update in this scan."
         if t.latest_state:
-            state_label = "最新状态" if language == "zh-CN" else "Latest known state"
-            no_dev_msg += f"\n\n{state_label}：{t.latest_state}"
+            label = "最新状态" if language == "zh-CN" else "Latest known state"
+            message += f"\n\n{label}：{t.latest_state}"
         if t.follow:
-            no_dev_msg += f"\n\n{watch_label}：{t.follow}"
-        for chunk in _split_text_to_fit(no_dev_msg, safe_text_bytes):
-            subblocks.append(box([
-                md(f'<text_tag color="orange">T-{t.number:02d}</text_tag> **{t.name}**\n\n**{latest_dev_label}**'),
-                md(chunk),
-            ], BG_THREAD))
+            message += f"\n\n{watch_label}：{t.follow}"
+        for chunk in _split_text_to_fit(message, safe_text_bytes):
+            sections.append((latest_label, [md(chunk)]))
 
-    # 2. Historical timeline section
     if t.timeline:
-        header = md(f'<text_tag color="orange">T-{t.number:02d}</text_tag> **{t.name} (续)**\n\n**{hist_label}**')
-        rows: list[dict[str, Any]] = []
         for entry in t.timeline:
-            title = f'• [{entry.title}]({entry.url})' if entry.url else f'• {entry.title}'
+            title = f"• [{entry.title}]({entry.url})" if entry.url else f"• {entry.title}"
             date = entry.badge or entry.date
-            row = two_col(md(title), md(f'<text_tag color="neutral">{date}</text_tag>' if date else "", align="right"))
-            candidate = box([header, *rows, row], BG_THREAD)
-            if rows and (len(rows) >= 12 or estimate_request_envelope_bytes(
-                build_card_dict(t.name, "", [candidate], 99, 99)
-            ) > max_payload_bytes - 3000):
-                subblocks.append(box([header, *rows], BG_THREAD))
-                rows = []
-            if estimate_request_envelope_bytes(build_card_dict(
-                t.name, "", [box([header, row], BG_THREAD)], 99, 99
-            )) > max_payload_bytes - 3000:
-                raise ValueError("Cannot preserve an atomic historical milestone within the card budget")
-            rows.append(row)
-        if rows:
-            subblocks.append(box([header, *rows], BG_THREAD))
+            row = two_col(
+                md(title),
+                md(f'<text_tag color="neutral">{date}</text_tag>' if date else "", align="right"),
+            )
+            sections.append((history_label, [row]))
     else:
-        empty_hist = (
+        message = (
             "尚无已核定日期的重要节点，全量报道档案仍保留。"
-            if language == "zh-CN"
-            else "No verified milestone dates yet; full archive is retained."
+            if language == "zh-CN" else "No verified milestone dates yet; full archive is retained."
         )
-        slice_header = f'<text_tag color="orange">T-{t.number:02d}</text_tag> **{t.name} (续)**\n\n**{hist_label}**'
-        subblocks.append(box([md(slice_header), md(empty_hist)], BG_THREAD))
+        sections.append((history_label, [md(message)]))
 
-    return subblocks
+    blocks: list[dict[str, Any]] = []
+    children: list[dict[str, Any]] = []
+    current_label = None
+    for label, elements in sections:
+        addition = elements if label == current_label else [md(f"**{label}**"), *elements]
+        if children and not fits([*children, *addition]):
+            blocks.append(box([heading(bool(blocks)), *children], BG_THREAD))
+            children = []
+            addition = [md(f"**{label}**"), *elements]
+        if not fits(addition):
+            raise ValueError("Cannot preserve an atomic Thread entry within the card budget")
+        children.extend(addition)
+        current_label = label
+    if children:
+        blocks.append(box([heading(bool(blocks)), *children], BG_THREAD))
+    return blocks
 
 def _build_action_footer(actions: list[str], language: str = "zh-CN") -> list[dict[str, Any]]:
     actions_label = "💡 **可继续操作**" if language == "zh-CN" else "💡 **Available Actions**"
@@ -453,7 +426,7 @@ def render_card_bundle(
         th_label = "📌 **持续追踪**" if doc.language == "zh-CN" else "📌 **Event Timeline Updates**"
         components.append(section_header(th_label))
         for t in doc.threads:
-            t_subblocks = _render_thread_subblocks(t, language=doc.language, max_payload_bytes=max_payload_bytes)
+            t_subblocks = _render_thread_subblocks(t, doc.language, max_payload_bytes, base_title, subtitle)
             for sb in t_subblocks:
                 components.append(sb)
     # News
