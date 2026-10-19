@@ -28,16 +28,16 @@ class MainIntelligenceCommandTests(unittest.TestCase):
 
         self.assertEqual(0, exit_code)
         output = stdout.getvalue()
-        self.assertIn("┌─ **【简讯1】", output)
+        self.assertIn("### N-01", output)
         self.assertIn("某演员与新剧选角争议升温", output)
-        self.assertIn("┌─ **【简讯2】", output)
+        self.assertIn("### N-02", output)
         self.assertIn("某女团练习生出圈片段从 INS 扩散到韩媒", output)
-        self.assertIn("│ 信源：[source.test]", output)
+        self.assertIn("信源：[source.test]", output)
         self.assertNotIn("### 1.", output)
-        self.assertIn("dig: 详细分析指定今日简讯", output)
-        self.assertIn("track: 创建或更新持续事件线", output)
-        self.assertIn("## 系统提示", output)
-        self.assertIn("偏好反馈：直接用自然语言回复", output)
+        self.assertIn("dig: N-01", output)
+        self.assertIn("track: N-02", output)
+        self.assertIn("## 可继续操作", output)
+        self.assertIn("自然语言反馈", output)
 
     def test_digest_command_sample_mode_uses_fixture_events_for_demo_topic(self) -> None:
         root = self._make_root("cli-digest-sample")
@@ -54,8 +54,8 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         self.assertEqual(0, exit_code)
         output = stdout.getvalue()
         self.assertIn("## 事件线时间线更新", output)
-        self.assertIn("┌─ **【Thread】比亚迪闪充站 (byd-flash-charge-station)**", output)
-        self.assertNotIn("今天命中的简讯：", output)
+        self.assertIn("### T-01 比亚迪闪充站", output)
+        self.assertNotIn("(byd-flash-charge-station)", output)
         self.assertIn("## 今日简讯", output)
         self.assertTrue((root / "runs" / "new-energy-vehicles" / "latest-digest-events.json").exists())
         self.assertTrue(
@@ -431,8 +431,8 @@ class MainIntelligenceCommandTests(unittest.TestCase):
 
         self.assertEqual(0, exit_code)
         output = stdout.getvalue()
-        self.assertIn("┌─ **【简讯1】", output)
-        self.assertIn("## 系统提示", output)
+        self.assertIn("### N-01", output)
+        self.assertIn("## 可继续操作", output)
         runs_dir = root / "runs" / "k-entertainment"
         self.assertFalse(runs_dir.exists())
 
@@ -451,7 +451,7 @@ class MainIntelligenceCommandTests(unittest.TestCase):
 
         self.assertEqual(0, exit_code)
         output = stdout.getvalue()
-        self.assertIn("┌─ **【简讯1】", output)
+        self.assertIn("### N-01", output)
         runs_dir = root / "runs" / "k-entertainment"
         self.assertFalse(runs_dir.exists())
 

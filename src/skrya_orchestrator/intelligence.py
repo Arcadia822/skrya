@@ -15,7 +15,8 @@ from zoneinfo import ZoneInfo
 
 from .ingest import IngestService
 from .paths import resolve_data_root
-from .version import runtime_metadata_lines
+from .references import build_snapshot, snapshot_path
+from .thread_milestones import recorded_date, select_milestones
 
 
 @dataclass(slots=True)
@@ -59,20 +60,30 @@ class IntelligenceService:
         numbered_events = list(enumerate(events, start=1))
         execution_time = datetime.now(ZoneInfo("Asia/Shanghai"))
         language = self._topic_output_language(topic_id)
-        thread_updates, updated_thread_count = self._build_digest_thread_updates(topic_id, numbered_events, language)
+        indexed_items = [self._digest_event_index_item(index, event) for index, event in numbered_events]
 
+        materialized_threads, active_threads = self._materialize_topic_threads(topic_id, indexed_items)
+        thread_updates, updated_thread_count = self._build_digest_thread_updates(
+            topic_id,
+            numbered_events,
+            language,
+            active_threads=active_threads,
+        )
         lines: list[str] = [self._build_digest_title(topic_id, execution_time, language), ""]
+        scan_label = self._scan_time_range_label(topic_id, language)
+        if scan_label:
+            prefix = "Scan window: " if language == "en" else "扫描时间范围："
+            lines.append(f"{prefix}{scan_label}")
+            lines.append("")
         if thread_updates:
             lines.append("## Event Timeline Updates" if language == "en" else "## 事件线时间线更新")
             lines.append("")
             for update_lines in thread_updates:
                 lines.extend(update_lines)
                 lines.append("")
-
         if events:
-            if thread_updates:
-                lines.append("## Today's Briefs" if language == "en" else "## 今日简讯")
-                lines.append("")
+            lines.append("## Today's Briefs" if language == "en" else "## 今日简讯")
+            lines.append("")
 
             for number, event in numbered_events:
                 lines.append(self._build_digest_entry(number, event, language))
@@ -85,16 +96,7 @@ class IntelligenceService:
             )
             lines.append("")
 
-        lines.extend(
-            self._build_digest_system_prompt(
-                topic_id=topic_id,
-                execution_time=execution_time,
-                event_count=len(numbered_events),
-                thread_count=len(thread_updates),
-                updated_thread_count=updated_thread_count,
-                language=language,
-            )
-        )
+        lines.extend(self._build_digest_followups(language))
 
         markdown = "\n".join(lines).strip() + "\n"
 
@@ -109,26 +111,62 @@ class IntelligenceService:
         artifact_dir = self._data_root / "runs" / topic_id
         artifact_dir.mkdir(parents=True, exist_ok=True)
 
-        digest_path = artifact_dir / self._digest_artifact_name(execution_time)
-        digest_path.write_text(markdown, encoding="utf-8")
-        self._point_latest_artifact(artifact_dir / "latest-digest.md", digest_path)
+        base_name = f"digest-{execution_time:%Y%m%dT%H%M%S%z}"
+        digest_path = artifact_dir / f"{base_name}.md"
+        counter = 1
+        while digest_path.exists() or snapshot_path(digest_path).exists():
+            digest_path = artifact_dir / f"{base_name}-{counter}.md"
+            counter += 1
+
+        digest_tmp = digest_path.with_suffix(".tmp")
+        digest_tmp.write_text(markdown, encoding="utf-8")
+        digest_tmp.replace(digest_path)
+
+        indexed_items = [self._digest_event_index_item(index, event) for index, event in numbered_events]
 
         event_index_path = artifact_dir / "latest-digest-events.json"
-        event_index_path.write_text(
+        event_index_tmp = event_index_path.with_suffix(".tmp")
+        event_index_tmp.write_text(
             json.dumps(
                 {
                     "topic": topic_id,
-                    "items": [self._digest_event_index_item(index, event) for index, event in numbered_events],
+                    "items": indexed_items,
                 },
                 ensure_ascii=False,
                 indent=2,
             ),
             encoding="utf-8",
         )
-        self._persist_threads_from_digest_items(
-            topic_id,
-            [self._digest_event_index_item(index, event) for index, event in numbered_events],
+        event_index_tmp.replace(event_index_path)
+
+        clean_threads = [
+            {k: v for k, v in t.items() if not k.startswith("_")}
+            for t in materialized_threads
+        ]
+        if clean_threads:
+            thread_artifact_path = self._data_root / "runs" / topic_id / "threads" / "latest-threads.json"
+            thread_artifact_path.parent.mkdir(parents=True, exist_ok=True)
+            payload = {
+                "interface_version": "skrya.thread.v1",
+                "topic_id": topic_id,
+                "threads": clean_threads,
+            }
+            thread_artifact_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        snapshot_active_threads = [
+            {k: v for k, v in t.items() if not k.startswith("_")}
+            for t in active_threads
+        ]
+        sidecar = build_snapshot(topic_id, digest_path, indexed_items, snapshot_active_threads)
+        sidecar_path = snapshot_path(digest_path)
+        sidecar_tmp = sidecar_path.with_suffix(".tmp")
+        sidecar_tmp.write_text(
+            json.dumps(sidecar, ensure_ascii=False, indent=2),
+            encoding="utf-8",
         )
+        sidecar_tmp.replace(sidecar_path)
+
+        self._point_latest_artifact(artifact_dir / "latest-digest.md", digest_path)
 
         return DigestResult(
             markdown=markdown,
@@ -175,55 +213,30 @@ class IntelligenceService:
             return "zh-CN"
         return "zh-CN"
 
-    def _build_digest_system_prompt(
-        self,
-        *,
-        topic_id: str,
-        execution_time: datetime,
-        event_count: int,
-        thread_count: int,
-        updated_thread_count: int,
-        language: str,
-    ) -> list[str]:
+    @staticmethod
+    def _build_digest_followups(language: str) -> list[str]:
         if language == "en":
-            status = (
-                f"Complete: generated {event_count} brief items, reviewed {thread_count} active threads, "
-                f"and found verified updates for {updated_thread_count}."
-                if event_count or thread_count
-                else "No sufficiently fresh real items were found."
-            )
             return [
                 "---",
                 "",
-                "## System",
+                "## Available actions",
                 "",
-                f"- Execution time: {execution_time:%Y-%m-%d %H:%M} (Asia/Shanghai)",
-                f"- Status: {status}",
-                f"- Scan window: {self._scan_time_range_label(topic_id, language)}",
-                *runtime_metadata_lines(self._root, language=language),
-                "- Available follow-ups:",
-                "  - dig: deep-analyze specified brief items, for example: `dig: 3 5 12`.",
-                "  - track: create or update a continuing thread, for example: `track: 3 4 5 keep tracking`.",
-                "  - Preference changes: reply in plain language, for example: `show fewer unsourced rumors next time`.",
+                "- Reply `dig: N-01` — Deep analysis and expert background for this news item",
+                "- Reply `track: N-02` — Start a continuing event thread",
+                "- Reply `dig: T-01` — Review the thread's complete history",
+                "- Reply `write: T-01` — Turn this series of events into an article",
+                "- Natural-language feedback — Ask for more China-related analysis or fewer routine partisan disputes",
             ]
-        status = (
-            f"完成：生成 {event_count} 条简讯，复核 {thread_count} 条 active thread，其中 {updated_thread_count} 条有可核验新增。"
-            if event_count or thread_count
-            else "未抓到足够新的真实内容。"
-        )
         return [
             "---",
             "",
-            "## 系统提示",
+            "## 可继续操作",
             "",
-            f"- 执行时间：{execution_time:%Y-%m-%d %H:%M}（Asia/Shanghai）",
-            f"- 执行状态：{status}",
-            f"- 扫描时间范围：{self._scan_time_range_label(topic_id, language)}",
-            *runtime_metadata_lines(self._root, language=language),
-            "- 可继续操作：",
-            "  - dig: 详细分析指定今日简讯，例如：`dig: 3 5 12`。",
-            "  - track: 创建或更新持续事件线，例如：`track: 3 4 5 持续关注`。",
-            "  - 偏好反馈：直接用自然语言回复，例如：`低质量传闻少推`。",
+            "- 回复 `dig: N-01` — 展开指定条目的深度分析与专家级背景研判",
+            "- 回复 `track: N-02` — 为指定事件建立持续追踪线",
+            "- 回复 `dig: T-01` — 查看该事件线的全量历史脉络",
+            "- 回复 `write: T-01` — 把这一系列事件写成一篇文章",
+            "- 自然语言反馈 — 例如“增加涉华舆情分析”或“减少例行口水争端”",
         ]
 
     def _scan_time_range_label(self, topic_id: str, language: str = "zh-CN") -> str:
@@ -398,7 +411,9 @@ class IntelligenceService:
             payload["threads"] = payload.get("event_threads", [])
         return payload
 
-    def _persist_threads_from_digest_items(self, topic_id: str, items: list[dict]) -> None:
+    def _materialize_topic_threads(
+        self, topic_id: str, items: list[dict]
+    ) -> tuple[list[dict], list[dict]]:
         seed_payload = self._load_thread_seed_payload(topic_id)
         existing_payload = self._load_thread_payload(topic_id)
         definitions = self._thread_definitions(
@@ -406,10 +421,35 @@ class IntelligenceService:
             existing_payload.get("threads", []),
         )
         if not definitions:
-            return
+            return [], []
 
-        self._write_thread_artifact(topic_id, definitions, items)
+        materialized_threads: list[dict] = []
+        for defn in definitions:
+            matched_items = self._matched_thread_items(defn, items)
+            thread = self._materialize_thread(defn, matched_items)
+            thread["_matched_items"] = matched_items
+            materialized_threads.append(thread)
 
+        active_threads = [
+            thread
+            for thread in materialized_threads
+            if str(thread.get("status", "")).strip().lower() == "active"
+        ]
+        return materialized_threads, active_threads
+
+    def _persist_threads_from_digest_items(self, topic_id: str, items: list[dict]) -> list[dict]:
+        materialized_threads, _ = self._materialize_topic_threads(topic_id, items)
+        clean_threads = [{k: v for k, v in t.items() if not k.startswith("_")} for t in materialized_threads]
+        if clean_threads:
+            artifact_threads_path = self._data_root / "runs" / topic_id / "threads" / "latest-threads.json"
+            artifact_threads_path.parent.mkdir(parents=True, exist_ok=True)
+            payload = {
+                "interface_version": "skrya.thread.v1",
+                "topic_id": topic_id,
+                "threads": clean_threads,
+            }
+            artifact_threads_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return materialized_threads
     def _write_thread_artifact(self, topic_id: str, definitions: list[dict], items: list[dict]) -> tuple[Path, dict]:
         threads = [self._materialize_thread(definition, items) for definition in definitions]
         payload = {
@@ -433,6 +473,7 @@ class IntelligenceService:
             if not key:
                 continue
             definitions[key] = {
+                **thread,
                 "id": key,
                 "name": str(thread.get("name", "")).strip(),
                 "status": str(thread.get("status", "")).strip(),
@@ -453,6 +494,8 @@ class IntelligenceService:
                 continue
             base = definitions.get(key, {})
             merged = {
+                **base,
+                **seed,
                 "id": key,
                 "name": str(seed.get("name") or base.get("name", "")).strip(),
                 "status": str(seed.get("status") or base.get("status", "")).strip(),
@@ -493,6 +536,7 @@ class IntelligenceService:
 
     def _materialize_thread(self, definition: dict, items: list[dict]) -> dict:
         thread = {
+            **definition,
             "id": definition["id"],
             "name": definition.get("name", ""),
             "status": definition.get("status", ""),
@@ -501,23 +545,26 @@ class IntelligenceService:
             "aliases": list(definition.get("aliases", [])),
             "watchpoints": list(definition.get("watchpoints", [])),
         }
+        thread = {k: v for k, v in thread.items() if not k.startswith("_")}
         timeline = [dict(entry) for entry in definition.get("timeline", []) if isinstance(entry, dict)]
-        seen_signatures = {self._thread_entry_signature(entry) for entry in timeline}
+        entries_by_signature = {self._thread_entry_signature(entry): entry for entry in timeline}
         new_entries: list[dict] = []
 
         for item in self._matched_thread_items(definition, items):
             entry = self._thread_entry_from_digest_item(item, has_existing=bool(timeline or new_entries))
             signature = self._thread_entry_signature(entry)
-            if signature in seen_signatures:
+            if signature in entries_by_signature:
+                entries_by_signature[signature].update({
+                    key: value for key, value in entry.items() if key.startswith("milestone_")
+                })
                 continue
-            seen_signatures.add(signature)
+            entries_by_signature[signature] = entry
             new_entries.append(entry)
 
         thread["timeline"] = timeline + new_entries
         if not thread["status"]:
             thread["status"] = "active" if thread["timeline"] else "watching"
         return thread
-
     def _matched_thread_items(self, definition: dict, items: list[dict]) -> list[dict]:
         match_terms = [self._normalize_reference(term) for term in definition.get("_match_terms", []) if term]
         if not match_terms:
@@ -547,99 +594,127 @@ class IntelligenceService:
 
     def _thread_entry_from_digest_item(self, item: dict, *, has_existing: bool) -> dict:
         raw_date = str(item.get("date", "")).strip()
-        date = raw_date[:10] if raw_date else ""
+        date = recorded_date(raw_date)
         number = item.get("number")
         related_numbers = [int(number)] if isinstance(number, int) else []
-        return {
+        entry = {
+            **item,
             "date": date,
             "phase": "update" if has_existing else "seed",
-            "headline": str(item.get("title") or item.get("analysis_title") or "事件推进").strip(),
+            "headline": str(item.get("analysis_title") or item.get("title") or "事件推进").strip(),
             "summary": str(item.get("analysis_body") or item.get("analysis_title") or item.get("title") or "").strip(),
             "related_digest_numbers": related_numbers,
-            "sources": [str(source) for source in item.get("sources", []) if str(source).strip()],
+            "sources": [
+                s.get("url", "") if isinstance(s, dict) else str(s)
+                for s in item.get("sources", [])
+                if str(s.get("url", "") if isinstance(s, dict) else s).strip()
+            ],
         }
+        for key in ("milestone_reason", "milestone_title", "milestone_date", "milestone_date_basis"):
+            if item.get(key):
+                entry[key] = item[key]
+        return entry
 
     def _build_digest_thread_updates(
         self,
         topic_id: str,
         numbered_events: list[tuple[int, dict]],
         language: str = "zh-CN",
+        active_threads: list[dict] | None = None,
     ) -> tuple[list[list[str]], int]:
-        seed_payload = self._load_thread_seed_payload(topic_id)
-        existing_payload = self._load_thread_payload(topic_id)
-        definitions = self._thread_definitions(
-            seed_payload.get("threads", []),
-            existing_payload.get("threads", []),
-        )
-        if not definitions:
+        if active_threads is None:
+            items = [self._digest_event_index_item(number, event) for number, event in numbered_events]
+            _, active_threads = self._materialize_topic_threads(topic_id, items)
+
+        if not active_threads:
             return [], 0
 
-        items = [self._digest_event_index_item(number, event) for number, event in numbered_events]
         updates: list[list[str]] = []
         updated_thread_count = 0
-        for definition in definitions:
-            if str(definition.get("status", "")).strip().lower() != "active":
-                continue
-            matched_items = self._matched_thread_items(definition, items)
+        for number, thread in enumerate(active_threads, start=1):
+            matched_items = thread.get("_matched_items")
+            if matched_items is None:
+                items = [self._digest_event_index_item(num, ev) for num, ev in numbered_events]
+                matched_items = self._matched_thread_items(thread, items)
             if matched_items:
                 updated_thread_count += 1
-            updates.append(self._build_digest_thread_update(definition, matched_items, language))
+            updates.append(self._build_digest_thread_update(thread, matched_items, language, number))
         return updates, updated_thread_count
 
-    def _build_digest_thread_update(self, definition: dict, matched_items: list[dict], language: str = "zh-CN") -> list[str]:
-        name = str(definition.get("name") or ("untitled thread" if language == "en" else "未命名thread"))
-        thread_id = str(definition.get("id", "")).strip()
-        if language != "en":
-            name = self._to_chinese(name)
-        watchpoint_separator = "; " if language == "en" else "；"
-        watchpoints = watchpoint_separator.join(
-            (str(point) if language == "en" else self._to_chinese(str(point))).rstrip("。！？；：.!?")
-            for point in definition.get("watchpoints", [])[:2]
-            if str(point).strip()
-        )
-        callback_hint = self._build_brief(str(definition.get("callback_hint", "")), language=language)
-        latest_state = self._latest_thread_state(definition, language)
-        title = f"{name} ({thread_id})" if thread_id else name
-
-        lines = [f"┌─ **【Thread】{title}**"]
-        if matched_items:
-            increment = " ".join(
-                self._build_brief(str(item.get("title") or item.get("analysis_title") or ""), language=language)
-                for item in matched_items[:2]
+    def _build_digest_thread_update(
+        self, definition: dict, matched_items: list[dict], language: str = "zh-CN", number: int = 1
+    ) -> list[str]:
+        name = str(definition.get("name") or definition["id"])
+        lines = [
+            f"### T-{number:02d} {name}",
+            "",
+            "**Latest developments**:" if language == "en" else "**最新进展**：",
+        ]
+        for item in matched_items:
+            title = str(item.get("title") or item.get("analysis_title") or "")
+            sources = item.get("sources", [])
+            first_url = sources[0].get("url", "") if (sources and isinstance(sources[0], dict)) else (sources[0] if sources else "")
+            link = f"[{title}]({first_url})" if first_url else title
+            raw_date = str(item.get("date", "")).strip()
+            date = recorded_date(raw_date) or raw_date
+            item_num = item.get("number", 1)
+            date_prefix = f"**{date}** · " if date else ""
+            lines.extend([
+                f"- {date_prefix}{link} · N-{item_num:02d}",
+                str(item.get("analysis_body") or item.get("analysis_title") or item.get("title") or "").strip(),
+            ])
+            comment = str(item.get("analysis_title", "")).strip()
+            if comment and comment != title:
+                label = "Comment" if language == "en" else "点评"
+                lines.append(f"{label}：{comment}")
+            lines.append("")
+        if not matched_items:
+            latest_state = self._latest_thread_state(definition, language)
+            watchpoints = "；".join(
+                str(item).strip() for item in definition.get("watchpoints", []) if str(item).strip()
             )
-            impact = " ".join(
-                self._build_brief(
-                    str(item.get("analysis_body") or item.get("analysis_title") or item.get("title") or ""),
-                    language=language,
+            callback_hint = str(definition.get("callback_hint", "")).strip()
+            watch_label = "Watch next" if language == "en" else "下一步观察"
+            sep = ": " if language == "en" else "："
+            if watchpoints:
+                suffix = "." if language == "en" else "。"
+                next_watch = f"{watchpoints}{suffix}"
+            else:
+                fallback = callback_hint or (
+                    "Continue checking the configured thread scope."
+                    if language == "en"
+                    else "继续按事件线既定范围复核。"
                 )
-                for item in matched_items[:2]
-            )
-            if language == "en":
-                lines.extend(self._build_box_content_lines(f"Today's update: {increment}"))
-                lines.extend(self._build_box_content_lines(f"Timeline position: continues from {latest_state}"))
-                lines.extend(self._build_box_content_lines(f"Impact: {impact}"))
-            else:
-                lines.extend(self._build_box_content_lines(f"今日增量：{increment}"))
-                lines.extend(self._build_box_content_lines(f"时间线位置：承接 {latest_state}"))
-                lines.extend(self._build_box_content_lines(f"影响判断：{impact}"))
-        else:
-            if language == "en":
-                lines.extend(self._build_box_content_lines("Review result: checked; no verified update was found in the current scan window."))
-                lines.extend(self._build_box_content_lines(f"Latest state: {latest_state}"))
-            else:
-                lines.extend(self._build_box_content_lines("复核结果：已检查，本轮暂无可核验新增。"))
-                lines.extend(self._build_box_content_lines(f"最新状态：{latest_state}"))
+                next_watch = fallback
 
-        lines.append("│")
-        if watchpoints:
-            label = "Watch next" if language == "en" else "下一步观察"
-            suffix = "." if language == "en" else "。"
-            lines.extend(self._build_box_content_lines(f"{label}: {watchpoints}{suffix}" if language == "en" else f"{label}：{watchpoints}{suffix}"))
-        else:
-            label = "Watch next" if language == "en" else "下一步观察"
-            fallback = callback_hint or ("Continue checking the configured thread scope." if language == "en" else "继续按事件线既定范围复核。")
-            lines.extend(self._build_box_content_lines(f"{label}: {fallback}" if language == "en" else f"{label}：{fallback}"))
-        lines.append("└")
+            if language == "en":
+                lines.extend([
+                    "No verified update in this scan.",
+                    f"Latest known state: {latest_state}",
+                    f"{watch_label}{sep}{next_watch}",
+                    "",
+                ])
+            else:
+                lines.extend([
+                    "本轮暂无可核验新增。",
+                    f"最新状态：{latest_state}",
+                    f"{watch_label}{sep}{next_watch}",
+                    "",
+                ])
+        lines.extend(["**Historical timeline**:" if language == "en" else "**历史时间线**：", ""])
+        history = select_milestones(self._materialize_thread(definition, matched_items)["timeline"])
+        for entry in history:
+            title = str(entry.get("headline", "")).strip()
+            sources = entry.get("sources", [])
+            first_url = sources[0].get("url", "") if (sources and isinstance(sources[0], dict)) else (sources[0] if sources else "")
+            link = f"[{title}]({first_url})" if first_url else title
+            lines.append(f"- {link} ｜ {entry.get('date', '')}")
+        if not history:
+            lines.append(
+                "No verified milestones selected yet; the full reporting archive is retained."
+                if language == "en"
+                else "尚无已核定日期的重要节点，全量报道档案仍保留。"
+            )
         return lines
 
     def _latest_thread_state(self, definition: dict, language: str = "zh-CN") -> str:
@@ -666,15 +741,20 @@ class IntelligenceService:
         return "the configured tracking baseline" if language == "en" else "已配置的追踪基线"
 
     def _digest_event_index_item(self, number: int, event: dict) -> dict:
-        return {
+        item = {
+            **event,
             "number": number,
-            "key": event["key"],
-            "title": event["title"],
-            "analysis_title": event["analysis_title"],
-            "analysis_body": event["analysis_body"],
-            "sources": event["sources"],
+            "key": event.get("key", f"event-{number}"),
+            "title": event.get("title", ""),
+            "analysis_title": event.get("analysis_title", event.get("title", "")),
+            "analysis_body": event.get("analysis_body", ""),
+            "sources": event.get("sources", []),
             "date": event.get("date", ""),
         }
+        for key in ("milestone_reason", "milestone_title", "milestone_date", "milestone_date_basis"):
+            if event.get(key):
+                item[key] = event[key]
+        return item
 
     def _thread_entry_signature(self, entry: dict) -> tuple[str, str, tuple[str, ...]]:
         return (
@@ -974,20 +1054,29 @@ class IntelligenceService:
 
     def _build_digest_entry(self, number: int, event: dict, language: str = "zh-CN") -> str:
         title = self._translate_title(event["title"], language=language).rstrip("。！？；：")
-        summary_source = event["headline_summary"] or event["list_summary"] or event["title"]
+        raw_date = str(event.get("date") or "").strip()
+        date_str = recorded_date(raw_date) or raw_date
+        date_badge = f" ｜ {date_str}" if date_str else ""
+        header = f"### N-{number:02d} {title}{date_badge}"
+
+        summary_source = event.get("headline_summary") or event.get("list_summary") or event.get("title", "")
         summary = self._build_brief(summary_source, language=language)
+
+        analysis = str(event.get("analysis_body") or "").strip()
+        if analysis and language != "en":
+            analysis = self._to_chinese(analysis)
+
         sources = self._build_source_references(event.get("sources", []), language=language)
-        item_label = f"Brief {number}" if language == "en" else f"简讯{number}"
+
+        lines = [header, summary]
+        if analysis:
+            label = "Why it matters" if language == "en" else "为何重要"
+            sep = ": " if language == "en" else "："
+            lines.append(f"{label}{sep}{analysis}")
         source_label = "Sources" if language == "en" else "信源"
-        return "\n".join(
-            [
-                f"┌─ **【{item_label}】{title}**",
-                *self._build_box_content_lines(summary),
-                "│",
-                f"│ {source_label}: {sources}" if language == "en" else f"│ {source_label}：{sources}",
-                "└",
-            ]
-        )
+        sep = ": " if language == "en" else "："
+        lines.append(f"{source_label}{sep}{sources}")
+        return "\n".join(lines)
 
     @staticmethod
     def _build_box_content_lines(text: str, width: int = 48) -> list[str]:
@@ -1002,20 +1091,24 @@ class IntelligenceService:
         )
         return [f"│ {line}" for line in (wrapped or [text])]
 
-    def _build_source_references(self, sources: list[str], language: str = "zh-CN") -> str:
+    def _build_source_references(self, sources: list[Any], language: str = "zh-CN") -> str:
         references = [self._format_source_reference(source) for source in sources if str(source).strip()]
         if references:
-            return " ".join(references)
+            return " | ".join(references)
         return "No displayable sources yet" if language == "en" else "暂无可展示信源"
 
-    def _format_source_reference(self, source: str) -> str:
-        source = str(source).strip()
-        parsed = urlparse(source)
+    def _format_source_reference(self, source: Any) -> str:
+        if isinstance(source, dict):
+            url = str(source.get("url") or source.get("link") or "").strip()
+            label = str(source.get("name") or source.get("title") or "").strip()
+        else:
+            url = str(source).strip()
+            label = ""
+        parsed = urlparse(url)
         if parsed.scheme in {"http", "https"} and parsed.netloc:
-            label = parsed.netloc.removeprefix("www.")
-            return f"[{label}]({source})"
-        return source
-
+            netloc_label = parsed.netloc.removeprefix("www.")
+            return f"[{label or netloc_label}]({url})"
+        return url or label
     def _build_chinese_brief(self, text: str) -> str:
         return self._build_brief(text, language="zh-CN")
 

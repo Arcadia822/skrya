@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from .agent_assets import SkillPackBuilder, SkillPackInstaller
@@ -19,6 +20,20 @@ INSTALL_HOST_CHOICES = ["auto", "codex", "claude", "openclaw"]
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Skrya topic-driven briefing CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    card_parser = subparsers.add_parser("render-card", help="Render Markdown as a lossless Feishu card bundle")
+    card_parser.add_argument("--file", required=True, help="Complete Markdown digest file")
+    card_parser.add_argument("--format", choices=["feishu-v2"], default="feishu-v2")
+    card_parser.add_argument("-o", "--output", required=True, help="Output card-bundle JSON file")
+    card_parser.add_argument("--root", default=".", help="Workspace root")
+
+    reference_parser = subparsers.add_parser("resolve-reference", help="Resolve a reference against a frozen digest")
+    reference_parser.add_argument("--topic", required=True)
+    reference_parser.add_argument("--reference", required=True, help="N-xx or T-xx")
+    reference_parser.add_argument("--artifact", required=True, help="Timestamped digest Markdown or latest pointer")
+    reference_parser.add_argument("--root", default=".")
+    reference_parser.add_argument("--data-root", default=None)
+
 
     digest_parser = subparsers.add_parser("digest")
     digest_parser.add_argument("--topic", required=True, help="Topic id")
@@ -140,6 +155,44 @@ def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
     root = Path(args.root)
+
+    if args.command == "render-card":
+        from .feishu_cards import render_card_bundle
+
+        try:
+            bundle = render_card_bundle(Path(args.file).read_text(encoding="utf-8"))
+            output_path = Path(args.output)
+            if output_path.resolve() == Path(args.file).resolve():
+                raise ValueError("Card output must not overwrite the Markdown digest")
+            output_path.write_text(json.dumps(bundle, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            print(f"Rendered {len(bundle['cards'])} card(s): {output_path}")
+            return 0
+        except (OSError, ValueError) as error:
+            print(f"Render failed: {error}", file=sys.stderr)
+            return 1
+
+    if args.command == "resolve-reference":
+        from .references import load_snapshot, resolve_reference
+
+        try:
+            service = IntelligenceService(root, data_root=args.data_root)
+            topic_id = service.resolve_topic_id(args.topic)
+            if Path(topic_id).name != topic_id or topic_id in {".", ".."}:
+                raise ValueError("Topic ID must name one topic directory")
+            data_root = resolve_data_root(root, args.data_root).data_root
+            artifact = Path(args.artifact).resolve()
+            if not artifact.is_relative_to((data_root / "runs" / topic_id).resolve()):
+                raise ValueError("Artifact does not belong to the resolved topic")
+            snapshot = load_snapshot(artifact)
+            if snapshot.get("topic_id") != topic_id:
+                raise ValueError("Snapshot does not belong to the resolved topic")
+            print(json.dumps(resolve_reference(snapshot, args.reference), ensure_ascii=False, indent=2))
+            return 0
+        except (OSError, ValueError) as error:
+            print(f"Reference resolution failed: {error}", file=sys.stderr)
+            return 1
+
+
 
     if args.command == "digest":
         service = IntelligenceService(root, data_root=args.data_root)

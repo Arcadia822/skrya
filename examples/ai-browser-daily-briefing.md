@@ -31,32 +31,25 @@ Delivery:
 ```markdown
 # 2026-05-08｜AI 浏览器｜每日简报
 
-┌─ **【简讯1】浏览器正在从“网页容器”变成智能体执行入口**
-│ 判断：值得关注的不是某家公司是否发布独立浏览器，而是身份、网页状态、检索和工具调用是否被放进同一个工作流。
-│
-│ 信源：[OpenAI：ChatGPT Atlas](https://openai.com/index/introducing-chatgpt-atlas/) [OpenAI：ChatGPT agent](https://openai.com/index/introducing-chatgpt-agent/) [The Verge：OpenAI launches ChatGPT Atlas](https://www.theverge.com/news/802765/openai-chatgpt-atlas-browser-agent)
-└
+### N-01 浏览器正在从网页容器变成智能体执行入口
+判断：值得关注的是身份、网页状态、检索和工具调用是否被放进同一个工作流。
+信源：[OpenAI：ChatGPT Atlas](https://openai.com/index/introducing-chatgpt-atlas/) | [OpenAI：ChatGPT agent](https://openai.com/index/introducing-chatgpt-agent/) | [The Verge](https://www.theverge.com/news/802765/openai-chatgpt-atlas-browser-agent)
 
-┌─ **【简讯2】搜索产品继续向“直接完成任务”移动**
-│ 判断：AI 浏览器和 AI 搜索的边界会变得更薄，后续应持续看默认入口、插件生态和企业管控能力。
-│
-│ 信源：[Perplexity：Comet](https://www.perplexity.ai/comet) [Arc：Browser](https://arc.net/) [Perplexity：Comet Assistant](https://www.perplexity.ai/help-center/en/articles/11914212-comet-assistant)
-└
+### N-02 搜索产品继续向直接完成任务移动
+判断：AI 浏览器和 AI 搜索的边界变薄，后续应看默认入口、插件生态和企业管控能力。
+信源：[Perplexity：Comet](https://www.perplexity.ai/comet) | [Arc：Browser](https://arc.net/) | [Perplexity：Comet Assistant](https://www.perplexity.ai/help-center/en/articles/11914212-comet-assistant)
 
-┌─ **【简讯3】浏览器智能体的安全边界开始成为产品差异点**
-│ 判断：能否解释权限、隔离账号状态、避免跨站误操作，会决定这类产品能否进入工作场景。
-│
-│ 信源：[OpenAI：ChatGPT agent safety](https://openai.com/index/introducing-chatgpt-agent/) [Perplexity：Comet Assistant](https://www.perplexity.ai/help-center/en/articles/11914212-comet-assistant)
-└
+### N-03 浏览器智能体的安全边界开始成为产品差异点
+判断：能否解释权限、隔离账号状态、避免跨站误操作，决定这类产品能否进入工作场景。
+信源：[OpenAI：ChatGPT agent safety](https://openai.com/index/introducing-chatgpt-agent/) | [Perplexity：Comet Assistant](https://www.perplexity.ai/help-center/en/articles/11914212-comet-assistant)
 
 ---
 
-## 系统提示
+## 可继续操作
 
-- 执行时间：2026-05-08 09:00（Asia/Shanghai）
-- 执行状态：demo
-- 可继续操作：
-  - dig: 详细分析指定今日简讯，例如：`dig: 1`。
-  - track: 创建或更新持续事件线，例如：`track: 2 AI 搜索到浏览器入口`。
-  - 偏好反馈：直接用自然语言回复，例如：`少推没有来源的传闻`。
+- 回复 `dig: N-01`，深挖指定新闻。
+- 回复 `track: N-02`，建立持续事件线。
+- 回复 `dig: T-01`，查看全量历史。
+- 回复 `write: T-01`，生成有来源的文章草稿，不自动发布。
+- 自然语言反馈，例如少推没有来源的传闻。
 ```
