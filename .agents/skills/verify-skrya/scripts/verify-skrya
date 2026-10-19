@@ -158,6 +158,9 @@ cmd_snapshot() {
   dir="$(next_step_dir "$id" "snapshot-$label")"
   mkdir -p "$dir"
   (cd "$s" && ls -lR data home 2>/dev/null) > "$dir/tree.txt" || true
+  if [[ -d "$s/work" ]]; then
+    find "$s/work" -mindepth 1 -maxdepth 1 -type l -exec ls -ld {} + > "$dir/work-links.txt"
+  fi
   if [[ -d "$s/data/runs" ]]; then
     cp -R "$s/data/runs" "$dir/runs"
   else
