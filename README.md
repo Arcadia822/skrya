@@ -29,30 +29,30 @@ Skrya turns it into:
 ```markdown
 # 2026-05-08 | AI Browsers | Daily Briefing
 
-┌─ **【Brief 1】OpenAI browser rumors matter because the browser can become the agent runtime**
-│ Judgment: the durable shift is not "another browser"; it is identity, page state, and tool use moving into one workflow.
-│
-│ Sources: official blog / major tech media / product pages
-└
+### N-01 OpenAI browser rumors matter because the browser can become the agent runtime
+The durable shift is identity, page state, and tool use moving into one workflow.
+Sources: official blog | major tech media | product pages
 
-┌─ **【Brief 2】Perplexity, Arc, and adjacent products keep blending search, browsing, and agent actions**
-│ Judgment: AI browsers are a distribution change for search and task execution, not a single feature category.
-│
-│ Sources: product updates / media reports / user feedback
-└
+### N-02 Perplexity, Arc, and adjacent products blend search, browsing, and agent actions
+AI browsers change distribution for search and task execution.
+Sources: product updates | media reports | user feedback
 
 ---
 
-## System
+## Available actions
 
-- Reply `dig: 1` for deeper analysis of item 1.
-- Reply `track: 2 AI browser product line` to keep item 2 as a continuing thread.
-- Reply `fewer low-quality rumors` to update future briefing preferences.
+- Reply `dig: N-01` for deeper news analysis.
+- Reply `track: N-02` to propose a continuing Thread.
+- Reply `dig: T-01` for complete Thread history.
+- Reply `write: T-01` for a sourced article draft, without publishing.
+- Send natural-language feedback to adjust future briefings.
 ```
 
 See more demos: [AI browser daily briefing](examples/ai-browser-daily-briefing.md), [new energy thread](examples/new-energy-thread-demo.md), and [research agent watchlist](examples/research-agent-watchlist.md).
 
 Digest templates can be created or updated. Create drafts a new candidate from the default contract without reading an existing topic template; update reads the configured template and drafts a revision. Both use the same active-Thread contract validation and verified save gate, and failed validation neither creates nor overwrites the target.
+
+Feishu supports native Schema 2.0 cards, explicit-target delivery, complete body threads and lossless splitting. See [native channel delivery](docs/channel-adapters.md) for commands, credential isolation and delivery receipts. Rendering is not evidence of delivery.
 
 ## Quick Start
 

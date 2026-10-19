@@ -21,11 +21,16 @@ Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or
 
 Accept either:
 
-- a direct event reference from the latest digest, including its visible number
-- a specific event description that is sufficient to locate the event
+- `dig: N-xx` for one news item, resolved from the received card or explicit digest artifact.
+- `dig: T-xx` for the complete Thread archive, not only displayed milestones.
+- `write: T-xx` for a sourced article draft based on the complete Thread history. Do not automatically publish.
+- a specific event description that is sufficient to locate the event.
 
-When the user references a digest number, resolve that number against the latest digest for the same topic before doing any further analysis.
-If the user only replies with a number in an ongoing digest thread, treat that as a request to continue from the latest digest for the current topic when the topic is already known.
+In channel-aware hosts, resolve the topic and current binding first. Use `skrya resolve-reference --topic <topic-id> --binding <binding-id> --reference <N-xx-or-T-xx> --message-id <replied-message-id>`. Omit message ID only when using that binding's latest complete successful delivery. Never use an unrelated channel's snapshot or the latest generated digest.
+For local non-channel conversations, use `skrya resolve-reference --topic <topic-id> --artifact <digest-file> --reference <N-xx-or-T-xx>`.
+If the user only replies with a number, interpret it as the news number in the same received digest. If no snapshot or topic can be resolved, ask a short clarification instead of guessing.
+
+For `write: T-xx`, read the resolved entity's full timeline, sources, topic brief and deep-analysis guidance. Write an article with a clear argument, chronological context, source citations and explicit uncertainty. Save the completed draft under `<skrya-data-root>/runs/<topic-id>/articles/` using a timestamped Markdown filename. This is an agent writing workflow, not a publishing command.
 
 ## Output Rules
 

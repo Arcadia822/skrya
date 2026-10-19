@@ -65,7 +65,7 @@ Skrya 的长期数据保存在哪里？
 - For a new topic, infer `topic.json.language` from the language the user used while creating the topic, unless the user explicitly requests a different briefing language.
 - The topic language controls digest and deep-analysis output for that topic.
 - When the user gives feedback or asks follow-up questions, reply in the language the user used for that feedback, even if the topic digest language is different.
-- Show compact source references in daily digest output, after a blank separator line inside each numbered line box.
+- Show compact source references for every numbered Markdown item. Do not generate decorative line boxes.
 - Do not show request ids or internal debug fields in normal output.
 - Preserve enough traceability to return complete sources later if the user asks.
 - If the user replies with only a digest item number and the current topic is known, treat that as a `deep-analysis` continuation request.
@@ -79,8 +79,10 @@ Skrya 的长期数据保存在哪里？
 
 Treat repeated user feedback as topic state, not disposable chat.
 
-- `dig: <numbers>` means route those visible digest numbers to deep analysis.
-- `track: <numbers> <name/intent>` means propose or update a thread seed in `thread-seeds.json` after confirmation.
+- `dig: N-xx` routes a news item to deep analysis; `dig: T-xx` reads the complete Thread archive.
+- `track: N-xx` proposes a thread seed in `thread-seeds.json` after confirmation.
+- `write: T-xx` reads the full Thread archive and sources, writes an article draft, and never publishes it automatically.
+- Resolve these references against the replied-to message's frozen delivery snapshot. Without a message ID, use only the current binding's latest complete successful delivery. In local non-channel chat, use the explicit digest artifact snapshot. Never substitute a newer generated digest.
 - Plain-language preference feedback, such as "低质量传闻少推", means route to request curation and translate the feedback into durable topic memory.
 - If the user says "这个很重要", convert it into a watchpoint, tracked angle, or ranking preference.
 - If the user asks "为什么没有 X", run 漏报诊断: check latest digest, ingest artifact, source coverage, query terms, and ranking rules before proposing a config or source update.
@@ -146,13 +148,13 @@ Use one-off research behavior only when the user clearly wants a single immediat
 When the user agrees to a test run, treat it as a preview of the daily digest, not as a loose chat summary.
 
 - The first visible line of the response must be the digest title. Do not put status text, commentary, saved-file notes, or implementation notes before the title.
-- Use the same digest template file as the real daily digest: top-level title, uniform line boxes, source references, `---`, and `## 系统提示`.
-- In `## 系统提示`, include the current Skrya version. Include the agent framework/version and LLM model only when the host exposes them; silently omit unknown fields.
+- Use the same digest template file as the real daily digest, including the date/topic title, uniform Markdown items, active Threads, sources and exactly five actions.
+- Keep version, model, execution logs and delivery conclusions out of the user-facing footer. Retain them only in run artifacts.
 - When the host can inspect the Skrya repository, check the latest visible Skrya version or upstream revision. If a newer version is available, ask the user whether to update and follow `docs/upgrade.md` before changing runtime data.
 - Do not write conversational prefaces such as "我跑一轮测试" before the digest body.
-- Do not append implementation notes such as saved file paths after the digest or after `## 系统提示`.
+- Do not append implementation notes or saved file paths after the digest.
 - Do not save test-run output as a timestamped digest artifact or update `latest-digest.md` unless the user explicitly asks to save it.
-- In `## 系统提示`, explain follow-ups in natural Chinese: `dig: <编号>` means deep analysis, `track: <编号> <名称/意图>` means continue tracking as a thread, and preference changes can be sent as plain language.
+- Explain the five follow-ups in the topic language, `dig: N-01`, `track: N-02`, `dig: T-01`, `write: T-01`, and natural-language feedback.
 
 ## Automation Prompt Contract
 
@@ -165,9 +167,12 @@ When creating or proposing a recurring digest automation, use this checklist as 
 - binding: create or update `<skrya-data-root>/topics/<topic-id>/delivery-bindings.json` using schema `skrya.delivery-bindings.v1`; put host-specific extras under `host_metadata`
 - required reads: read `topic.json`, `brief.json`, `sources.json`, `digest.md`, the configured topic digest template, optional `thread-seeds.json`, and the latest runtime thread artifact when present before generating
 - template fallback: use `digest/templates/default-digest.md` if no topic-specific template is configured
-- output format: render title, the mandatory event-timeline update section for every effective `status=active` thread (including its latest state when there is no verified increment), uniform line boxes, source references, `---`, and `## 系统提示` / `## System`
+- output format: render the title, every effective active Thread with per-news latest developments and curated historical milestones, uniform N-xx news items, sources, and exactly five actions. Show latest known state when no verified increment exists. No decorative line boxes or runtime metadata.
 - artifact policy: scheduled real digests are saved as `digest-YYYYMMDDTHHMMSS+0800.md` under `<skrya-data-root>/runs/<topic-id>/`, and `latest-digest.md` is a symlink or pointer to the newest real artifact
 - delivery policy: send only to the bound channel/conversation unless the user explicitly configured another supported target; verify the sent body is non-empty when the host supports verification
+- Feishu delivery: run `skrya delivery-check --channel feishu --topic <topic-id> --target <bound-target>` before collection, then `skrya deliver --channel feishu --topic <topic-id> --file <digest-file> --target <bound-target>`. Use explicit `--binding` when needed. Render natively, never send JSON file paths as message text.
+- layout: new bindings explicitly record `summary+thread`; existing bindings without a layout retain `full-card`. Keep one host-level recurring scheduler, never a parallel session reminder chain.
+- execution: wait for all parallel collection work in the delivery lifecycle, then deliver the complete result. A saved digest is not a sent digest. A preflight token is not evidence of sending permission or delivery.
 - test-run separation: do not perform, save, or mention a test run inside the recurring automation unless the user separately asks for that preview
 - failure behavior: if a required file, source set, template, or delivery binding is missing, report the missing precondition rather than generating an unrelated summary
 
@@ -179,7 +184,7 @@ Treat delivery as part of the topic contract, not an incidental chat side effect
 - When the user says "今天日报没有内容", "没发出来", "补发今天早晨的", or similar in a channel-aware host, diagnose and resend only the digest bound to the current channel/conversation unless the user names another target.
 - When the current channel has no matching delivery binding, do not widen to all topics. Report that no bound topic was found for this channel and ask which topic the user means.
 - If multiple topics are bound to the same channel and the request does not identify which one, ask a short clarification instead of sending all generated digests.
-- If a topic has generated content but the channel message was empty, resend through the explicit message tool when available and verify that the delivered message body is non-empty.
+- If a topic has generated content but the channel message was empty, inspect the bound delivery receipt and available message history first. For Feishu, keep the same native sender and binding; reconcile unknown outcomes before any resend, never bypass them with a different sender or UUID. Verify non-empty content when the host supports readback.
 - Never bundle another channel's topic digest into a resend response. This is a privacy and routing error, not a helpful bonus.
 
 ## Repository Shape
@@ -213,4 +218,4 @@ When the user asks where data is stored or wants to change it, explain the curre
 
 ## Source Disclosure
 
-Daily digest output should include compact source references for every item inside numbered line boxes. Longer analysis can keep source lists compact unless the user asks for full provenance. If the user asks for sources for a digest item or analysis, return the complete relevant source list for that specific item.
+Daily digest output includes compact sources for every numbered Markdown item. Longer analysis keeps source lists compact unless the user requests full provenance. Return the complete source list for the referenced news or Thread when asked.

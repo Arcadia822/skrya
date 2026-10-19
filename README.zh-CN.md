@@ -29,30 +29,28 @@ Skrya 会把它变成：
 ```markdown
 # 2026-05-08｜AI 浏览器｜每日简报
 
-┌─ **【简讯1】OpenAI 浏览器入口传闻升温，重点不只是“做浏览器”**
-│ 判断：如果浏览器成为智能体的执行入口，真正变化是身份、工具调用和网页状态会被放进同一个工作流。
-│
-│ 信源：[OpenAI：ChatGPT Atlas](https://openai.com/index/introducing-chatgpt-atlas/) [OpenAI：ChatGPT agent](https://openai.com/index/introducing-chatgpt-agent/) [The Verge：OpenAI launches ChatGPT Atlas](https://www.theverge.com/news/802765/openai-chatgpt-atlas-browser-agent)
-└
+### N-01 OpenAI 浏览器入口传闻升温
+判断：浏览器成为智能体执行入口后，身份、工具调用和网页状态会被放进同一个工作流。
+信源：[OpenAI：ChatGPT Atlas](https://openai.com/index/introducing-chatgpt-atlas/) | [OpenAI：ChatGPT agent](https://openai.com/index/introducing-chatgpt-agent/) | [The Verge](https://www.theverge.com/news/802765/openai-chatgpt-atlas-browser-agent)
 
-┌─ **【简讯2】Perplexity、Arc 等产品继续把搜索、浏览和智能体操作揉在一起**
-│ 判断：AI 浏览器不是一个单点功能，而是搜索分发、网页操作和个人上下文的重新打包。
-│
-│ 信源：[Perplexity：Comet](https://www.perplexity.ai/comet) [Arc：Browser](https://arc.net/) [Perplexity：Comet Assistant](https://www.perplexity.ai/help-center/en/articles/11914212-comet-assistant)
-└
+### N-02 Perplexity、Arc 等产品融合搜索、浏览和智能体操作
+判断：AI 浏览器改变搜索分发、网页操作和个人上下文的组织方式。
+信源：[Perplexity：Comet](https://www.perplexity.ai/comet) | [Arc：Browser](https://arc.net/) | [Perplexity：Comet Assistant](https://www.perplexity.ai/help-center/en/articles/11914212-comet-assistant)
 
 ---
 
-## 系统提示
+## 可继续操作
 
-- 可回复 `dig: 1` 深挖第 1 条。
-- 可回复 `track: 2 AI 浏览器产品线` 把第 2 条变成持续事件线。
-- 可直接回复 `低质量传闻少推` 调整后续简报偏好。
+- 回复 `dig: N-01`，深挖指定新闻。
+- 回复 `track: N-02`，建立持续事件线。
+- 回复 `dig: T-01`，查看事件线的全量历史。
+- 回复 `write: T-01`，生成有来源的文章草稿，不自动发布。
+- 自然语言反馈，例如低质量传闻少推。
 ```
 
 查看更多演示：[AI 浏览器每日简报](examples/ai-browser-daily-briefing.md)、[新能源事件线](examples/new-energy-thread-demo.md)、[研究智能体观察清单](examples/research-agent-watchlist.md)。
 
-简报的标题、条目样式、来源展示和系统提示都来自模板；你可以直接要求 Skrya 创建模板，也可以直接要求 Skrya 调整模板，例如“创建一份简洁模板”“把来源放到每条最后一行”。创建会从默认合同起草新候选，更新才会读取现有模板；两者在保存时都必须通过 active Thread 时间线合同检查，失败不会创建或覆盖目标。
+简报的标题、条目、信源和操作区都来自模板。创建从默认合同起草新候选，更新读取已有模板；两者保存前都检查 active Thread、真实日期与来源、固定五项操作等合同，失败不创建或覆盖目标。飞书支持原生卡片、摘要加线程与完整分片，详见[原生通道投递](docs/channel-adapters.md)。渲染完成不等于消息已送达。
 
 ## 30 秒开始
 

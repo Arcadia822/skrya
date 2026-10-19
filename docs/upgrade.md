@@ -61,5 +61,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests
 PYTHONPATH=src python3 -m skrya_orchestrator.main digest --topic <topic-id> --root . --sample
 ```
 
-Check that the digest ends with `## 系统提示`, includes the Skrya version, and uses `thread` wording.
+Check that the digest contains uniform N-xx items, every active Thread and exactly five actions. No decorative line boxes or user-facing runtime metadata remain. Render the same artifact with `render-card`, then resolve a news and Thread reference against its immutable `.events.json` sidecar. Preview must not create a new formal artifact or update latest pointers.
+
+For native Feishu delivery, follow [channel adapters](channel-adapters.md). Preserve existing credentials, explicit destinations and scheduler ownership on each host. Existing bindings with no layout continue as `full-card`; new native Feishu bindings use `summary+thread`. Do not change production delivery or send a test message as part of this upgrade without authorization. A read-only `delivery-check` is not delivery proof.
 
