@@ -54,6 +54,8 @@ If this is a global skill install, reinstall for the active host:
 PYTHONPATH=src python3 -m skrya_orchestrator.main install-skill-pack --root . --host auto
 ```
 
+Repeating a symlink-based install keeps the six skill entries in the active host's skill directory; it must not create `skrya-*` aliases beside the source checkout. Existing matching links are reused, and unrelated install targets are never overwritten. This does not remove stray aliases left by older installers: inspect their targets before deleting them manually.
+
 ## 5. Verify
 
 ```bash

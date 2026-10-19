@@ -358,7 +358,7 @@ class SkillPackInstaller:
 
     def _install_host(self, output_root: Path, host: HostConfig) -> list[InstallResult]:
         assert host.global_skill_dir is not None
-        target = (Path.home() / host.global_skill_dir).resolve(strict=False)
+        target = Path.home() / host.global_skill_dir
         target.parent.mkdir(parents=True, exist_ok=True)
 
         root_result = self._install_path(

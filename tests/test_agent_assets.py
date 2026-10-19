@@ -1,5 +1,6 @@
 import io
 import shutil
+import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -75,6 +76,38 @@ class SkillPackTests(unittest.TestCase):
         self.assertTrue((home / ".codex" / "skills" / "skrya").exists())
         self.assertTrue((home / ".codex" / "skills" / "skrya-digest").exists())
         self.assertTrue((home / ".codex" / "skills" / "skrya-topic-curation").exists())
+
+    def test_repeated_install_keeps_links_under_each_host_skill_directory(self) -> None:
+        for host in ("codex", "claude", "openclaw"):
+            with self.subTest(host=host), tempfile.TemporaryDirectory() as temporary:
+                base = Path(temporary).resolve()
+                root = base / "source" / "checkout"
+                root.mkdir(parents=True)
+                home = base / "home"
+                self._copy_template_inputs(root)
+                skill_directory = home / f".{host}" / "skills"
+                names = (
+                    "skrya", "skrya-deep-analysis", "skrya-digest",
+                    "skrya-request-curation", "skrya-source-curation",
+                    "skrya-topic-curation",
+                )
+                expected_targets = {skill_directory / name for name in names}
+                with patch("pathlib.Path.home", return_value=home):
+                    installer = SkillPackInstaller(root)
+                    first = installer.install(output_root=root, host_name=host)
+                    self.assertEqual(expected_targets, {result.target_path for result in first})
+                    destinations = {target: target.resolve() for target in expected_targets}
+                    for _ in range(2):
+                        repeated = installer.install(output_root=root, host_name=host)
+                        self.assertEqual(
+                            {root}, set(root.parent.iterdir()),
+                            "Reinstall must not create aliases beside the source checkout",
+                        )
+                        self.assertEqual(expected_targets, {result.target_path for result in repeated})
+                        self.assertEqual(expected_targets, set(skill_directory.iterdir()))
+                        for target, destination in destinations.items():
+                            self.assertTrue(target.is_symlink())
+                            self.assertEqual(destination, target.resolve())
 
     def test_installer_configures_host_default_data_root(self) -> None:
         root = self._make_root("skill-pack-data-root")
