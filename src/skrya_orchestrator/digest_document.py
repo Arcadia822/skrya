@@ -139,7 +139,7 @@ def extract_badge(text: str) -> str:
         return True
 
     # 1. ISO / Dash: (YYYY-)?MM-DD (HH:mm(:ss))?
-    m_iso = re.search(r"(?<!\d)(?:(\d{4})-)?(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::\d{2})?)?", text)
+    m_iso = re.search(r"(?<!\d)(?:(\d{4})-)?(\d{1,2})-(\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::\d{2})?)?", text)
     if m_iso:
         y = int(m_iso.group(1)) if m_iso.group(1) else None
         m = int(m_iso.group(2))
@@ -411,7 +411,7 @@ def _parse_single_news_item(raw: str, fallback_idx: int) -> DigestItem | None:
             return None
 
     # Extract date from title row if present
-    m_date = re.search(r"^(.*?)\s*[｜|]\s*((?:\d{4}[-/年])?\s*\d{1,2}[-/月]\d{1,2}日?(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)\s*$", title)
+    m_date = re.search(r"^(.*?)\s*[｜|]\s*((?:\d{4}[-/年])?\s*\d{1,2}[-/月]\d{1,2}日?(?:[T\s]+\d{1,2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)?)\s*$", title)
     if m_date:
         title = m_date.group(1)
         badge = extract_badge(m_date.group(2))

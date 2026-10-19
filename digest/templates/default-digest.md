@@ -2,6 +2,10 @@
 
 Use this writing contract unless a confirmed topic template overrides it. Plain Markdown is the complete archive. Native channel rendering is a separate step.
 
+Native news date badges show `MM-DD HH:mm` when a recorded time exists, or `MM-DD` for date-only sources. Never invent a time. Preserve complete dates in archives and historical milestones. Module headings use the approved centered symmetric decoration `✦ ─── … ─── ✦`.
+
+Keep each Thread's latest developments and historical timeline in one yellow block under one T-xx heading. Split only when the serialized request or component budget requires it; repeat the Thread heading only on actual continuation blocks.
+
 ## Structure
 
 ```markdown

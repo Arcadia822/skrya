@@ -38,6 +38,40 @@ def extract_markdown_texts(element: dict[str, Any]) -> Iterator[str]:
 
 
 class TestFeishuCards(unittest.TestCase):
+    def test_one_thread_keeps_progress_and_history_together_until_capacity_requires_split(self):
+        for progress in ("- **2026-10-19** · [Update](https://example.org/update)\nVerified progress.", "No verified update in this scan.\nLatest known state: Approved."):
+            markdown = f"# Daily briefing\n\n## Event Timeline Updates\n\n### T-01 Project\n\n**Latest developments**:\n{progress}\n\n**Historical timeline**:\n- [Start](https://example.org/start) ｜ 2025-01-02\n"
+            cards = render_card_bundle(markdown)["cards"]
+            blocks = [element for card in cards for element in card["body"]["elements"] if element.get("background_style") == "yellow-50"]
+            self.assertEqual(1, len(blocks))
+            text = "\n".join(extract_markdown_texts(blocks[0]))
+            self.assertEqual(1, text.count("T-01"))
+            self.assertIn("Latest developments", text)
+            self.assertIn("Historical timeline", text)
+            self.assertIn("https://example.org/start", text)
+            self.assertIn("2025-01-02", text)
+            self.assertNotIn("(续)", text)
+
+    def test_news_badges_use_month_day_time_without_changing_history(self):
+        for size in (1, 16000):
+            for date, expected in (("2026-10-18T08:35:27+08:00", "10-18 08:35"), ("2026-10-19", "10-19")):
+                markdown = f"# Daily briefing\n\n## Event Timeline Updates\n\n### T-01 Project\n\n**Latest developments**:\nNo verified update in this scan.\n\n**Historical timeline**:\n- [Start](https://example.org/start) ｜ 2025-01-02\n\n## Today's Briefs\n\n### N-01 Report ｜ {date}\n{'fact ' * size}\nSources: [Original](https://example.org/report)\n"
+                cards = render_card_bundle(markdown)["cards"]
+                news = []
+                history = []
+                for card in cards:
+                    for element in card["body"]["elements"]:
+                        texts = list(extract_markdown_texts(element))
+                        if element.get("background_style") == "blue-50":
+                            news.extend(texts)
+                        elif element.get("background_style") == "yellow-50":
+                            history.extend(texts)
+                badges = [part for part in news if '<text_tag color="neutral">' in part]
+                self.assertTrue(badges)
+                self.assertTrue(all(f">{expected}</text_tag>" in badge for badge in badges))
+                self.assertIn("2025-01-02", "".join(history))
+                self.assertEqual(date[:10], parse_digest(markdown).items[0].date[:10])
+
     def test_split_preserves_inline_source_links_and_rejects_impossible_budget(self):
         link = "[Original report](https://example.org/" + "source" * 90 + ")"
         facts = ("a" * 17500 + link) * 3
