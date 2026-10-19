@@ -88,6 +88,7 @@ Proof standards:
 - Network boundaries: live RSS retrieval and translation of non-Chinese text can use the network. Digest no longer adds a version-check footer. `doctor` invokes `version`, whose upstream check may use the network. Say when fixtures were used.
 - Plain Markdown ends in five actions without model/version/Agent/LLM execution metadata. Native card date badges and layout are checked separately from archive dates.
 - Before delivery-precondition tests, remove inherited `SKRYA_FEISHU_APP_ID`, `SKRYA_FEISHU_APP_SECRET`, and `SKRYA_FEISHU_CONFIG` from the helper's environment. Never borrow real credentials or bindings just to make a path reachable. `delivery-check` can contact the API even though it sends no message.
+- With explicit sandbox authorization, a temporary local lark-cli transport boundary may drive the real CLI entry point while the CLI owns authentication. Follow `features/feishu-delivery.md`, capture the exact runner, and report separately what orchestration passed and which default-auth/transport paths were not exercised. A standalone CLI card send is not sender proof.
 
 ## Cleanup
 
@@ -103,7 +104,7 @@ Always run cleanup in a `finally`/shell trap, including after failed drives. Bef
 
 ## Gotchas
 
-- Never call bare `skrya` or `python3 -m skrya_orchestrator.main` outside the helper for verification: real `~/.skrya` and real `~/.codex/skills` would be used.
+- Never call bare `skrya` or an unisolated Python entry point for verification: real data and host skill directories would be used. The approved temporary Feishu CLI-boundary runner is the sole exception to the helper invocation shape, not to isolated HOME/data-root, doctor, evidence or cleanup requirements.
 - `deep-analysis` and `thread` read artifacts from the last non-preview `digest`; on a fresh run they fail with `Digest artifact not found` / `Thread artifact not found`. Run a real `digest` first.
 - `uninstall-skill-pack --mode data-keep-skills|complete` deletes the resolved data root — under the helper that is the scratch `data/`, so later steps lose the seeded topics. Do it last or re-launch.
 - Complete uninstall may strip routing-note blocks in the supplied root. Use only the archived scratch checkout for this path; do not rely on the real repository currently lacking a marker.
