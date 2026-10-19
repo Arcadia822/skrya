@@ -49,6 +49,19 @@ Use it only in channel-aware hosts. Hosts without a channel/conversation concept
 }
 ```
 
+For native Feishu delivery, keep the same binding identity and add explicit target and delivery requirements:
+
+```json
+{
+  "target": {"channel": "feishu", "kind": "group", "ref": "oc_example"},
+  "delivery": {"layout": "summary+thread", "supports_thread": true, "render": "card"}
+}
+```
+
+The target ref can also be an alias from the same host's explicitly selected credential configuration. New bindings record the layout explicitly. An existing binding without `delivery.layout` retains `full-card`; upgrade does not rewrite it. Do not store app secrets here.
+
+The CLI requires topic and target, plus `--binding` when more than one binding matches. Resolve the current host/channel/user/workspace context before calling it. It rejects unmatched or ambiguous targets rather than borrowing another channel's binding. See [native channel delivery](channel-adapters.md).
+
 ## Matching Rules
 
 For feedback, delivery repair, empty-digest diagnosis, and manual resend:
