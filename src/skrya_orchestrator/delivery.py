@@ -52,14 +52,24 @@ class DeliveryBindingService:
         binding = dict(binding)
         binding["topic_id"] = topic_id
         binding.setdefault("status", "active")
+        path = self._binding_path(topic_id)
+        payload = self._load_payload(path)
+        existing = next(
+            (entry for entry in payload["bindings"] if self._binding_key(entry) == self._binding_key(binding)),
+            None,
+        )
+        if existing is None and isinstance(binding.get("target"), dict) and binding["target"].get("channel") == "feishu":
+            options = dict(binding.get("delivery", {}))
+            options.setdefault("layout", "summary+thread")
+            binding["delivery"] = options
+        elif existing is not None and "delivery" not in binding and "delivery" in existing:
+            binding["delivery"] = existing["delivery"]
         now = datetime.now(timezone.utc).isoformat()
         binding.setdefault("created_at", now)
         binding["updated_at"] = now
 
         self.validate_binding(binding)
 
-        path = self._binding_path(topic_id)
-        payload = self._load_payload(path)
         bindings = [
             existing
             for existing in payload["bindings"]

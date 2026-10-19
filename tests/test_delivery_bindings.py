@@ -12,6 +12,25 @@ TEST_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 class DeliveryBindingServiceTests(unittest.TestCase):
+    def test_new_native_binding_uses_thread_layout_without_migrating_existing_bindings(self):
+        root = self._make_root("delivery-layout-cutover")
+        self._write_topic(root, "news")
+        service = DeliveryBindingService(root)
+        binding = self._binding("news", channel_id="oc_news")
+        binding["target"] = {"channel": "feishu", "kind": "group", "ref": "oc_news"}
+        path = service.write_binding("news", binding)
+        self.assertEqual("summary+thread", json.loads(path.read_text())["bindings"][0]["delivery"]["layout"])
+        binding["delivery"] = {"layout": "full-card"}
+        service.write_binding("news", binding)
+        del binding["delivery"]
+        service.write_binding("news", binding)
+        self.assertEqual("full-card", json.loads(path.read_text())["bindings"][0]["delivery"]["layout"])
+        payload = json.loads(path.read_text())
+        del payload["bindings"][0]["delivery"]
+        path.write_text(json.dumps(payload))
+        service.write_binding("news", binding)
+        self.assertNotIn("delivery", json.loads(path.read_text())["bindings"][0])
+
     def test_matches_only_current_channel_binding(self) -> None:
         root = self._make_root("delivery-current-channel")
         self._write_topic(root, "ai-browser")

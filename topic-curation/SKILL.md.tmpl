@@ -105,13 +105,15 @@ Use the matching candidate-drafting flow:
 After either drafting flow, apply this shared save gate. The save gate begins with the completed candidate; it does not read or modify the source template:
 
 1. Validate the complete candidate with `skrya validate-digest-template --file <candidate-path>` when the CLI is available. Otherwise apply the same checklist directly.
-2. The candidate must contain a top-level title; `## 事件线时间线更新` / `## Event Timeline Updates`; Thread name and ID; today's increment; timeline position; impact judgment; explicit no-verified-update review; latest state; next observation; numbered digest items; per-item sources; `---`; and `## 系统提示` / `## System`.
+2. The candidate must contain a date/topic title, the mandatory active-Thread section, T-xx references, per-news latest developments, curated historical timeline, explicit no-verified-update state with latest known state, N-xx news items and media source links. Its footer contains exactly `dig: N-01`, `track: N-02`, `dig: T-01`, `write: T-01`, and natural-language feedback. Do not require internal IDs or old line boxes in user titles, and do not add runtime metadata.
 3. If validation fails, do not create, overwrite, or replace the configured template. Report the missing contract fields, revise the candidate, and validate again.
 4. Immediately before persistence, recheck the operation precondition: create requires an absent target; update requires the same existing target that was read. Stop on a mismatch instead of silently switching modes.
 5. Persist the validated candidate atomically when the filesystem supports it, then re-read and validate the saved target. If post-save verification fails, do not report success; restore the prior update target or remove the incomplete newly created target when safely possible.
 6. Report success only after post-save validation passes, then offer a separate test-run preview.
 
 Topic-specific style choices may change layout and wording, but they may not delete the active-Thread contract. A user can ask to revise how the mandatory module looks; omission is not a supported customization.
+
+For new Feishu bindings, explicitly record `delivery.layout: summary+thread`. Existing bindings without a layout keep `full-card`; do not change production layouts during upgrade. Keep targets explicit and scoped to the confirmed host/channel/user/workspace. Store only a credential reference, never app secrets. Preflight the selected target before collection and keep only one host-level scheduler.
 
 ## Topic Memory Rules
 
@@ -121,7 +123,7 @@ Conversation context should become maintainable topic state.
 - If the user says "这个很重要", rewrite it as a durable tracked angle, thread watchpoint, or ranking preference.
 - If the user says "按照前述要求生成今日简报", resolve the active topic from the conversation and current topic files; if more than one active topic is plausible, ask a short confirmation.
 - Treat repeated identical instructions as continuation or emphasis, not as a second topic creation request.
-- For B-style digest feedback such as `B <numbers> <name/intent>`, propose a thread seed with a stable name, aliases, match terms, summary, callback hint, and watchpoints.
+- For `track: N-xx <name/intent>`, resolve the received digest snapshot and propose a thread seed with a stable name, aliases, match terms, summary, callback hint, and watchpoints.
 
 ## Source Feasibility Rule
 
