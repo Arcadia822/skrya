@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+# verify-skrya: drive the Skrya CLI from this checkout against an isolated
+# scratch data root + HOME, and record every call as evidence.
+#
+#   verify-skrya launch                      # create a run; prints `export VERIFY_SKRYA_RUN=...`
+#   verify-skrya doctor                      # read-only health check of the current run
+#   verify-skrya skrya <label> -- <args...>  # run `python -m skrya_orchestrator.main <args>` and record it
+#   verify-skrya snapshot <label>            # copy the run's data-root state into evidence
+#   verify-skrya path [data|home|work|evidence|scratch]
+#   verify-skrya cleanup [RUN_ID]            # remove scratch state; evidence survives
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SKILL_DIR/../../.." && pwd)"
+EVIDENCE_BASE="$REPO_ROOT/tmp/verify-skrya/evidence"
+SCRATCH_BASE="${VERIFY_SKRYA_SCRATCH_BASE:-/tmp}"
+PY="${VERIFY_SKRYA_PYTHON:-python3}"
+OWNER_MARKER=".verify-skrya-owner"
+
+die() { echo "verify-skrya: $*" >&2; exit 2; }
+
+usage() {
+  sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+}
+
+require_run() {
+  local id="${1:-${VERIFY_SKRYA_RUN:-}}"
+  [[ -n "$id" ]] || die "no run: export VERIFY_SKRYA_RUN=<id> (from 'verify-skrya launch')"
+  echo "$id"
+}
+
+scratch_dir() { echo "$SCRATCH_BASE/verify-skrya-$1"; }
+
+check_owned() {
+  local id="$1" s
+  s="$(scratch_dir "$id")"
+  [[ -d "$s" ]] || die "scratch dir missing: $s"
+  [[ -f "$s/$OWNER_MARKER" && "$(cat "$s/$OWNER_MARKER")" == "$id" ]] \
+    || die "refusing: $s has no matching $OWNER_MARKER (not created by this run)"
+}
+
+# Run a command with the run's isolated environment, from the repo root.
+run_isolated() {
+  local id="$1"; shift
+  local s user_base
+  s="$(scratch_dir "$id")"
+  user_base="$("$PY" -m site --user-base)"
+  (cd "$REPO_ROOT" && env \
+    HOME="$s/home" \
+    PYTHONUSERBASE="$user_base" \
+    PYTHONPATH="$REPO_ROOT/src" \
+    SKRYA_DATA_ROOT="$s/data" \
+    GIT_TERMINAL_PROMPT=0 \
+    "$@")
+}
+
+next_step_dir() {
+  local id="$1" label="$2" n
+  label="$(printf '%s' "$label" | tr -c 'A-Za-z0-9._-' '-')"
+  n="$(find "$EVIDENCE_BASE/$id" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+  printf '%s/%s/%02d-%s' "$EVIDENCE_BASE" "$id" "$((n + 1))" "$label"
+}
+
+cmd_launch() {
+  local id s
+  id="$(date +%Y%m%dT%H%M%S)-$$"
+  s="$(scratch_dir "$id")"
+  mkdir -p "$s/data/topics" "$s/home" "$s/work" "$EVIDENCE_BASE/$id"
+  printf '%s' "$id" > "$s/$OWNER_MARKER"
+  cp -R "$REPO_ROOT/tests/fixtures/topics/." "$s/data/topics/"
+  {
+    echo "run_id: $id"
+    echo "started_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "repo_root: $REPO_ROOT"
+    echo "repo_head: $(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
+    echo "repo_dirty_files: $(git -C "$REPO_ROOT" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+    echo "scratch: $s"
+    echo "seeded_topics: $(ls "$s/data/topics" | tr '\n' ' ')"
+  } > "$EVIDENCE_BASE/$id/run.txt"
+  echo "export VERIFY_SKRYA_RUN=$id"
+  echo "verify-skrya: ready run=$id scratch=$s evidence=$EVIDENCE_BASE/$id" >&2
+}
+
+cmd_doctor() {
+  local id s fail=0 out
+  id="$(require_run "${1:-}")"
+  s="$(scratch_dir "$id")"
+  ok() { echo "[OK]   $*"; }
+  bad() { echo "[FAIL] $*"; fail=1; }
+
+  if [[ -f "$s/$OWNER_MARKER" && "$(cat "$s/$OWNER_MARKER")" == "$id" ]]; then
+    ok "scratch owned by run $id: $s"
+  else
+    bad "scratch missing or not owned by run $id: $s"
+    exit 1
+  fi
+  [[ -d "$EVIDENCE_BASE/$id" ]] && ok "evidence dir: $EVIDENCE_BASE/$id" || bad "evidence dir missing: $EVIDENCE_BASE/$id"
+
+  out="$(run_isolated "$id" "$PY" -c 'import skrya_orchestrator, yaml; print(skrya_orchestrator.__file__)' 2>&1)" || true
+  if [[ "$out" == "$REPO_ROOT/src/skrya_orchestrator/__init__.py" ]]; then
+    ok "module from checkout: $out"
+  else
+    bad "module/yaml import: $out"
+  fi
+
+  out="$(run_isolated "$id" "$PY" -m skrya_orchestrator.main version --root . 2>&1)" || true
+  echo "$out" | grep -q '^Skrya version:' && ok "$(echo "$out" | tr '\n' ' ')" || bad "version: $out"
+
+  out="$(run_isolated "$id" "$PY" -m skrya_orchestrator.main data-root --root . 2>&1)" || true
+  if echo "$out" | grep -q "^Source: SKRYA_DATA_ROOT" && echo "$out" | grep -q "verify-skrya-$id/data"; then
+    ok "data root isolated: $(echo "$out" | head -1)"
+  else
+    bad "data root not isolated: $out"
+  fi
+
+  for t in agi-news k-entertainment new-energy-vehicles; do
+    [[ -f "$s/data/topics/$t/topic.json" ]] || bad "seed topic missing: $t"
+  done
+  if [[ -f "$REPO_ROOT/.skrya/config.json" ]] && ! grep -q "verify-skrya-$id" "$REPO_ROOT/.skrya/config.json"; then
+    echo "[WARN] $REPO_ROOT/.skrya/config.json exists and is not from this run; do not run 'data-root --set ... --scope workspace' (it would overwrite it)"
+  fi
+  ok "HOME for CLI calls: $s/home"
+  return "$fail"
+}
+
+cmd_skrya() {
+  local id label dir code
+  id="$(require_run)"
+  check_owned "$id"
+  [[ $# -ge 2 && "$2" == "--" ]] || die "usage: verify-skrya skrya <label> -- <skrya args...>"
+  label="$1"; shift 2
+  dir="$(next_step_dir "$id" "$label")"
+  mkdir -p "$dir"
+  printf 'python3 -m skrya_orchestrator.main' > "$dir/cmd.txt"
+  printf ' %q' "$@" >> "$dir/cmd.txt"
+  printf '\n' >> "$dir/cmd.txt"
+  set +e
+  run_isolated "$id" "$PY" -m skrya_orchestrator.main "$@" > "$dir/stdout.txt" 2> "$dir/stderr.txt"
+  code=$?
+  set -e
+  echo "$code" > "$dir/exit_code"
+  cat "$dir/stdout.txt"
+  if [[ -s "$dir/stderr.txt" ]]; then
+    echo "--- stderr (last 5 lines) ---"
+    tail -n 5 "$dir/stderr.txt"
+  fi
+  echo "verify-skrya: exit=$code evidence=$dir" >&2
+  return "$code"
+}
+
+cmd_snapshot() {
+  local id label dir s
+  id="$(require_run)"
+  check_owned "$id"
+  label="${1:?usage: verify-skrya snapshot <label>}"
+  s="$(scratch_dir "$id")"
+  dir="$(next_step_dir "$id" "snapshot-$label")"
+  mkdir -p "$dir"
+  (cd "$s" && ls -lR data home 2>/dev/null) > "$dir/tree.txt" || true
+  if [[ -d "$s/data/runs" ]]; then
+    cp -R "$s/data/runs" "$dir/runs"
+  else
+    echo "no runs/ directory in data root" > "$dir/runs-absent.txt"
+  fi
+  echo "verify-skrya: snapshot evidence=$dir" >&2
+}
+
+cmd_path() {
+  local id s
+  id="$(require_run)"
+  s="$(scratch_dir "$id")"
+  case "${1:-scratch}" in
+    data) echo "$s/data" ;;
+    home) echo "$s/home" ;;
+    work) echo "$s/work" ;;
+    scratch) echo "$s" ;;
+    evidence) echo "$EVIDENCE_BASE/$id" ;;
+    *) die "unknown path kind: $1" ;;
+  esac
+}
+
+cmd_cleanup() {
+  local id s
+  id="$(require_run "${1:-}")"
+  s="$(scratch_dir "$id")"
+  if [[ -d "$s" ]]; then
+    check_owned "$id"
+    rm -rf "$s"
+    echo "verify-skrya: removed scratch $s" >&2
+  else
+    echo "verify-skrya: scratch already gone: $s" >&2
+  fi
+  # `data-root --set ... --scope workspace` writes <repo>/.skrya/config.json (the repo is the
+  # workspace). Remove it only when it points into this run's scratch dir.
+  local ws_config="$REPO_ROOT/.skrya/config.json"
+  if [[ -f "$ws_config" ]] && grep -q "verify-skrya-$id" "$ws_config"; then
+    rm -f "$ws_config"
+    echo "verify-skrya: removed run-owned $ws_config" >&2
+  fi
+  if [[ -d "$EVIDENCE_BASE/$id" ]]; then
+    echo "verify-skrya: evidence kept at $EVIDENCE_BASE/$id" >&2
+  fi
+  return 0
+}
+
+case "${1:-}" in
+  launch) shift; cmd_launch "$@" ;;
+  doctor) shift; cmd_doctor "$@" ;;
+  skrya) shift; cmd_skrya "$@" ;;
+  snapshot) shift; cmd_snapshot "$@" ;;
+  path) shift; cmd_path "$@" ;;
+  cleanup) shift; cmd_cleanup "$@" ;;
+  -h|--help|help|"") usage ;;
+  *) die "unknown command: $1 (try --help)" ;;
+esac
