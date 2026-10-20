@@ -171,7 +171,6 @@ def validate_instance_url(url: Any) -> str:
 
 
 def parse_rsshub_config(source: dict[str, Any]) -> RsshubConfig:
-    """Parse and validate RSSHub configuration from source dictionary at the system boundary."""
     if not isinstance(source, dict):
         raise RsshubConfigError(f"Source configuration must be a dict, got {type(source).__name__}")
 
@@ -393,7 +392,6 @@ def fetch_rsshub(source: dict[str, Any], fetch: Callable[[str, float], str]) -> 
                 "error": err or "unknown failure",
             })
 
-            # If all active requests have finished and failed, launch the next hedge early
             if active_in_flight == 0 and next_launch_idx < num_instances:
                 _launch(next_launch_idx)
                 next_launch_idx += 1

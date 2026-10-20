@@ -29,7 +29,6 @@ class TestSourceHealth(unittest.TestCase):
             self.assertFalse(non_existent_topic.exists())
             self.assertFalse(store.file_path.exists())
 
-            # Read-only operations must not create files or dirs
             self.assertTrue(store.should_fetch("source_1"))
             report = store.report("zh-CN")
             self.assertIn("信源状态良好", report)
@@ -87,7 +86,6 @@ class TestSourceHealth(unittest.TestCase):
             self.assertEqual(store.snapshot()["sources"].get(sid, {}).get("status", "ok"), "ok")
             self.assertTrue(store.should_fetch(sid))
 
-            # Failures 1 and 2: remain ok
             store.record_failure(sid, "Network timeout")
             self.assertEqual(store.snapshot()["sources"][sid]["status"], "ok")
             self.assertEqual(store.snapshot()["sources"][sid]["consecutive_failures"], 1)
@@ -96,25 +94,20 @@ class TestSourceHealth(unittest.TestCase):
             self.assertEqual(store.snapshot()["sources"][sid]["status"], "ok")
             self.assertEqual(store.snapshot()["sources"][sid]["consecutive_failures"], 2)
 
-            # Failure 3: boundary -> degraded
             store.record_failure(sid, "500 Internal Server Error")
             self.assertEqual(store.snapshot()["sources"][sid]["status"], "degraded")
             self.assertEqual(store.snapshot()["sources"][sid]["consecutive_failures"], 3)
-            # Degraded still allows fetching
             self.assertTrue(store.should_fetch(sid))
 
-            # Failures 4 through 9: remain degraded
             for i in range(4, 10):
                 store.record_failure(sid, f"Error {i}")
                 self.assertEqual(store.snapshot()["sources"][sid]["status"], "degraded")
                 self.assertEqual(store.snapshot()["sources"][sid]["consecutive_failures"], i)
                 self.assertTrue(store.should_fetch(sid))
 
-            # Failure 10: boundary -> error
             store.record_failure(sid, "403 Forbidden")
             self.assertEqual(store.snapshot()["sources"][sid]["status"], "error")
             self.assertEqual(store.snapshot()["sources"][sid]["consecutive_failures"], 10)
-            # In error state right after failure, should_fetch is False
             self.assertFalse(store.should_fetch(sid))
 
     def test_24h_reprobe_and_two_step_recovery(self) -> None:
@@ -134,18 +127,14 @@ class TestSourceHealth(unittest.TestCase):
             self.assertEqual(store.snapshot()["sources"][sid]["status"], "error")
             self.assertFalse(store.should_fetch(sid))
 
-            # After 23 hours, should still be blocked (backed off)
             current_time += timedelta(hours=23)
             self.assertFalse(store.should_fetch(sid))
 
-            # Skipped attempts do not count as failures or mutate failure count
             self.assertEqual(store.snapshot()["sources"][sid]["consecutive_failures"], 10)
 
-            # After 24 hours, one probe attempt is allowed
             current_time += timedelta(hours=1, seconds=1)
             self.assertTrue(store.should_fetch(sid))
 
-            # Step 1 of recovery: successful probe changes status from 'error' to 'degraded'
             store.record_success(sid, item_count=5)
             snap = store.snapshot()
             self.assertEqual(snap["sources"][sid]["status"], "degraded")
@@ -153,7 +142,6 @@ class TestSourceHealth(unittest.TestCase):
             self.assertEqual(snap["sources"][sid]["item_count"], 5)
             self.assertTrue(store.should_fetch(sid))
 
-            # Step 2 of recovery: next success changes status from 'degraded' to 'ok'
             current_time += timedelta(minutes=30)
             store.record_success(sid, item_count=8)
             snap = store.snapshot()
@@ -177,23 +165,18 @@ class TestSourceHealth(unittest.TestCase):
 
             self.assertEqual(store.snapshot()["sources"][sid]["status"], "error")
 
-            # Fast forward 24h: probe allowed
             current_time += timedelta(hours=24)
             self.assertTrue(store.should_fetch(sid))
 
-            # Probe fails
             store.record_failure(sid, "Crash again")
             self.assertEqual(store.snapshot()["sources"][sid]["status"], "error")
             self.assertEqual(store.snapshot()["sources"][sid]["consecutive_failures"], 11)
 
-            # Immediately after failed probe, blocked again
             self.assertFalse(store.should_fetch(sid))
 
-            # 12h later: still blocked
             current_time += timedelta(hours=12)
             self.assertFalse(store.should_fetch(sid))
 
-            # 24h after the latest probe failure: allowed again
             current_time += timedelta(hours=12, seconds=1)
             self.assertTrue(store.should_fetch(sid))
 
@@ -229,7 +212,6 @@ class TestSourceHealth(unittest.TestCase):
 
             self.assertTrue(store1.file_path.is_file())
 
-            # Load in a fresh instance
             store2 = SourceHealthStore(topic_dir)
             snap = store2.snapshot()
 
@@ -267,15 +249,12 @@ class TestSourceHealth(unittest.TestCase):
             health_file.write_text(json.dumps(initial_json, indent=2), encoding="utf-8")
 
             store = SourceHealthStore(topic_dir)
-            # Record a failure on source-1
             store.record_failure("source-1", "Timeout")
             store.save()
 
             reloaded_json = json.loads(health_file.read_text(encoding="utf-8"))
-            # Top-level custom fields preserved
             self.assertEqual(reloaded_json["custom_cluster_id"], "cluster-999")
             self.assertEqual(reloaded_json["meta_flags"], {"monitored": True})
-            # Per-source custom fields preserved
             s1 = reloaded_json["sources"]["source-1"]
             self.assertEqual(s1["custom_source_metric"], 42.5)
             self.assertEqual(s1["legacy_tag"], "archived_feed")
@@ -288,25 +267,21 @@ class TestSourceHealth(unittest.TestCase):
             health_file = topic_dir / "source-health.json"
             health_file.write_text("{{corrupted json syntax...", encoding="utf-8")
 
-            # Store initialization must not crash
             store = SourceHealthStore(topic_dir)
             self.assertTrue(store.should_fetch("new_src"))
             self.assertEqual(store.snapshot()["sources"], {})
 
     def test_redact_error_removes_secrets_and_credentials(self) -> None:
-        # Bearer token redaction
         err1 = "HTTP 401: Unauthorized for Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xyz"
         redacted1 = redact_error(err1)
         self.assertNotIn("eyJhb", redacted1)
         self.assertIn("Bearer [REDACTED]", redacted1)
 
-        # Basic auth user:pass in URL
         err2 = "Failed to fetch https://user:secretpass123@api.example.com/feed"
         redacted2 = redact_error(err2)
         self.assertNotIn("secretpass123", redacted2)
         self.assertIn("[REDACTED]", redacted2)
 
-        # Sensitive query params
         err3 = "Request failed: https://feed.example.com/rss?api_key=sk-1234567890abcdef&category=tech"
         redacted3 = redact_error(err3)
         self.assertNotIn("sk-1234567890abcdef", redacted3)
@@ -316,27 +291,22 @@ class TestSourceHealth(unittest.TestCase):
     def test_redact_error_covers_sensitive_headers_and_payloads(self) -> None:
         sentinel = "secret-sentinel"
 
-        # Sensitive header form
         redacted1 = redact_error(f"request rejected; X-API-Key: {sentinel}")
         self.assertNotIn(sentinel, redacted1)
         self.assertIn("X-API-Key: [REDACTED]", redacted1)
 
-        # Non-bearer Authorization header
         redacted2 = redact_error(f"Authorization: {sentinel}")
         self.assertNotIn(sentinel, redacted2)
         self.assertIn("Authorization: [REDACTED]", redacted2)
 
-        # Quoted JSON payload assignment; non-sensitive keys survive
         redacted3 = redact_error(f'{{"api_key": "{sentinel}", "category": "tech"}}')
         self.assertNotIn(sentinel, redacted3)
         self.assertIn('"category": "tech"', redacted3)
         self.assertIn("[REDACTED]", redacted3)
 
-        # Python repr payload assignment with single quotes
         redacted4 = redact_error("headers={'Authorization': 'Bearer abc123.def456'}")
         self.assertNotIn("abc123.def456", redacted4)
 
-        # Unquoted payload assignment; surrounding text survives
         redacted5 = redact_error(f"auth failed: password={sentinel} for user bob")
         self.assertNotIn(sentinel, redacted5)
         self.assertIn("user bob", redacted5)
@@ -525,18 +495,15 @@ class TestSourceHealth(unittest.TestCase):
                 store.record_failure("verge-tech", "503 Service Unavailable")
 
             report_zh = store.report("zh-CN")
-            # Must display configured human name, not raw id
             self.assertIn("知乎热榜", report_zh)
             self.assertIn("The Verge", report_zh)
             self.assertNotIn("zhihu-hot", report_zh)
             self.assertNotIn("verge-tech", report_zh)
 
-            # Must state backed off / 暂缓拉取, NOT misleading '已停用' or 'disabled'
             self.assertNotIn("已停用", report_zh)
             self.assertNotIn("已禁用", report_zh)
             self.assertIn("暂缓拉取", report_zh)
 
-            # English report check
             report_en = store.report("en")
             self.assertIn("The Verge", report_en)
             self.assertIn("backed off", report_en)
@@ -557,7 +524,6 @@ class TestSourceHealth(unittest.TestCase):
 
                 store = SourceHealthStore(topic_dir)
 
-                # Preview stays usable and non-destructive.
                 self.assertEqual(store.snapshot()["sources"], {})
                 self.assertNotIn("状态良好", store.report("zh-CN"))
                 self.assertNotIn("healthy", store.report("en").lower())
@@ -587,7 +553,6 @@ class TestSourceHealth(unittest.TestCase):
             "Authorization: [REDACTED]", redact_error("Authorization: Token ghp_example")
         )
 
-        # Existing safe formatted header/list/dict cases stay protected.
         kept = redact_error("auth failed: password=secret-sentinel for user bob")
         self.assertNotIn("secret-sentinel", kept)
         self.assertIn("user bob", kept)
@@ -616,7 +581,6 @@ class TestSourceHealth(unittest.TestCase):
             store.record_failure("zhihu-hot", "500 Internal Server Error")
             store.record_success("reuters-biz", item_count=4)
 
-            # Threshold state machine unchanged: one failure is still formal 'ok'.
             self.assertEqual(store.snapshot()["sources"]["zhihu-hot"]["status"], "ok")
 
             report_zh = store.report("zh-CN")
@@ -632,7 +596,6 @@ class TestSourceHealth(unittest.TestCase):
             self.assertIn("500 Internal Server Error", report_en)
             self.assertIn("知乎热榜", report_en)
 
-            # Only a zero-failure run may claim all healthy.
             store.record_success("zhihu-hot", item_count=2)
             self.assertIn("全部 2 个信源状态正常", store.report("zh-CN"))
             self.assertIn("All 2 sources are healthy", store.report("en"))
@@ -669,7 +632,6 @@ class TestSourceHealth(unittest.TestCase):
             self.assertEqual(snap["generation"], 8)
             self.assertEqual(snap["item_count"], 3)
 
-            # A stale lower mirror op never overwrites the newer generation either.
             store_late = SourceHealthStore(topic_dir, clock=clock)
             store_late.set_generation("src_a", 7)
             store_late.save()

@@ -143,7 +143,6 @@ class TranslationCache:
         provider: str = "google-translate",
         write: bool = True,
     ) -> str:
-        """Translate text using cache when available, falling back to translator."""
         if not isinstance(text, str) or not text.strip():
             return text
 
@@ -207,10 +206,6 @@ class TranslationCache:
         return translated
 
     def clear(self, *, language: str | None = None) -> int:
-        """Clear owned cache entries, optionally scoped to a target language.
-
-        Returns the count of removed cache entry files.
-        """
         lang_key: str | None = None
         if language is not None:
             lang_key = self._safe_lang(language)
@@ -312,7 +307,6 @@ class TranslationCache:
         return removed_count
 
     def _prune_empty_dirs(self, root: Path) -> None:
-        """Remove empty subdirectories bottom-up without deleting non-empty directories."""
         if _has_symlink_ancestor(root) or not root.exists():
             return
         resolved_base = self._cache_dir.resolve(strict=False)

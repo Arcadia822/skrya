@@ -1,4 +1,3 @@
-"""Tests for source fidelity, landing page preservation, and plain text degradation."""
 from __future__ import annotations
 
 import hashlib
@@ -26,7 +25,6 @@ from skrya_orchestrator.sources import (
 
 class SourceFidelityTests(unittest.TestCase):
     def test_ingest_with_only_source_name_survives_load_snapshot_and_render(self) -> None:
-        """Item with only source_name retains media identity without fabricating a URL."""
         tmp_dir = Path(tempfile.mkdtemp())
         try:
             topic_dir = tmp_dir / "topics" / "military"
@@ -128,7 +126,6 @@ class SourceFidelityTests(unittest.TestCase):
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
     def test_mixed_linked_and_plain_sources_parsed_and_rendered(self) -> None:
-        """Mixed sources on the same line retain linked Xinhua and plain CCTV Military/Weibo."""
         raw_line = "信源：[新华社](https://www.xinhuanet.com/milpro/20261016/364c7e4075a942c78d80e3930650f6a3/c.html) | 央视军事 | 微博热搜"
         sources = parse_sources(raw_line)
 
@@ -152,7 +149,6 @@ class SourceFidelityTests(unittest.TestCase):
         self.assertEqual(rendered, expected)
 
     def test_legacy_url_only_inputs_continue_working(self) -> None:
-        """Legacy URL-only inputs without explicit names derive host and keep valid link."""
         normalized = normalize_sources(["https://example.com/comet-enterprise"])
         self.assertEqual(len(normalized), 1)
         self.assertEqual(normalized[0]["name"], "example.com")
@@ -224,7 +220,6 @@ class SourceFidelityTests(unittest.TestCase):
         )
 
     def test_unsafe_homepage_and_search_placeholders_degrade_to_plain_label(self) -> None:
-        """Obvious homepages and search pages lose hyperlinks but retain media labels."""
         inputs = [
             {"name": "中国军网", "url": "http://www.81.cn/"},
             {"name": "UKMTO", "url": "https://www.ukmto.org"},
@@ -251,7 +246,6 @@ class SourceFidelityTests(unittest.TestCase):
         self.assertIn("抖音热搜", rendered)
 
     def test_direct_article_links_stay_hyperlinks_and_malformed_urls_degrade_safely(self) -> None:
-        """Article-shaped URLs stay linked; malformed URLs degrade with provenance."""
         linked = parse_sources("[微信公众号](https://mp.weixin.qq.com/s/actual-article)")
         self.assertEqual(len(linked), 1)
         self.assertEqual(linked[0].url, "https://mp.weixin.qq.com/s/actual-article")
@@ -280,7 +274,6 @@ class SourceFidelityTests(unittest.TestCase):
         self.assertEqual(by_name["端口超界链接"].get("original_url"), "http://example.com:99999999/article-1")
 
     def test_wechat_short_path_article_survives_rendering(self) -> None:
-        """A WeChat /s/<id> URL keeps its shape through parsing and card rendering."""
         digest_md = (
             "# 2026-10-20｜军事｜每日简报\n\n"
             "## 今日简讯\n\n"
@@ -302,7 +295,6 @@ class SourceFidelityTests(unittest.TestCase):
         self.assertIn("](https://mp.weixin.qq.com/s/actual-article)", all_text)
 
     def test_unrelated_article_urls_never_reassigned(self) -> None:
-        """When an event has only plain or degraded sources, primary_article_url returns empty."""
         item_plain = DigestItem(
             key="N-01",
             number=1,
@@ -328,7 +320,6 @@ class SourceFidelityTests(unittest.TestCase):
         self.assertEqual(primary_article_url(item_title_homepage), "")
 
     def test_duplicate_name_and_link_handling(self) -> None:
-        """Deduplicates redundant names and links while upgrading plain labels when linked version arrives."""
         s1 = normalize_sources(
             [
                 {"name": "新华社", "url": "https://xinhuanet.com/article-1"},
@@ -366,7 +357,6 @@ class SourceFidelityTests(unittest.TestCase):
         self.assertEqual(s5[1]["name"], "微博热搜")
 
     def test_snapshot_backed_source_restoration_retains_all_actual_source_labels(self) -> None:
-        """parse_digest with snapshot restores all actual source labels even if markdown is partial."""
         snapshot = {
             "items": {
                 "N-01": {
@@ -592,7 +582,6 @@ class SourceFidelityTests(unittest.TestCase):
         self.assertEqual(primary_article_url([source]), "https://example.org/report")
 
     def test_english_rendering_and_labels(self) -> None:
-        """English source labels render with Sources prefix and preserve mixed links."""
         sources = [
             {"name": "Reuters", "url": "https://reuters.com/world/article-1"},
             {"name": "BBC News", "url": ""},
@@ -604,7 +593,6 @@ class SourceFidelityTests(unittest.TestCase):
         )
 
     def test_clean_source_name_and_host_derivation(self) -> None:
-        """Strips formatting, leading labels, and font tags while deriving clean hosts."""
         self.assertEqual(clean_source_name("**信源**：央视军事"), "央视军事")
         self.assertEqual(clean_source_name("<font color=grey>来源：</font>人民日报"), "人民日报")
         self.assertEqual(clean_source_name("Sources: Reuters"), "Reuters")
@@ -612,7 +600,6 @@ class SourceFidelityTests(unittest.TestCase):
         self.assertEqual(host_name("http://news.cctv.com:8080/test"), "news.cctv.com")
 
     def test_bare_url_paired_parentheses_survive_and_unpaired_terminate(self) -> None:
-        """Paired ASCII parentheses stay inside a bare URL; unpaired trailing parens terminate it."""
         linked = [r for r in normalize_sources("详情见 https://en.wikipedia.org/wiki/GPT_(language_model) 说明") if r["url"]]
         self.assertEqual(
             ["https://en.wikipedia.org/wiki/GPT_(language_model)"],
@@ -632,7 +619,6 @@ class SourceFidelityTests(unittest.TestCase):
         self.assertFalse(is_valid_article_url("https://[fe80::1]/search?q=x"))
 
     def test_source_identity_single_convention(self) -> None:
-        """Explicit ids win; otherwise identity digests the type-specific reference."""
         self.assertEqual("confirmed", source_identity({"id": " confirmed ", "url": "https://a.test/x"}))
         self.assertEqual(
             "rss:" + hashlib.sha256(b"https://news.test/rss").hexdigest(),

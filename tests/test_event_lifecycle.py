@@ -888,8 +888,8 @@ class PruneIngestsTests(unittest.TestCase):
             os.utime(raw, ns=(mtime_ns, mtime_ns))
 
         oldest_stamp = "2026-10-20T06-00-00-02-00"  # 04:00Z despite the latest-looking filename
-        collision_stamp = "2026-10-20T04-30-00-00-00"  # 04:30Z shared by two writes
-        newest_stamp = "2026-10-20T05-00-00-00-00"  # 05:00Z
+        collision_stamp = "2026-10-20T04-30-00-00-00"
+        newest_stamp = "2026-10-20T05-00-00-00-00"
         write_batch(f"{oldest_stamp}.json", "2026-10-20T06:00:00+02:00", "offset-old", 10)
         write_batch(f"{collision_stamp}.json", "2026-10-20T04:30:00+00:00", "collision-first", 20)
         write_batch(f"{collision_stamp}-abcd1234.json", "2026-10-20T04:30:00+00:00", "collision-second", 20)

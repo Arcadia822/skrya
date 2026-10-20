@@ -506,7 +506,6 @@ class TranslationCacheTests(unittest.TestCase):
             self.assertEqual(cached_result, "量子计算重大突破")
 
     def test_clear_and_translate_skip_linked_cache_ancestry(self) -> None:
-        """A linked cache root or parent must never expose outside validated envelopes."""
         for component in ("translations", "cache", "data", "ancestor"):
             with self.subTest(component=component), tempfile.TemporaryDirectory() as temp_dir:
                 base = Path(temp_dir)
@@ -537,7 +536,6 @@ class TranslationCacheTests(unittest.TestCase):
                 # Translation still works via the translator, never through the link.
                 self.assertEqual(cache.translate(text, lambda t: "早上好-新"), "早上好-新")
 
-                # Clearing removes nothing through the link.
                 self.assertEqual(cache.clear(), 0)
                 self.assertEqual(cache.clear(language="zh-CN"), 0)
                 self.assertTrue(link_path.is_symlink())

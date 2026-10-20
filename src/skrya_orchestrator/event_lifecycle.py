@@ -83,7 +83,6 @@ def _article_url(item: dict[str, Any]) -> str:
 
 
 def event_identity(item: dict[str, Any]) -> tuple[str, str]:
-    """Return (event_id, content_hash) for a normalized item or event."""
     source_id = infer_source_id(item)
     url = _article_url(item)
     if url:
@@ -94,7 +93,6 @@ def event_identity(item: dict[str, Any]) -> tuple[str, str]:
 
 
 def identify_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Return copies of events annotated with source_id, event_id and content_hash."""
     identified: list[dict[str, Any]] = []
     for event in events:
         if not isinstance(event, dict):

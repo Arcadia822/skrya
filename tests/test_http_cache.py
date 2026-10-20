@@ -145,12 +145,10 @@ class TestHttpCache(unittest.TestCase):
         cache = HttpCache(self.data_root, clock=self.clock, opener=self.opener)
         target_url = "https://example.com/feed.xml"
 
-        # First fetch: triggers network request and saves cache
         result1 = cache.fetch(target_url, ttl_seconds=1800)
         self.assertEqual(result1, xml_content)
         self.assertEqual(len(self.opener.calls), 1)
 
-        # Inspect created cache files
         h = url_hash(target_url)
         entry_dir = cache.cache_dir / h
         self.assertTrue(entry_dir.is_dir())
@@ -174,7 +172,6 @@ class TestHttpCache(unittest.TestCase):
         self.assertTrue(meta["body_digest"])
         self.assertNotIn("body_sha256", meta)
 
-        # Second fetch within TTL: serves from disk, no opener call
         self.current_time += timedelta(seconds=600)
         result2 = cache.fetch(target_url, ttl_seconds=1800)
         self.assertEqual(result2, xml_content)
@@ -192,7 +189,6 @@ class TestHttpCache(unittest.TestCase):
         cache.fetch(target_url, ttl_seconds=1800)
         self.assertEqual(len(self.opener.calls), 1)
 
-        # Advance clock past expiry
         self.current_time += timedelta(seconds=1801)
 
         def raise_304(request: Request, timeout: int | float) -> Any:
@@ -208,7 +204,6 @@ class TestHttpCache(unittest.TestCase):
 
         self.opener.handler = raise_304
 
-        # Calling fetch should catch real urllib 304, reuse cached body, and refresh expiry
         result = cache.fetch(target_url, ttl_seconds=1800)
         self.assertEqual(result, body_v1)
         self.assertEqual(len(self.opener.calls), 2)
@@ -282,13 +277,11 @@ class TestHttpCache(unittest.TestCase):
         cache.fetch(target_url, ttl_seconds=1800)
         self.assertEqual(len(self.opener.calls), 1)
 
-        # Force refresh while cache is still fresh
         self.opener.handler = FakeHttpResponse(body_v2, status=200, headers={"ETag": '"v2"'})
         result = cache.fetch(target_url, force_refresh=True)
         self.assertEqual(result, body_v2)
         self.assertEqual(len(self.opener.calls), 2)
 
-        # Confirm no conditional validators were sent
         second_headers = self.opener.calls[1]["headers"]
         self.assertNotIn("If-none-match", second_headers)
         self.assertNotIn("If-modified-since", second_headers)
@@ -299,7 +292,6 @@ class TestHttpCache(unittest.TestCase):
         cache = HttpCache(self.data_root, clock=self.clock, opener=self.opener)
         cache.fetch(target_url, ttl_seconds=1800)
 
-        # Corrupt meta.json with invalid syntax
         h = url_hash(target_url)
         meta_file = cache.cache_dir / h / "meta.json"
         meta_file.write_text("{broken json syntax: true", encoding="utf-8")
@@ -308,7 +300,6 @@ class TestHttpCache(unittest.TestCase):
         result = cache.fetch(target_url, ttl_seconds=1800)
         self.assertEqual(result, "<rss>Repaired</rss>")
 
-        # Confirm cache is restored and valid
         meta = cache.get_metadata(target_url)
         self.assertIsNotNone(meta)
         self.assertEqual(meta.status, 200)  # type: ignore
@@ -322,23 +313,19 @@ class TestHttpCache(unittest.TestCase):
         cache.fetch(target_url, ttl_seconds=1800)
         self.assertEqual(len(self.opener.calls), 1)
 
-        # Tamper with response.xml directly
         h = url_hash(target_url)
         response_file = cache.cache_dir / h / "response.xml"
         response_file.write_text("<rss>Tampered</rss>", encoding="utf-8")
 
-        # Second fetch: digest mismatch causes cache miss; performs unconditional fetch
         self.opener.handler = FakeHttpResponse("<rss>Restored</rss>", status=200)
         result = cache.fetch(target_url, ttl_seconds=1800)
         self.assertEqual(result, "<rss>Restored</rss>")
         self.assertEqual(len(self.opener.calls), 2)
 
-        # Verify second request had no conditional headers because cached entry was invalidated
         second_headers = self.opener.calls[1]["headers"]
         self.assertNotIn("If-none-match", second_headers)
         self.assertNotIn("If-modified-since", second_headers)
 
-        # Confirm restored cache has matching digest
         meta = cache.get_metadata(target_url)
         self.assertIsNotNone(meta)
         restored_body = (cache.cache_dir / h / "response.xml").read_text(encoding="utf-8")
@@ -356,11 +343,9 @@ class TestHttpCache(unittest.TestCase):
         cache.fetch(target_url, ttl_seconds=600)
         self.assertEqual(len(self.opener.calls), 1)
 
-        # Tamper with response.xml while in cache prior to fetch
         h = url_hash(target_url)
         (cache.cache_dir / h / "response.xml").write_text("<rss>Broken</rss>", encoding="utf-8")
 
-        # Advance clock past TTL
         self.current_time += timedelta(seconds=601)
 
         # Because cached body is corrupted before fetch, _read_entry rejects it immediately as a miss.
@@ -394,7 +379,6 @@ class TestHttpCache(unittest.TestCase):
             nonlocal request_count
             request_count += 1
             if request_count == 1:
-                # First request is conditional
                 self.assertEqual(request.headers.get("If-none-match"), '"v1"')
                 # Simulate in-flight corruption of the cached file before 304 is processed
                 (cache.cache_dir / h / "response.xml").write_text(
@@ -402,7 +386,6 @@ class TestHttpCache(unittest.TestCase):
                 )
                 msg = Message()
                 raise urllib.error.HTTPError(request.full_url, 304, "Not Modified", msg, None)  # type: ignore
-            # Second request is fallback unconditional
             self.assertNotIn("If-none-match", request.headers)
             return FakeHttpResponse("<rss>FreshFallback</rss>", status=200)
 
@@ -419,20 +402,17 @@ class TestHttpCache(unittest.TestCase):
         cache = HttpCache(self.data_root, clock=self.clock, opener=self.opener)
         target_url = "https://example.com/closure.xml"
 
-        # 1. Success 200 response is closed
         resp_200 = FakeHttpResponse("<rss>A</rss>", status=200, headers={"ETag": '"v1"'})
         self.opener.handler = resp_200
         cache.fetch(target_url, ttl_seconds=600)
         self.assertTrue(resp_200.closed)
 
-        # 2. 304 response object is closed
         self.current_time += timedelta(seconds=601)
         resp_304 = FakeHttpResponse("", status=304)
         self.opener.handler = resp_304
         cache.fetch(target_url, ttl_seconds=600)
         self.assertTrue(resp_304.closed)
 
-        # 3. Non-200 status (e.g. 206) response is closed and raises HTTPError
         self.current_time += timedelta(seconds=601)
         resp_206 = FakeHttpResponse("<rss>Partial</rss>", status=206)
         self.opener.handler = resp_206
@@ -448,7 +428,6 @@ class TestHttpCache(unittest.TestCase):
         h = url_hash(target_url)
         meta_path = cache.cache_dir / h / "meta.json"
 
-        # Case 1: Status not 200 in metadata
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         meta["status"] = 500
         meta_path.write_text(json.dumps(meta), encoding="utf-8")
@@ -456,7 +435,6 @@ class TestHttpCache(unittest.TestCase):
         result = cache.fetch(target_url, ttl_seconds=600)
         self.assertEqual(result, "<rss>RestoredStatus</rss>")
 
-        # Case 2: URL hash mismatch in metadata
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         meta["url_hash"] = "0" * 64
         meta_path.write_text(json.dumps(meta), encoding="utf-8")
@@ -464,7 +442,6 @@ class TestHttpCache(unittest.TestCase):
         result = cache.fetch(target_url, ttl_seconds=600)
         self.assertEqual(result, "<rss>RestoredHash</rss>")
 
-        # Case 3: URL mismatch in metadata
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         meta["url"] = "https://other.com/spoofed.xml"
         meta_path.write_text(json.dumps(meta), encoding="utf-8")
@@ -492,12 +469,10 @@ class TestHttpCache(unittest.TestCase):
         cache.fetch(target_url, ttl_seconds=600)
 
         self.current_time += timedelta(seconds=601)
-        # Server returns 204 No Content instead of 200/304
         self.opener.handler = FakeHttpResponse("", status=204)
         with self.assertRaises(urllib.error.HTTPError):
             cache.fetch(target_url, ttl_seconds=600)
 
-        # Existing valid cache should not be overwritten by 204
         h = url_hash(target_url)
         self.assertEqual(
             (cache.cache_dir / h / "response.xml").read_text(encoding="utf-8"),
@@ -508,7 +483,6 @@ class TestHttpCache(unittest.TestCase):
         cache = HttpCache(self.data_root, clock=self.clock, opener=self.opener)
         target_url = "https://example.com/timeout.xml"
 
-        # Case A: empty cache, network times out
         self.opener.handler = lambda req, timeout: (_ for _ in ()).throw(
             TimeoutError("RSSHub request timed out")
         )
@@ -516,7 +490,6 @@ class TestHttpCache(unittest.TestCase):
             cache.fetch(target_url)
         self.assertFalse((cache.cache_dir / url_hash(target_url)).exists())
 
-        # Case B: existing expired cache, server returns 500 error
         self.opener.handler = FakeHttpResponse("<rss>Working</rss>", status=200)
         cache.fetch(target_url, ttl_seconds=600)
         self.current_time += timedelta(seconds=601)
@@ -525,7 +498,6 @@ class TestHttpCache(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError):
             cache.fetch(target_url)
 
-        # Existing cache must not be poisoned with 500 response
         h = url_hash(target_url)
         self.assertEqual(
             (cache.cache_dir / h / "response.xml").read_text(encoding="utf-8"),
@@ -547,14 +519,10 @@ class TestHttpCache(unittest.TestCase):
         self.opener.handler = FakeHttpResponse("<rss>C</rss>", status=200)
         cache.fetch(url_expired, ttl_seconds=3600)
 
-        # Mutate expires_at manually to simulate different ages
         h_fresh = url_hash(url_fresh)
         h_grace = url_hash(url_grace)
         h_expired = url_hash(url_expired)
 
-        # Fresh: expires in 1 hour
-        # Grace: expired 2 hours ago (within 24h grace window)
-        # Expired: expired 25 hours ago (exceeds 24h grace window)
         def set_expiry(h: str, offset: timedelta) -> None:
             meta_path = cache.cache_dir / h / "meta.json"
             meta = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -600,20 +568,16 @@ class TestHttpCache(unittest.TestCase):
         h = url_hash("https://example.com/active")
         entry_dir = cache.cache_dir / h
 
-        # Place manual files at root
         root_manual = cache.cache_dir / "manual_notes.txt"
         root_manual.write_text("Do not delete", encoding="utf-8")
 
-        # Place manual directory
         manual_dir = cache.cache_dir / "non_hash_dir"
         manual_dir.mkdir(parents=True, exist_ok=True)
         (manual_dir / "keep.txt").write_text("Keep me", encoding="utf-8")
 
-        # Place manual file inside recognized entry dir
         entry_manual = entry_dir / "custom_extra.txt"
         entry_manual.write_text("Keep inside entry", encoding="utf-8")
 
-        # Create outside dir and symlink inside cache_dir
         outside_dir = self.temp_dir / "outside_data"
         outside_dir.mkdir(parents=True, exist_ok=True)
         outside_file = outside_dir / "secret.txt"
@@ -625,14 +589,12 @@ class TestHttpCache(unittest.TestCase):
         except OSError:
             pass
 
-        # Run cleanup - must not delete manual files or symlink targets
         cache.cleanup()
         self.assertTrue(root_manual.is_file())
         self.assertTrue((manual_dir / "keep.txt").is_file())
         self.assertTrue(entry_manual.is_file())
         self.assertTrue(outside_file.is_file())
 
-        # Run clear - removes entry cache files but preserves manual files and symlink target
         cleared = cache.clear()
         self.assertEqual(cleared, 1)
 
@@ -661,22 +623,18 @@ class TestHttpCache(unittest.TestCase):
                     data[rel] = fp.read_bytes()
             return data
 
-        # 1. Read-only fetch on cache miss: should return network body without creating data_root
         body1 = cache.fetch(target_url, write=False)
         self.assertEqual(body1, "<rss>Readonly</rss>")
         self.assertFalse(self.data_root.exists())
 
-        # 2. Populate cache normally with write=True
         cache.fetch(target_url, write=True, ttl_seconds=600)
         before_snap = snapshot(self.data_root)
         self.assertTrue(len(before_snap) > 0)
 
-        # 3. Read-only fetch on fresh hit: must not modify any byte or metadata
         body2 = cache.fetch(target_url, write=False, ttl_seconds=600)
         self.assertEqual(body2, "<rss>Readonly</rss>")
         self.assertEqual(snapshot(self.data_root), before_snap)
 
-        # 4. Read-only fetch on expired hit with 304: must not refresh metadata on disk
         self.current_time += timedelta(seconds=601)
         self.opener.handler = FakeHttpResponse(
             "", status=304, headers={"ETag": '"r2"'}
@@ -1000,7 +958,6 @@ class TestHttpCache(unittest.TestCase):
         meta["expires_at"] = (self.current_time - timedelta(hours=25)).isoformat()
         meta_path.write_text(json.dumps(meta), encoding="utf-8")
 
-        # Simulate another request mid-write: recent .tmp.* file in the entry.
         tmp_file = entry_dir / f".tmp.response.{os.getpid()}.999.xml"
         tmp_file.write_text("partial", encoding="utf-8")
         stamp = self.current_time.timestamp()
@@ -1025,7 +982,6 @@ class TestHttpCache(unittest.TestCase):
         meta["expires_at"] = (self.current_time - timedelta(hours=25)).isoformat()
         meta_path.write_text(json.dumps(meta), encoding="utf-8")
 
-        # Leftover tmp file older than the active-write threshold.
         tmp_file = entry_dir / f".tmp.meta.{os.getpid()}.998.json"
         tmp_file.write_text("stale", encoding="utf-8")
         stamp = (self.current_time - timedelta(hours=2)).timestamp()
@@ -1052,7 +1008,6 @@ class TestHttpCache(unittest.TestCase):
         self.assertTrue(entry_dir.is_dir())
         self.assertTrue(tmp_file.exists())
 
-        # Once the tmp file ages past the active-write threshold, clear removes it.
         self.current_time += timedelta(hours=2)
         self.assertEqual(cache.clear(), 1)
         self.assertFalse(entry_dir.exists())
@@ -1096,5 +1051,4 @@ class TestHttpCache(unittest.TestCase):
         elapsed = time_module.monotonic() - started
         # The read must abort near the deadline, not run for the full timeout.
         self.assertLess(elapsed, 5.0)
-        # Nothing was written for the aborted response.
         self.assertFalse((self.data_root / "http-cache" / url_hash(url)).exists())
