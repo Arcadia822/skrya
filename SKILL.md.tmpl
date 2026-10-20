@@ -12,6 +12,7 @@ Skrya is an umbrella skill pack. Route requests to the bundled skills that best 
 - `thread` behavior is handled inside topic and digest workflows when a continuing event needs a stable timeline
 - `docs/domain-model.md` explains the durable Skrya entities
 - `docs/upgrade.md` explains the update and migration flow agents should run after cloning or pulling a new version
+- `docs/external-retrieval-interface.md` explains the normalized `skrya.ingest.v2` format, the explicit `upgrade --migrate-ingest-v2` migration with backups, and dry-run-first ingest pruning
 - `docs/user-journeys.md` explains installation, data-root, and uninstall journeys agents should follow
 
 ## Global Rules
@@ -119,7 +120,7 @@ When a user or runtime mentions a third-party retrieval skill such as `agent-rea
 - Store provider-neutral source entries as `runtime-retrieval` sources.
 - Do not save the provider name as a required durable source dependency.
 - Provider names may appear only in runtime ingest artifacts under `<skrya-data-root>/runs/<topic-id>/ingest/` for traceability.
-- Before digest generation, normalize provider output into `skrya.ingest.v1`; do not let digest or deep-analysis consume raw provider text directly.
+- Before digest generation, the agent converts provider tool output into the normalized `skrya.ingest.v2` format. Skrya computes and validates stable event ids and content hashes from real source identifiers and URLs; no caller invents an article URL or event identity. Do not let digest or deep-analysis consume raw provider text directly.
 
 ## Ongoing Tracking Journey
 

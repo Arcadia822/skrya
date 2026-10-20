@@ -6,18 +6,14 @@ import re
 from typing import Any
 from urllib.parse import urlparse
 
-GENERIC_LINK_TEXT = (
-    "原文链接",
-    "链接",
-    "原文",
-    "查看",
-    "来源",
-    "详情",
-    "view",
-    "link",
-    "source",
-    "sources",
+from .sources import (
+    SourceRef,
+    is_valid_article_url,
+    normalize_sources,
+    parse_sources,
+    primary_article_url,
 )
+
 LINK_RE = re.compile(r"\[([^\]]*)\]\((https?://[^)\s]+)\)")
 CJK_RE = re.compile(r"[\u2e80-\u9fff\u3000-\u303f\uff00-\uffef]")
 
@@ -55,71 +51,6 @@ def detect_language(content: str) -> str:
     cjk_count = sum(1 for ch in content if CJK_RE.match(ch))
     ascii_letter_count = sum(1 for ch in content if ch.isascii() and ch.isalpha())
     return "en" if ascii_letter_count > cjk_count * 2 else "zh-CN"
-
-
-def _clean_name(name: str) -> str:
-    cleaned = re.sub(r"[*`_]+", "", name or "")
-    cleaned = re.sub(r"^(?:来源|信源|source|sources)\s*[:：]?\s*", "", cleaned, flags=re.I)
-    return cleaned.strip()
-
-
-def _host_name(url: str) -> str:
-    m = re.match(r"https?://([^/]+)", url)
-    if not m:
-        return "link"
-    host = m.group(1).lower()
-    return re.sub(r"^www\.", "", host)
-
-
-def parse_sources(text: str) -> list[SourceRef]:
-    """Parse source links from a line or block into clean, deduplicated SourceRefs."""
-    seen_urls: set[str] = set()
-    sources: list[SourceRef] = []
-
-    # First look for markdown links [text](url)
-    for m in LINK_RE.finditer(text):
-        raw_name = m.group(1)
-        url = m.group(2).strip()
-        if url in seen_urls:
-            continue
-        cleaned = _clean_name(raw_name)
-        if not cleaned or cleaned.lower() in GENERIC_LINK_TEXT:
-            cleaned = _host_name(url)
-        seen_urls.add(url)
-        sources.append(SourceRef(name=cleaned, url=url))
-
-    # Also capture bare URLs if no markdown links were found
-    if not sources:
-        for url_match in re.finditer(r"https?://[^\s)\]]+", text):
-            url = url_match.group(0).rstrip(".,;，。")
-            if url not in seen_urls:
-                seen_urls.add(url)
-                sources.append(SourceRef(name=_host_name(url), url=url))
-
-    return sources
-
-
-def render_sources(sources: list[SourceRef | dict[str, Any]], language: str = "zh-CN") -> str:
-    """Render sources in Feishu grey font prefix and linked media names."""
-    if not sources:
-        return ""
-    parts: list[str] = []
-    seen: set[str] = set()
-    for s in sources:
-        if isinstance(s, dict):
-            name = s.get("name") or _host_name(s.get("url", ""))
-            url = s.get("url", "")
-        else:
-            name = s.name or _host_name(s.url)
-            url = s.url
-        if not url or url in seen:
-            continue
-        seen.add(url)
-        parts.append(f"[{name}]({url})")
-    if not parts:
-        return ""
-    label = "信源：" if language == "zh-CN" else "Sources: "
-    return f'<font color="grey">{label}</font>' + " | ".join(parts)
 
 
 def extract_badge(text: str) -> str:
@@ -176,11 +107,6 @@ def extract_badge(text: str) -> str:
 
     return ""
 
-
-@dataclass
-class SourceRef:
-    name: str
-    url: str
 
 
 @dataclass
@@ -467,10 +393,14 @@ def _parse_single_news_item(raw: str, fallback_idx: int) -> DigestItem | None:
 
         facts_lines.append(l)
 
-    # If title itself has a markdown link [Title](url), capture it
+    # If title itself has a markdown link [Title](url), capture it if valid
     link_m = LINK_RE.search(title)
     if link_m:
-        detected_url = link_m.group(2)
+        cand_url = link_m.group(2).strip()
+        if is_valid_article_url(cand_url):
+            detected_url = cand_url
+
+    primary_url = detected_url or primary_article_url(sources)
 
     return DigestItem(
         key=f"news-{idx}",
@@ -482,7 +412,7 @@ def _parse_single_news_item(raw: str, fallback_idx: int) -> DigestItem | None:
         date=badge,
         badge=badge,
         extra=" ".join(extra_lines).strip(),
-        url=detected_url or (sources[0].url if sources else ""),
+        url=primary_url,
     )
 
 def _parse_thread_blocks(lines: list[str]) -> list[ThreadView]:
@@ -545,6 +475,7 @@ def _parse_thread_blocks(lines: list[str]) -> list[ThreadView]:
         comment = ""
 
         current_progress: ThreadProgress | None = None
+        pending_sources: list[SourceRef] = []
         in_historical = False
 
         for raw_line in chunk_lines[1:]:
@@ -592,6 +523,14 @@ def _parse_thread_blocks(lines: list[str]) -> list[ThreadView]:
                 else:
                     comment = c_val
                 continue
+            if re.match(r"^\**(?:\s*信源|来源|Sources|Source)\**\s*[:：]", line, flags=re.I):
+                if not in_historical:
+                    parsed_srcs = parse_sources(line)
+                    if current_progress:
+                        current_progress.sources.extend(parsed_srcs)
+                    else:
+                        pending_sources.extend(parsed_srcs)
+                continue
 
             # Milestone / progress entry with link
             link_m = LINK_RE.search(line)
@@ -601,7 +540,11 @@ def _parse_thread_blocks(lines: list[str]) -> list[ThreadView]:
                 badge = extract_badge(line)
 
                 if in_historical:
-                    timeline_entries.append(Milestone(title=entry_title, url=entry_url, date=badge, badge=badge))
+                    recorded_date = extract_badge(line[:link_m.start()] + line[link_m.end():])
+                    if recorded_date and is_valid_article_url(entry_url):
+                        timeline_entries.append(
+                            Milestone(title=entry_title, url=entry_url, date=recorded_date, badge=recorded_date)
+                        )
                     current_progress = None
                     continue
                 else:
@@ -628,16 +571,17 @@ def _parse_thread_blocks(lines: list[str]) -> list[ThreadView]:
                 else:
                     facts = (facts + " " + line).strip()
 
-        # If old line box with facts/comment but no progress entries, build one
-        if not progress_entries and facts:
-            progress_entries.append(
+        if facts or pending_sources:
+            progress_entries.insert(
+                0,
                 ThreadProgress(
                     title=name,
                     facts=facts,
                     comment=comment,
                     date=latest_state,
                     badge=latest_state,
-                )
+                    sources=pending_sources,
+                ),
             )
 
         thread = ThreadView(
@@ -768,10 +712,19 @@ def parse_digest(markdown: str, *, snapshot: dict[str, Any] | None = None) -> Di
                 if not it.badge and snap_entry.get("date"):
                     it.badge = snap_entry["date"]
                     it.date = snap_entry["date"]
-                if not it.sources and snap_entry.get("sources"):
-                    for s in snap_entry["sources"]:
-                        if isinstance(s, dict) and s.get("url"):
-                            it.sources.append(SourceRef(name=s.get("name", _host_name(s["url"])), url=s["url"]))
+                if snap_entry.get("sources"):
+                    snap_sources = normalize_sources(snap_entry["sources"])
+                    reconciled_sources = normalize_sources([*it.sources, *snap_sources])
+                    it.sources = [
+                        SourceRef(
+                            name=source["name"],
+                            url=source["url"],
+                            extra={k: v for k, v in source.items() if k not in ("name", "url")},
+                        )
+                        for source in reconciled_sources
+                    ]
+                if not it.url or not is_valid_article_url(it.url):
+                    it.url = primary_article_url(it.sources)
 
         snapshot_threads = snapshot.get("threads") or {}
         for th in threads:

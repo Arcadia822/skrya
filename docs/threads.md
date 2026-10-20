@@ -174,6 +174,16 @@
 
 每份正式 digest 同步保存不可变 `.events.json` 编号快照。收到卡片后，优先按被回复的 message_id 查询该绑定的快照，没有 message_id 才使用同绑定最近完整成功投递的快照。新生成但未送达的日报不得改变旧卡片的编号含义。历史节点投影和最新进展都不改变底层原档。
 
+## 当前事件集与完整历史
+
+采集和外部检索结果都使用 `skrya.ingest.v2`。外部搜索工具 API 不变，Skrya 与智能体负责适配结果。条目保留熟悉的 `items` 字段，并带有 `source_id`、`event_id`、`content_hash`，批次记录 `source_generations`。事件身份按来源和原始文章 URL 确定；无 URL 时使用规范化标题，内容哈希覆盖规范化标题、摘要和正文。存储的文章 URL 不被重写。
+
+`runs/<topic-id>/event-state.json` 保存来源 generation 和事件索引。成功的非预览采集推进该来源的 generation，成功解析缓存也算一次成功采集；失败、跳过和预览不推进。当前事件集只取各来源最新 generation，旧记录仍保留。这不是删除历史，也不是网络请求计数。
+
+日报只隐藏最近三份正式 `.events.json` 快照中 `event_id` 和 `content_hash` 都相同的内容。身份相同但内容变化的报道可再次出现。预览不写快照或去重记忆。隐藏重复新闻不等于关闭 Thread，每个 active Thread 仍须展示，无增量时说明最新已知状态和下一步观察。完整原始 `timeline` 继续用于 `dig: T-01` 和 `write: T-01`。
+
+旧版当前 ingest 须显式运行 `upgrade --migrate-ingest-v2` 并保留当前文件备份。已冻结日报、编号快照、投递回执、旧 ingest 归档和 Thread 原始历史都不改写。旧 v1 日报快照仍可解析原编号。清理仅通过 `ingest-prune` 显式执行，先 dry-run，再审阅并使用 `--apply`；只删除符合条件的 ingest 批次，不触碰 Thread 历史。命令见[升级说明](upgrade.md)。
+
 ## 用户旅程示例
 
 以 `topic = 新能源汽车`、`thread = 比亚迪闪充站` 为例：

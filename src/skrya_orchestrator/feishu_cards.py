@@ -8,10 +8,10 @@ from typing import Any
 from .digest_document import (
     DigestItem,
     ThreadView,
-    parse_digest,
     extract_badge,
-    render_sources,
+    parse_digest,
 )
+from .sources import render_sources
 
 BG_NEWS = "blue-50"
 BG_THREAD = "yellow-50"
@@ -608,6 +608,9 @@ def summary_markdown(markdown: str, limit: int = 5) -> str:
         scan_label = "扫描时间范围" if is_cn else "Scan window"
         sep = "：" if is_cn else ": "
         lines.append(f"\n{scan_label}{sep}{doc.scan_interval}")
+
+    if doc.lead:
+        lines.append(f"\n{doc.lead}")
 
     lines.append("")
 

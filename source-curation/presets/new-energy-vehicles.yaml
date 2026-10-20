@@ -1,0 +1,121 @@
+preset_id: new-energy-vehicles
+name: 新能源汽车与智能出行
+description: 覆盖全球电动汽车专业媒体、中国新能源车产业出海、动力电池超充基建与车主社区的信源预设库
+tags:
+  - nev
+  - ev
+  - electric-vehicles
+  - automotive
+  - battery
+  - autonomous-driving
+  - charging
+
+source_groups:
+  - name: 全球电动汽车专业媒体
+    description: 欧美主流纯电出行与清洁能源专业报道
+    sources:
+      - name: Electrek
+        type: rss
+        url: https://electrek.co/feed/
+        description: 全球电动汽车生态、特斯拉、Rivian 等车企一线报道
+      - name: InsideEVs
+        type: rss
+        url: https://insideevs.com/rss/articles/all/
+        description: 全球电动汽车销量统计、续航里程实测与新车发布
+      - name: CleanTechnica
+        type: rss
+        url: https://cleantechnica.com/feed/
+        description: 清洁出行科技深度分析、电池成本趋势与行业发展报告
+      - name: Charged EVs
+        type: rss
+        url: https://chargedevs.com/feed/
+        description: 聚焦电动汽车工程技术、高压电气架构与超充硬件的专业期刊
+
+  - name: 中国新能源车出海与本土动态
+    description: 中国智能新能源车企、出海竞争与供应链一手动态
+    sources:
+      - name: CNEVPost
+        type: rss
+        url: https://cnevpost.com/feed/
+        description: 中国新能源汽车行业权威英文媒体，覆盖比亚迪、蔚来、小鹏、理想与宁德时代
+      - name: CarNewsChina
+        type: rss
+        url: https://carnewschina.com/feed/
+        description: 中国本土汽车工业谍照、工信部申报信息与新车上市速递
+      - name: 爱范儿 · 董车会
+        type: rss
+        url: https://www.ifanr.com/feed
+        description: 聚焦未来智慧出行、智能座舱体验与辅助驾驶系统实测
+
+  - name: 汽车工业与商业观察
+    description: 百年车企转型策略、供应链投融资与行业智库报道
+    sources:
+      - name: Autocar - EV News
+        type: rss
+        url: https://www.autocar.co.uk/rss
+        description: 欧洲百年汽车媒体对全球传统车企电动化转型与工程平台的报道
+      - name: 36氪 · 智能出行与未来交通
+        type: runtime-retrieval
+        capabilities:
+          - news_search
+          - web_search
+        queries:
+          - 36氪 智能出行 电动汽车 投融资
+          - 36kr 新能源汽车 造车新势力 高管变动
+        languages:
+          - zh
+        description: 中国智能电动汽车投融资、造车新势力高管变动与战略布局
+      - name: 盖世汽车资讯
+        type: runtime-retrieval
+        capabilities:
+          - news_search
+          - web_search
+        queries:
+          - 盖世汽车 汽车供应链 智能网联 零部件
+          - gasgoo.com 动力电池 产业资讯
+        languages:
+          - zh
+        description: 全球汽车供应链、智能网联汽车核心零部件与电池产业资讯
+
+  - name: 车主社区与海外讨论
+    description: 全球车主对真实补能体验与车型口碑的反馈
+    sources:
+      - name: r/electricvehicles
+        type: runtime-retrieval
+        capabilities:
+          - social_search
+          - web_search
+        queries:
+          - r/electricvehicles charging network owner review
+          - reddit.com/r/electricvehicles EV charging range reliability
+        languages:
+          - en
+        description: Reddit 电动车社区热门讨论、充电网络可靠性实测与车主口碑
+
+  - name: 超充基建与技术突破全网检索
+    description: 针对超充站网络扩张与下一代固态电池产业化的实时检索
+    sources:
+      - name: 超充网络与补能基建追踪
+        type: runtime-retrieval
+        capabilities:
+          - news_search
+          - web_search
+        queries:
+          - 新能源汽车 超充站 闪充 兆瓦快充 充电站落地
+          - EV megawatt charging network rollout supercharger
+        languages:
+          - zh
+          - en
+        description: 针对各大车企及充电运营商千伏高压快充站与换电站布局的新闻追踪
+      - name: 动力电池与固态电池量产追踪
+        type: runtime-retrieval
+        capabilities:
+          - news_search
+          - web_search
+        queries:
+          - 固态电池 量产 能量密度 宁德时代 比亚迪
+          - solid state battery EV commercial production gigafactory
+        languages:
+          - zh
+          - en
+        description: 针对全球动力电池出货量、固态电池装车试运行与原材料价格的技术情报检索

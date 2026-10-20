@@ -1,0 +1,117 @@
+preset_id: cryptocurrency
+name: 加密货币与 Web3 生态
+description: 覆盖全球主流加密财经媒体、公链核心协议演进、中文权威智库与链上突发安全事件的信源预设库
+tags:
+  - cryptocurrency
+  - crypto
+  - web3
+  - blockchain
+  - bitcoin
+  - ethereum
+  - defi
+
+source_groups:
+  - name: 全球主流加密财经媒体
+    description: 全球数字资产、宏观金融监管与行业机构入场的专业报道
+    sources:
+      - name: CoinDesk
+        type: rss
+        url: https://www.coindesk.com/arc/outboundfeeds/rss/
+        description: 全球数字资产市场行情、宏观监管法案与机构持仓权威深度报道
+      - name: Cointelegraph
+        type: rss
+        url: https://cointelegraph.com/rss
+        description: 全球区块链新闻、DeFi 协议创新与跨链基础设施演进
+      - name: Decrypt
+        type: rss
+        url: https://decrypt.co/feed
+        description: 聚焦 Web3 流行文化、NFT/去中心化身份与加密大众普及
+      - name: Blockworks
+        type: rss
+        url: https://blockworks.co/feed
+        description: 面向机构投资者与基金经理的宏观数字资产研报与流动性分析
+      - name: Bitcoin Magazine
+        type: rss
+        url: https://bitcoinmagazine.com/feed
+        description: 比特币网络协议发展、闪电网络扩容与货币哲学深度专刊
+
+  - name: 核心协议与思想领袖
+    description: 公链底层核心架构升级、密码学研究与去中心化治理思想
+    sources:
+      - name: Ethereum Foundation Blog
+        type: rss
+        url: https://blog.ethereum.org/feed.xml
+        description: 以太坊基金会官方核心开发者进展、硬分叉升级与科研资助公告
+      - name: Vitalik Buterin's Blog
+        type: rss
+        url: https://vitalik.eth.limo/feed.xml
+        description: 以太坊创始人 Vitalik Buterin 关于机制设计、零知识证明与社会协同的长篇思考
+
+  - name: 中文 Web3 行业智库
+    description: 中文区最前沿的行业投研、快讯速递与海外项目编译
+    sources:
+      - name: 律动 BlockBeats 快讯
+        type: rsshub
+        route: /theblockbeats/newsflash
+        instance: https://rsshub.app
+        instance_urls:
+          - https://rsshub.app
+        description: 中文加密圈高频一手快讯、早期投融资动态与大额链上异动
+      - name: Foresight News
+        type: rsshub
+        route: /foresightnews/news
+        instance: https://rsshub.app
+        instance_urls:
+          - https://rsshub.app
+        description: 深度技术专栏、海外前沿叙事梳理与中文 Web3 开发者生态
+      - name: PANews 实时资讯
+        type: rsshub
+        route: /panewslab/news
+        instance: https://rsshub.app
+        instance_urls:
+          - https://rsshub.app
+        description: 聚焦区块链商业创新、金融合规趋势与亚太监管动向的智库媒体
+
+  - name: 社区与舆情情绪
+    description: 全球加密社区用户情绪与热门热点辩论
+    sources:
+      - name: r/CryptoCurrency
+        type: runtime-retrieval
+        capabilities:
+          - social_search
+          - web_search
+        queries:
+          - r/CryptoCurrency bitcoin ethereum altcoin discussion
+          - reddit.com/r/CryptoCurrency crypto market community sentiment
+        languages:
+          - en
+        description: Reddit 最大加密货币社区的散户情绪、热门代币讨论与社区科普
+
+  - name: 链上安全与监管政策全网检索
+    description: 针对智能合约黑客事件与多国司法合规风向的实时检索
+    sources:
+      - name: 链上安全漏洞与黑客攻击追踪
+        type: runtime-retrieval
+        capabilities:
+          - news_search
+          - web_search
+        queries:
+          - crypto exploit hack security vulnerability
+          - DeFi flash loan attack post-mortem
+          - 区块链 智能合约 漏洞 攻击 被盗
+        languages:
+          - en
+          - zh
+        description: 突发智能合约漏洞利用、跨链桥黑客事件与安全审计机构预警通报
+      - name: 全球加密监管与合规政策追踪
+        type: runtime-retrieval
+        capabilities:
+          - news_search
+          - web_search
+        queries:
+          - crypto regulation SEC ETF CFTC compliance approval
+          - 加密货币 监管 牌照 合规 政策 听证会
+        languages:
+          - en
+          - zh
+        description: 各国金融监管局合规许可、数字资产证券法案与机构 ETF 获批动态

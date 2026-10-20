@@ -7,4 +7,4 @@ This directory separates the runnable bare-LLM evals from the full user-journey 
 - `contexts/openclaw.json` is the OpenClaw Gateway-style host context referenced by non-LLM cases.
 - `runtime-report.json` is produced by `npm run eval:skills:runtime` and contains the latest mock OpenClaw runtime result.
 
-See `../../docs/eval-tiering.md` for the tier definitions and verification commands.
+See `../docs/eval-tiering.md` for the tier definitions and verification commands.

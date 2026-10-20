@@ -1,12 +1,16 @@
 import json
 import shutil
+import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from skrya_orchestrator import __version__
 from skrya_orchestrator.intelligence import IntelligenceService
+from skrya_orchestrator.ingest import IngestService
+from skrya_orchestrator.event_lifecycle import EventLifecycle
+from skrya_orchestrator.source_collector import with_source_fallbacks
+from skrya_orchestrator.thread_milestones import select_milestones
 from skrya_orchestrator.references import load_snapshot, snapshot_path
 
 
@@ -112,7 +116,7 @@ class IntelligenceServiceTests(unittest.TestCase):
 
         self.assertIn("| AI Browsers | Daily Briefing", digest.markdown)
         self.assertIn("### N-01 Comet expands enterprise rollout", digest.markdown)
-        self.assertIn("Sources: [example.com](https://example.com/comet-enterprise)", digest.markdown)
+        self.assertIn("[example.com](https://example.com/comet-enterprise)", digest.markdown)
         self.assertIn("## Available actions", digest.markdown)
         self.assertIn("Scan window: last 24 hours (default)", digest.markdown)
         self.assertIn("dig: N-01", digest.markdown)
@@ -257,8 +261,8 @@ class IntelligenceServiceTests(unittest.TestCase):
 
         self.assertEqual(
             [
-                "https://source.test/actor-casting-1",
-                "https://source.test/actor-casting-2",
+                {"name": "source.test", "url": "https://source.test/actor-casting-1"},
+                {"name": "source.test", "url": "https://source.test/actor-casting-2"},
             ],
             sources,
         )
@@ -566,7 +570,7 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertIn("### N-01", digest.markdown)
         self.assertIn("演员选角争议持续升温", digest.markdown)
         self.assertIn("dig: N-01", digest.markdown)
-        self.assertIn("[feed.test](https://feed.test/rookie-teaser)", digest.markdown)
+        self.assertIn("[Feed 1](https://feed.test/rookie-teaser)", digest.markdown)
         self.assertNotIn("Continue reading", digest.markdown)
         self.assertNotIn("appeared first on", digest.markdown)
 
@@ -1013,6 +1017,324 @@ class IntelligenceServiceTests(unittest.TestCase):
             src = fixture_dir / name
             if src.exists():
                 (topic_dir / name).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
+
+
+class LiveIntelligenceServiceTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        (self.root / ".skrya").mkdir()
+        (self.root / ".skrya" / "config.json").write_text(json.dumps({"data_root": "."}))
+        self.topic = self.root / "topics" / "space"
+        self.topic.mkdir(parents=True)
+        (self.topic / "topic.json").write_text(json.dumps({"name": "Space", "language": "en"}))
+        (self.topic / "brief.json").write_text(json.dumps({"requests": [{"content": "Launch coverage"}]}))
+        self.source = {"id": "confirmed", "name": "Confirmed News", "type": "rss", "url": "https://news.test/rss"}
+        self.configure(self.source)
+
+    def configure(self, *sources):
+        (self.topic / "sources.json").write_text(json.dumps({"sources": list(sources)}))
+
+    def body(self, summary="Launch details"):
+        return f"<rss><channel><item><title>Launch</title><link>https://news.test/launch</link><description>{summary}</description><pubDate>Tue, 20 Oct 2026 01:00:00 GMT</pubDate></item></channel></rss>"
+
+    def tree(self):
+        return {str(path.relative_to(self.root)): path.read_bytes() if path.is_file() else None for path in self.root.rglob("*")}
+
+    def ingest(self, *items):
+        return IngestService(self.root).record_ingest_result("space", {
+            "interface_version": "skrya.ingest.v2", "topic_id": "space",
+            "retrieved_at": "2026-10-20T02:00:00Z",
+            "producer": {"name": "neutral-retrieval", "kind": "test"},
+            "items": [{"fetched_at": "2026-10-20T02:00:00Z", **item} for item in items],
+        })
+
+    def seed(self):
+        (self.topic / "thread-seeds.json").write_text(json.dumps({"threads": [{
+            "id": "launch", "name": "Launch", "status": "active", "match_terms": ["Launch"],
+        }]}))
+
+    def test_live_digest_merges_feeds_and_ingest_and_deduplicates_identity_content(self):
+        self.ingest(
+            {"id": "launch-ingest", "title": "Launch", "url": "https://news.test/launch", "source_id": "confirmed", "summary": "Launch details", "content": "Launch details"},
+            {"id": "landing", "title": "Landing", "url": "https://wire.test/landing", "summary": "Landing confirmed"},
+        )
+        result = IntelligenceService(self.root, fetcher=lambda url: self.body()).generate_digest("space")
+        items = load_snapshot(result.digest_path)["items"]
+        self.assertEqual({"Launch", "Landing"}, {item["title"] for item in items.values()})
+        self.assertEqual(2, len(items))
+        self.assertIn("[Confirmed News](https://news.test/launch)", result.markdown)
+
+    def test_repeats_hide_but_changed_content_reappears_with_full_raw_history(self):
+        self.seed()
+        current_body = self.body()
+        service = IntelligenceService(self.root, fetcher=lambda url: current_body)
+        first = service.generate_digest("space")
+        original_snapshot = snapshot_path(first.digest_path).read_bytes()
+        second = service.generate_digest("space")
+        self.assertEqual({}, load_snapshot(second.digest_path)["items"])
+        self.assertNotIn("### N-01", second.markdown)
+        second_thread = load_snapshot(second.digest_path)["threads"]["T-01"]
+        self.assertEqual(1, len(second_thread["timeline"]))
+        self.assertNotIn(" · N-", second.markdown)
+        current_body = self.body("Launch has reached orbit")
+        changed = service.generate_digest("space")
+        current = load_snapshot(changed.digest_path)["items"]["N-01"]
+        previous = load_snapshot(first.digest_path)["items"]["N-01"]
+        self.assertEqual(previous["event_id"], current["event_id"])
+        self.assertNotEqual(previous["content_hash"], current["content_hash"])
+        self.assertEqual(2, len(load_snapshot(changed.digest_path)["threads"]["T-01"]["timeline"]))
+        self.assertEqual(original_snapshot, snapshot_path(first.digest_path).read_bytes())
+        self.assertEqual(3, EventLifecycle(self.root, "space").current_events("confirmed")[0]["generation"])
+
+    def test_preview_does_not_change_dedup_memory_or_any_data_root_bytes(self):
+        self.seed()
+        service = IntelligenceService(self.root, fetcher=lambda url: self.body())
+        before = self.tree()
+        preview = service.generate_digest("space", preview=True, force_refresh=True)
+        self.assertIn("### N-01", preview.markdown)
+        self.assertEqual(before, self.tree())
+        real = service.generate_digest("space")
+        self.assertEqual("Launch", load_snapshot(real.digest_path)["items"]["N-01"]["title"])
+        before = self.tree()
+        hidden = service.generate_digest("space", preview=True)
+        self.assertNotIn("### N-01", hidden.markdown)
+        self.assertEqual(before, self.tree())
+
+    def test_http_cache_serves_live_collection_and_force_preview_does_not_write(self):
+        body = self.body()
+        class Response:
+            status = 200
+            headers = {"Content-Type": "application/rss+xml"}
+            def read(self): return body.encode()
+            def close(self): pass
+        with patch("skrya_orchestrator.http_cache.urlopen", side_effect=lambda *args, **kwargs: Response()) as transport:
+            untouched = self.tree()
+            uncached_preview = IntelligenceService(self.root).generate_digest("space", preview=True)
+            self.assertIn("### N-01 Launch", uncached_preview.markdown)
+            self.assertEqual(untouched, self.tree())
+            first = IntelligenceService(self.root).generate_digest("space")
+            second = IntelligenceService(self.root).generate_digest("space")
+            self.assertEqual("Launch", load_snapshot(first.digest_path)["items"]["N-01"]["title"])
+            self.assertEqual({}, load_snapshot(second.digest_path)["items"])
+            self.assertEqual(2, transport.call_count)
+            before = self.tree()
+            IntelligenceService(self.root).generate_digest("space", preview=True, force_refresh=True)
+            self.assertEqual(3, transport.call_count)
+            self.assertEqual(before, self.tree())
+        self.assertEqual(2, EventLifecycle(self.root, "space").current_events("confirmed")[0]["generation"])
+
+    def test_failed_rsshub_returns_neutral_request_health_lead_and_five_actions(self):
+        self.configure({"id": "confirmed", "name": "Confirmed News", "type": "rsshub", "route": "/confirmed/news", "instance_urls": ["https://one.test"], "timeout_ms": 100})
+        (self.topic / "sample-events.json").write_text(json.dumps([{"title": "Sample must stay hidden", "sources": []}]))
+        service = IntelligenceService(self.root, fetcher=lambda url: "<rss><channel/></rss>")
+        result = service.generate_digest("space")
+        self.assertEqual({}, load_snapshot(result.digest_path)["items"])
+        self.assertNotIn("Sample must stay hidden", result.markdown)
+        self.assertLess(result.markdown.index("Confirmed News"), result.markdown.index("##"))
+        self.assertEqual(5, len([line for line in result.markdown.splitlines() if line.startswith("- ")]))
+        self.assertEqual(["web_search", "news_search"], result.retrieval_request["capabilities"])
+        before = self.tree()
+        request = with_source_fallbacks(IngestService(self.root).build_retrieval_request("space"), fallbacks=service.pending_source_fallbacks("space"))
+        self.assertEqual(result.retrieval_request, request)
+        self.assertEqual(before, self.tree())
+
+    def test_newer_generation_supersedes_stale_changed_and_removed_same_source_ingest_records(self):
+        self.ingest(
+            {"id": "launch-ingest", "title": "Launch", "url": "https://news.test/launch", "source_id": "confirmed", "summary": "Launch details", "content": "Launch details"},
+            {"id": "gone", "title": "Gone", "url": "https://news.test/gone", "source_id": "confirmed", "summary": "Will be removed", "content": "Will be removed"},
+            {"id": "landing", "title": "Landing", "url": "https://wire.test/landing", "source_id": "wire", "summary": "Landing confirmed", "content": "Landing confirmed"},
+        )
+        service = IntelligenceService(self.root, fetcher=lambda url: self.body("Launch has reached orbit"))
+        before = self.tree()
+        preview = service.generate_digest("space", preview=True)
+        self.assertEqual(before, self.tree())
+        self.assertIn("Launch has reached orbit", preview.markdown)
+        self.assertNotIn("Launch details", preview.markdown)
+        self.assertNotIn("Gone", preview.markdown)
+        result = service.generate_digest("space")
+        items = load_snapshot(result.digest_path)["items"]
+        self.assertEqual({"Launch", "Landing"}, {item["title"] for item in items.values()})
+        launch = next(item for item in items.values() if item["title"] == "Launch")
+        self.assertEqual("Launch has reached orbit", launch["analysis_body"])
+        self.assertNotIn("Launch details", json.dumps(items))
+        self.assertNotIn("Will be removed", json.dumps(items))
+
+    def test_subset_refresh_resets_only_the_refreshed_source_current_set(self):
+        first = IntelligenceService(self.root, fetcher=lambda url: self.body()).generate_digest("space")
+        self.assertEqual({"Launch"}, {item["title"] for item in load_snapshot(first.digest_path)["items"].values()})
+        self.ingest(
+            {"id": "gone", "title": "Gone", "url": "https://news.test/gone", "source_id": "confirmed", "summary": "Will be removed", "content": "Will be removed"},
+            {"id": "landing", "title": "Landing", "url": "https://wire.test/landing", "source_id": "wire", "summary": "Landing confirmed", "content": "Landing confirmed"},
+            {"id": "splashdown", "title": "Splashdown", "url": "https://wire.test/splashdown", "source_id": "wire", "summary": "Splashdown confirmed", "content": "Splashdown confirmed"},
+        )
+        second = IntelligenceService(self.root, fetcher=lambda url: self.body("Launch has reached orbit")).generate_digest("space")
+        items = load_snapshot(second.digest_path)["items"]
+        self.assertEqual({"Launch", "Landing", "Splashdown"}, {item["title"] for item in items.values()})
+        self.assertNotIn("Will be removed", json.dumps(items))
+
+    def test_sensitive_route_credentials_stay_out_of_generated_artifacts(self):
+        self.configure({
+            "name": "Private Watch", "type": "rsshub", "route": "/private/feed?token=SECRETVALUE",
+            "instance_urls": ["https://one.test"], "timeout_ms": 100,
+        })
+        fetched = []
+
+        def failing(url):
+            fetched.append(url)
+            return "<rss><channel/></rss>"
+
+        result = IntelligenceService(self.root, fetcher=failing).generate_digest("space")
+        self.assertTrue(fetched)
+        self.assertTrue(all("token=SECRETVALUE" in url for url in fetched))
+        self.assertNotIn("SECRETVALUE", result.markdown)
+        self.assertNotIn("SECRETVALUE", json.dumps(result.retrieval_request or {}))
+        healthy = IntelligenceService(self.root, fetcher=lambda url: self.body()).generate_digest("space")
+        self.assertIn("### N-01 Launch", healthy.markdown)
+        self.assertNotIn("SECRETVALUE", healthy.markdown)
+        for name, data in self.tree().items():
+            if data is None or name.endswith("sources.json"):
+                continue
+            self.assertNotIn("SECRETVALUE", data.decode("utf-8", "replace"), name)
+
+    def test_live_feed_defaults_to_five_items_per_source(self):
+        items = "".join(
+            f"<item><title>Launch {number}</title><link>https://news.test/launch-{number}</link><description>Launch update {number}</description></item>"
+            for number in range(1, 9)
+        )
+        result = IntelligenceService(self.root, fetcher=lambda url: f"<rss><channel>{items}</channel></rss>").generate_digest("space")
+        self.assertEqual(5, len(load_snapshot(result.digest_path)["items"]))
+
+    def test_sample_artifacts_do_not_displace_real_digest_repeat_memory(self):
+        service = IntelligenceService(self.root, fetcher=lambda url: self.body())
+        service.generate_digest("space")
+        (self.topic / "sample-events.json").write_text(json.dumps([
+            {"title": "Sample launch", "headline_summary": "Sample only", "sources": []}
+        ]))
+        for _ in range(3):
+            service.generate_digest("space", prefer_live=False)
+        preview = service.generate_digest("space", preview=True)
+        self.assertNotIn("### N-01", preview.markdown)
+
+    def test_visible_events_cap_keeps_full_raw_thread_archive(self):
+        self.seed()
+        self.configure({"id": "confirmed", "name": "Confirmed News", "type": "rss", "url": "https://news.test/rss", "max_items": 25})
+        items = "".join(
+            f"<item><title>Launch {number}</title><link>https://news.test/launch-{number}</link><description>Launch update {number}</description></item>"
+            for number in range(1, 21)
+        )
+        result = IntelligenceService(self.root, fetcher=lambda url: f"<rss><channel>{items}</channel></rss>").generate_digest("space")
+        snapshot = load_snapshot(result.digest_path)
+        self.assertEqual(15, len(snapshot["items"]))
+        self.assertIn("### N-15", result.markdown)
+        self.assertNotIn("### N-16", result.markdown)
+        self.assertEqual(20, len(snapshot["threads"]["T-01"]["timeline"]))
+
+    def test_planted_symlinked_staging_and_artifact_paths_cannot_rewrite_frozen_targets(self):
+        self.seed()
+        frozen_index = self.root / "frozen-index.txt"
+        frozen_index.write_text("frozen digest index", encoding="utf-8")
+        frozen_threads = self.root / "frozen-threads.json"
+        frozen_threads.write_text(json.dumps({"threads": []}), encoding="utf-8")
+        frozen_analysis = self.root / "frozen-analysis.md"
+        frozen_analysis.write_text("frozen analysis", encoding="utf-8")
+        runs = self.root / "runs" / "space"
+        threads_dir = runs / "threads"
+        threads_dir.mkdir(parents=True, exist_ok=True)
+        (runs / "latest-digest-events.json.tmp").symlink_to(frozen_index)
+        (threads_dir / "latest-threads.json").symlink_to(frozen_threads)
+        (runs / "deep-analysis-1.md").symlink_to(frozen_analysis)
+
+        result = IntelligenceService(self.root, fetcher=lambda url: self.body()).generate_digest("space")
+        self.assertIn("### N-01 Launch", result.markdown)
+        self.assertEqual("frozen digest index", frozen_index.read_text(encoding="utf-8"))
+        self.assertEqual(json.dumps({"threads": []}), frozen_threads.read_text(encoding="utf-8"))
+        self.assertFalse((runs / "latest-digest-events.json").is_symlink())
+        self.assertFalse((threads_dir / "latest-threads.json").is_symlink())
+        self.assertEqual(["Launch"], [item["title"] for item in load_snapshot(result.digest_path)["items"].values()])
+
+        analysis = IntelligenceService(self.root).generate_deep_analysis("space", event_number=1)
+        self.assertIn("Launch", analysis.markdown)
+        self.assertEqual("frozen analysis", frozen_analysis.read_text(encoding="utf-8"))
+        self.assertFalse((runs / "deep-analysis-1.md").is_symlink())
+
+    def test_structured_plain_source_evidence_survives_raw_thread_and_snapshot(self):
+        self.configure()
+        self.seed()
+        evidence = {"name": "Launch desk", "url": "", "quote": "first-hand report", "custom": {"confidence": "confirmed"}}
+        self.ingest({"title": "Launch desk update", "source_name": "Launch desk", "summary": "Confirmed launch report", "sources": [evidence], "published_at": "2026-10-20T01:00:00Z"})
+        result = IntelligenceService(self.root).generate_digest("space")
+        snapshot = load_snapshot(result.digest_path)
+        raw = snapshot["threads"]["T-01"]["timeline"][0]
+        for sources in (raw["sources"], snapshot["items"]["N-01"]["sources"]):
+            attributed = next(source for source in sources if source["name"] == "Launch desk")
+            for key, value in evidence.items():
+                self.assertEqual(value, attributed[key])
+        self.assertIn("Launch desk", result.markdown)
+        self.assertNotIn("[Launch desk]", result.markdown)
+        self.assertEqual([], select_milestones([{**raw, "milestone_reason": "editorial selection"}]))
+
+    def test_legacy_url_thread_entry_and_canonical_record_do_not_duplicate_history(self):
+        self.seed()
+        service = IntelligenceService(self.root, fetcher=lambda url: self.body())
+        first = service.generate_digest("space")
+        archive = self.root / "runs" / "space" / "threads" / "latest-threads.json"
+        payload = json.loads(archive.read_text())
+        payload["threads"][0]["timeline"][0]["sources"] = ["https://news.test/launch"]
+        archive.write_text(json.dumps(payload))
+        second = service.generate_digest("space")
+        timeline = load_snapshot(second.digest_path)["threads"]["T-01"]["timeline"]
+        self.assertEqual(1, len(timeline))
+        self.assertEqual("https://news.test/launch", timeline[0]["sources"][0]["url"])
+        self.assertEqual("confirmed", load_snapshot(first.digest_path)["items"]["N-01"]["source_id"])
+
+    def test_thread_progress_uses_first_article_after_plain_attribution(self):
+        self.configure()
+        self.seed()
+        self.ingest({"title": "Launch update", "url": "https://news.test/launch", "summary": "Launch details", "sources": ["Wire desk", {"name": "Confirmed News", "url": "https://news.test/launch"}]})
+        result = IntelligenceService(self.root).generate_digest("space")
+        self.assertIn("[Launch update](https://news.test/launch)", result.markdown)
+        self.assertNotIn("[Launch update](Wire desk)", result.markdown)
+
+    def test_identified_translator_cache_and_preview_are_isolated_from_unidentified_injection(self):
+        (self.topic / "topic.json").write_text(json.dumps({"name": "Space", "language": "zh-CN"}))
+        (self.topic / "sample-events.json").write_text(json.dumps([{"title": "Launch", "headline_summary": "Launch", "analysis_body": "Launch", "sources": []}]))
+        calls = []
+        def translate(text):
+            calls.append(text)
+            return "发射"
+        unidentified = IntelligenceService(self.root, translator=translate)
+        result = unidentified.generate_digest("space", prefer_live=False)
+        self.assertIn("发射", result.markdown)
+        self.assertFalse((self.root / "cache" / "translations").exists())
+        calls.clear()
+        identified = IntelligenceService(self.root, translator=translate, translation_provider="test-translator")
+        before = self.tree()
+        identified.generate_digest("space", prefer_live=False, preview=True)
+        self.assertEqual(before, self.tree())
+        identified.generate_digest("space", prefer_live=False)
+        self.assertEqual(1, len(list((self.root / "cache" / "translations").rglob("*.json"))))
+        calls.clear()
+        reused = IntelligenceService(self.root, translator=translate, translation_provider="test-translator").generate_digest("space", prefer_live=False)
+        self.assertIn("发射", reused.markdown)
+        self.assertEqual([], calls)
+        other = IntelligenceService(self.root, translator=lambda text: "另一译文", translation_provider="other-translator").generate_digest("space", prefer_live=False)
+        self.assertIn("另一译文", other.markdown)
+
+    def test_default_translation_uses_cache_and_failed_injection_preserves_original(self):
+        (self.topic / "topic.json").write_text(json.dumps({"name": "Space", "language": "zh-CN"}))
+        (self.topic / "sample-events.json").write_text(json.dumps([{"title": "Launch", "sources": []}]))
+        with patch.object(IntelligenceService, "_default_translate", return_value="发射") as translator:
+            first = IntelligenceService(self.root).generate_digest("space", prefer_live=False)
+            second = IntelligenceService(self.root).generate_digest("space", prefer_live=False)
+            self.assertIn("发射", first.markdown)
+            self.assertIn("发射", second.markdown)
+            self.assertEqual(1, translator.call_count)
+        def unavailable(text): raise RuntimeError("offline")
+        original = IntelligenceService(self.root, translator=unavailable).generate_digest("space", prefer_live=False)
+        self.assertIn("### N-01 Launch", original.markdown)
 
 
 if __name__ == "__main__":

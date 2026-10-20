@@ -1,17 +1,30 @@
 from __future__ import annotations
 
+import fcntl
+import hashlib
 import json
+import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .event_lifecycle import (
+    INGEST_VERSION_V1,
+    EventLifecycle,
+    _assert_ingest_paths,
+    _stage_ingest_bytes,
+    event_identity,
+    identify_events,
+    is_valid_ingest_item,
+)
 from .paths import resolve_data_root
+from .sources import normalize_sources
 
 
 RETRIEVAL_REQUEST_VERSION = "skrya.retrieval-request.v1"
-INGEST_VERSION = "skrya.ingest.v1"
+INGEST_VERSION = "skrya.ingest.v2"
 RUNTIME_RETRIEVAL_TYPE = "runtime-retrieval"
 
 
@@ -77,58 +90,200 @@ class IngestService:
         raw_text: str | None = None,
     ) -> IngestWriteResult:
         topic_id = self.resolve_topic_id(topic_reference)
-        normalized = self._normalize_payload(topic_id, payload)
-
+        lifecycle = EventLifecycle(self._data_root, topic_id)
         ingest_dir = self._data_root / "runs" / topic_id / "ingest"
         normalized_dir = ingest_dir / "normalized"
         raw_dir = ingest_dir / "raw"
-        normalized_dir.mkdir(parents=True, exist_ok=True)
-
-        stamp = self._artifact_stamp(normalized.get("retrieved_at"))
-        normalized_path = normalized_dir / f"{stamp}.json"
         latest_path = ingest_dir / "latest-ingest.json"
-        self._write_json(normalized_path, normalized)
-        self._write_json(latest_path, normalized)
 
-        raw_path = None
-        if raw_text is not None:
-            raw_dir.mkdir(parents=True, exist_ok=True)
-            producer = self._safe_filename(str(normalized.get("producer", {}).get("name", "provider")))
-            raw_path = raw_dir / f"{stamp}-{producer}.txt"
-            raw_path.write_text(raw_text, encoding="utf-8")
+        # Managed paths are checked before any mutation, including lock creation,
+        # and re-checked inside the lock to close the check-then-write race where feasible.
+        _assert_ingest_paths(self._data_root, topic_id, "normalized", "raw", "latest-ingest.json")
+        self._require_migrated_current(latest_path)
+        with lifecycle.state_lock():
+            _assert_ingest_paths(self._data_root, topic_id, "normalized", "raw", "latest-ingest.json")
+            self._require_migrated_current(latest_path)
+
+            normalized = self._normalize_payload(topic_id, payload)
+            envelope_producer = normalized.get("producer")
+            envelope_retrieved_at = normalized.get("retrieved_at")
+            for item in normalized["items"]:
+                # Persist each item's actual recording provenance; items keep
+                # their own, and nothing is invented for older records.
+                if envelope_producer and not item.get("producer"):
+                    item["producer"] = dict(envelope_producer)
+                if envelope_retrieved_at and not item.get("retrieved_at"):
+                    item["retrieved_at"] = envelope_retrieved_at
+            normalized["items"] = identify_events(normalized["items"])
+
+            state = lifecycle.load_state()
+            source_generations: dict[str, int] = {}
+            generations_by_event: dict[str, int] = {}
+            groups: dict[str, list[dict[str, Any]]] = {}
+            for item in normalized["items"]:
+                groups.setdefault(item["source_id"], []).append(item)
+            for source_id, group in groups.items():
+                records = lifecycle.merge_source(state, source_id, group, origin="ingest")
+                if records:
+                    source_generations[source_id] = int(records[-1]["generation"])
+                for record in records:
+                    generations_by_event[record["event_id"]] = int(record["generation"])
+            for item in normalized["items"]:
+                generation = generations_by_event.get(item["event_id"])
+                if generation is not None:
+                    item["generation"] = generation
+            normalized["source_generations"] = source_generations
+
+            normalized_dir.mkdir(parents=True, exist_ok=True)
+
+            producer = self._safe_filename(str(normalized["producer"].get("name", "provider")))
+            if raw_text is not None:
+                raw_dir.mkdir(parents=True, exist_ok=True)
+            stamp = self._artifact_stamp(normalized.get("retrieved_at"))
+            base = stamp
+            normalized_path = normalized_dir / f"{base}.json"
+            raw_path = raw_dir / f"{base}-{producer}.txt" if raw_text is not None else None
+            digest8 = ""
+            counter = 0
+            while normalized_path.exists() or (raw_path is not None and raw_path.exists()):
+                if not digest8:
+                    digest8 = hashlib.sha256(
+                        json.dumps(normalized, sort_keys=True, ensure_ascii=False).encode("utf-8")
+                    ).hexdigest()[:8]
+                base = f"{stamp}-{digest8}" + (f"-{counter}" if counter else "")
+                counter += 1
+                normalized_path = normalized_dir / f"{base}.json"
+                raw_path = raw_dir / f"{base}-{producer}.txt" if raw_text is not None else None
+
+            previous_latest = latest_path.read_bytes() if latest_path.exists() else None
+            staged_raw: Path | None = None
+            published_paths: list[Path] = []
+            try:
+                if raw_path is not None:
+                    staged_raw = _stage_ingest_bytes(raw_path, raw_text.encode("utf-8"))
+                self._write_json(normalized_path, normalized, replace=False)
+                published_paths.append(normalized_path)
+                if raw_path is not None:
+                    os.link(staged_raw, raw_path)
+                    published_paths.append(raw_path)
+                self._write_json(latest_path, normalized)
+            except Exception:
+                for published_path in reversed(published_paths):
+                    published_path.unlink(missing_ok=True)
+                raise
+            finally:
+                if staged_raw is not None:
+                    staged_raw.unlink(missing_ok=True)
+
+            if groups:
+                try:
+                    lifecycle.commit_state(state)
+                except Exception:
+                    # Roll the published batch back so digest/load_events consumers
+                    # keep seeing the previous published set. Multi-file crash
+                    # atomicity is not claimed here.
+                    for published_path in reversed(published_paths):
+                        published_path.unlink(missing_ok=True)
+                    if previous_latest is None:
+                        latest_path.unlink(missing_ok=True)
+                    else:
+                        staged_latest = _stage_ingest_bytes(latest_path, previous_latest)
+                        try:
+                            os.replace(staged_latest, latest_path)
+                        finally:
+                            staged_latest.unlink(missing_ok=True)
+                    raise
 
         return IngestWriteResult(latest_path=latest_path, normalized_path=normalized_path, raw_path=raw_path)
 
     def load_events(self, topic_reference: str) -> list[dict[str, Any]]:
         topic_id = self.resolve_topic_id(topic_reference)
+        lifecycle = EventLifecycle(self._data_root, topic_id)
         latest_path = self._data_root / "runs" / topic_id / "ingest" / "latest-ingest.json"
+        _assert_ingest_paths(self._data_root, topic_id, "latest-ingest.json")
         if not latest_path.exists():
             return []
-
-        payload = json.loads(latest_path.read_text(encoding="utf-8"))
+        captured = latest_path.read_text(encoding="utf-8")
+        lock_path = lifecycle.state_path.with_name("event-state.lock")
+        try:
+            fd = os.open(lock_path, os.O_RDONLY | os.O_NOFOLLOW)
+        except FileNotFoundError:
+            payload = json.loads(captured)
+            state_sources = lifecycle.load_state().get("sources", {})
+        else:
+            with os.fdopen(fd, "r", encoding="utf-8") as lock:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_SH)
+                try:
+                    if not latest_path.exists():
+                        return []
+                    payload = json.loads(latest_path.read_text(encoding="utf-8"))
+                    state_sources = lifecycle.load_state().get("sources", {})
+                finally:
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
         normalized = self._normalize_payload(topic_id, payload)
+        current_items = [
+            item
+            for source in state_sources.values()
+            if source.get("origin") == "ingest"
+            for item in source.get("events", {}).values()
+            if item.get("generation") == source.get("generation")
+        ]
+        current_items.extend(
+            dict(item, producer=item.get("producer") or normalized.get("producer"))
+            for item in normalized["items"]
+            if item.get("source_id") not in state_sources
+        )
         events: list[dict[str, Any]] = []
-        seen: set[str] = set()
-        for item in normalized["items"]:
+        positions: dict[str, int] = {}
+        for item in current_items:
             key = str(item.get("id") or self._slugify(item["title"]))
-            source = item.get("url") or item.get("source_name")
-            dedupe_key = f"{item['title'].strip().lower()}|{source}"
-            if dedupe_key in seen:
-                continue
-            seen.add(dedupe_key)
+
+            # Primary item attribution is combined with structured sources: the
+            # exact article URL and producer/fetched evidence are never dropped,
+            # and canonical normalization handles deduplication.
+            source_record = {
+                k: v
+                for k, v in item.items()
+                if k not in ("id", "title", "summary", "content", "sources", "generation")
+            }
+            structured = item.get("sources")
+            if isinstance(structured, (list, tuple)):
+                candidates = [source_record, *structured]
+            elif structured:
+                candidates = [source_record, structured]
+            else:
+                candidates = [source_record]
+            item_sources = normalize_sources(candidates)
+
             summary = item.get("summary") or item.get("content") or item["title"]
             content = item.get("content") or summary
-            events.append(
-                {
-                    "key": key,
-                    "title": item["title"],
-                    "headline_summary": summary,
-                    "list_summary": summary,
-                    "analysis_title": item["title"],
-                    "analysis_body": content,
-                    "sources": [source],
-                }
-            )
+            event: dict[str, Any] = {
+                "key": key,
+                "title": item["title"],
+                "summary": item.get("summary") or "",
+                "content": item.get("content") or "",
+                "headline_summary": summary,
+                "list_summary": summary,
+                "analysis_title": item["title"],
+                "analysis_body": content,
+                "sources": item_sources,
+            }
+            date_val = str(item.get("published_at") or item.get("fetched_at") or item.get("date") or "").strip()
+            if date_val:
+                event["date"] = date_val
+            for field in ("event_id", "content_hash", "source_id", "generation"):
+                if item.get(field) is not None:
+                    event[field] = item[field]
+
+            # Stable identity with latest-version-wins semantics, matching the
+            # lifecycle last upsert instead of first-wins title/URL deduplication.
+            identity = str(item.get("event_id") or "").strip() or event_identity(item)[0]
+            position = positions.get(identity)
+            if position is None:
+                positions[identity] = len(events)
+                events.append(event)
+            else:
+                events[position] = event
         return events
 
     def has_runtime_retrieval_sources(self, topic_reference: str) -> bool:
@@ -175,7 +330,36 @@ class IngestService:
             if source.get("enabled", True) and source.get("type") == RUNTIME_RETRIEVAL_TYPE
         ]
 
+    def _require_migrated_current(self, latest_path: Path) -> None:
+        "Refuse to overwrite an unmigrated current ingest state before any lifecycle mutation."
+        if not latest_path.exists():
+            return
+        try:
+            payload = json.loads(latest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise ValueError(
+                f"Unreadable current ingest state at {latest_path}; refusing to overwrite it. "
+                "Repair or migrate it explicitly before recording new ingest."
+            ) from exc
+        version = payload.get("interface_version") if isinstance(payload, dict) else None
+        if version == INGEST_VERSION_V1:
+            raise ValueError(
+                "skrya.ingest.v1 current state requires explicit migration. "
+                "Run `skrya upgrade --migrate-ingest-v2` to migrate the current "
+                "latest-ingest state, then record with skrya.ingest.v2."
+            )
+        if version != INGEST_VERSION:
+            raise ValueError(
+                f"Unsupported current ingest interface version at {latest_path}: {version}"
+            )
+
     def _normalize_payload(self, topic_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        if payload.get("interface_version") == INGEST_VERSION_V1:
+            raise ValueError(
+                "skrya.ingest.v1 payloads are no longer accepted. "
+                "Run `skrya upgrade --migrate-ingest-v2` to migrate the current "
+                "latest-ingest state, then record with skrya.ingest.v2."
+            )
         if payload.get("interface_version") != INGEST_VERSION:
             raise ValueError(f"Unsupported ingest interface version: {payload.get('interface_version')}")
         payload_topic = self.resolve_topic_id(str(payload.get("topic_id", "")))
@@ -187,33 +371,18 @@ class IngestService:
         items = [
             dict(item)
             for item in payload.get("items", [])
-            if isinstance(item, dict) and self._is_valid_item(item)
+            if is_valid_ingest_item(item)
         ]
 
         return {
+            **payload,
             "interface_version": INGEST_VERSION,
             "topic_id": topic_id,
             "retrieved_at": payload.get("retrieved_at") or self._now_iso(),
             "producer": producer,
+            "source_generations": dict(payload.get("source_generations") or {}),
             "items": items,
         }
-
-    @classmethod
-    def _is_valid_item(cls, item: dict[str, Any]) -> bool:
-        title = str(item.get("title", "")).strip()
-        source = str(item.get("url") or item.get("source_name") or "").strip()
-        fetched_at = str(item.get("fetched_at", "")).strip()
-        body = str(item.get("content") or item.get("summary") or "").strip()
-        if not title or not source or not fetched_at or not body:
-            return False
-        lowered = body.lower()
-        blocked_patterns = (
-            "ignore previous instructions",
-            "system prompt",
-            "developer message",
-            "reveal the system",
-        )
-        return not any(pattern in lowered for pattern in blocked_patterns)
 
     @staticmethod
     def _unique(values) -> list[str]:
@@ -227,9 +396,17 @@ class IngestService:
         return result
 
     @staticmethod
-    def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    def _write_json(path: Path, payload: dict[str, Any], *, replace: bool = True) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        content = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+        staged_path = _stage_ingest_bytes(path, content)
+        try:
+            if replace:
+                os.replace(staged_path, path)
+            else:
+                os.link(staged_path, path)
+        finally:
+            staged_path.unlink(missing_ok=True)
 
     @staticmethod
     def _artifact_stamp(value: Any) -> str:

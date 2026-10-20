@@ -13,6 +13,8 @@ python3 -m pip install -e .
 python3 -m skrya_orchestrator.main install-skill-pack --root . --host auto
 ```
 
+Installation exposes exactly one canonical umbrella skill entry `skrya` (pointing to `SKILL.md`) alongside five bundled skills (`skrya-digest`, `skrya-deep-analysis`, `skrya-request-curation`, `skrya-source-curation`, `skrya-topic-curation`). No duplicate nested `skrya/skrya` entry is created.
+
 Host-specific installs are also supported:
 
 ```bash

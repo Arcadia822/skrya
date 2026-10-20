@@ -19,9 +19,9 @@ Skrya is topic-driven. The important entities are:
 | `watchpoint` | A future condition worth monitoring for a request or thread. |
 | `template` | A file-based user-facing output contract for digests, analysis, and setup flows. Digest output uses a configured topic template or the default digest template file. |
 | `data root` | The runtime storage root, usually `~/.skrya` or workspace `.skrya/data`. |
-| `topic file` | Durable per-topic files: `topic.json`, `brief.json`, `sources.json`, `digest.md`, `deep-analysis.md`, optional `thread-seeds.json`, and optional `delivery-bindings.json`. |
+| `topic file` | Durable per-topic files: `topic.json`, `brief.json`, `sources.json`, `digest.md`, `deep-analysis.md`, optional `thread-seeds.json`, optional `source-health.json`, and optional `delivery-bindings.json`. |
 | `run` | Generated runtime state under `<skrya-data-root>/runs/<topic-id>/`. |
-| `ingest artifact` | Normalized retrieval output, especially `skrya.ingest.v1`. |
+| `ingest artifact` | Normalized retrieval output, especially `skrya.ingest.v2`. Skrya computes and validates `event_id` and `content_hash` from real source identifiers and URLs; callers never invent a URL or event identity. |
 | `digest artifact` | Saved digest markdown and index files for later continuation. Real digest markdown files use absolute execution-time names; latest pointers are not canonical artifacts. |
 | `deep-analysis artifact` | Saved analysis output for a digest item. |
 | `thread artifact` | Runtime thread timelines, normally `threads/latest-threads.json`. |
@@ -31,10 +31,13 @@ Skrya is topic-driven. The important entities are:
 | `channel` | A conversation/channel binding exposed by some hosts. Required for delivery isolation when available. |
 | `delivery context` | The topic plus user/channel/workspace binding used for scheduled delivery and resend. |
 | `delivery binding` | A normalized Skrya-owned JSON record in `delivery-bindings.json` that maps one topic to one host/channel/conversation/user/workspace automation boundary. |
-| `digest snapshot` | Immutable `.events.json` mapping one artifact's N-xx and T-xx references to stable entities and full sources. |
+| `digest snapshot` | Immutable `.events.json` mapping one artifact's N-xx and T-xx references to stable entities and full sources. The last three real snapshots also drive repeat hiding: matching `event_id` and `content_hash` pairs stay hidden while present in that window; changed content is eligible immediately. Previews never update this memory. |
 | `delivery receipt` | Per-binding `skrya.delivery-receipt.v1` state and message IDs for every required delivery part. |
 | `delivered index` | A frozen snapshot associated with received message IDs. The per-binding latest pointer advances only for complete successful delivery. |
 | `milestone` | A sourced, genuinely dated raw-history entry explicitly selected by an agent with `milestone_reason`. Selection affects display only. |
+| `source health record` | Per-topic state in `topics/<topic-id>/source-health.json` (`ok`, `degraded`, `error` per enabled source). Unknown fields are preserved and previews never write it. |
+| `source generation` | A per-source successful-collection counter (including cache-served successful parses), stored with the event index under `runs/<topic-id>/event-state.json`. Failures, skips, and previews do not advance it; it is not a network-request counter. |
+| `health notice` | A concise lead line before the digest's first section describing real source-health problems, built from health data; empty when nothing is wrong, and never a sixth action. |
 | `automation` | A recurring task that generates and/or sends a digest. |
 | `schedule` | The recurrence and timezone for automation. |
 | `send verification` | A post-send check that delivered body content was non-empty. |

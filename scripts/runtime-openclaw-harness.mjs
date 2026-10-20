@@ -3,8 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
-const bankPath = path.join(root, "skrya", "evals", "eval-bank.json");
-const reportPath = path.join(root, "skrya", "evals", "runtime-report.json");
+const bankPath = path.join(root, "evals", "eval-bank.json");
+const reportPath = path.join(root, "evals", "runtime-report.json");
 
 const bank = JSON.parse(fs.readFileSync(bankPath, "utf8"));
 

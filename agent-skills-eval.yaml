@@ -1,4 +1,4 @@
-root: ./skrya
+root: .
 workspace: ./agent-skills-workspace
 baseline: true
 target: gpt-4o-mini

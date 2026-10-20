@@ -6,7 +6,7 @@
     "runtime-required": "Requires real side effects such as creating automations, migrating files, rendering digest artifacts, or uninstalling data/skills."
   },
   "contexts": {
-    "openclaw-gateway-runtime": "skrya/evals/contexts/openclaw.json"
+    "openclaw-gateway-runtime": "evals/contexts/openclaw.json"
   },
   "journey_tiers": {
     "journey-01": "llm-only",

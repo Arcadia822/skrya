@@ -2,10 +2,15 @@ import io
 import json
 import shutil
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
+from skrya_orchestrator.http_cache import HttpCache
+from skrya_orchestrator.ingest import IngestService
+from skrya_orchestrator.source_health import SourceHealthStore
+from skrya_orchestrator.translation_cache import TranslationCache
 from skrya_orchestrator.main import main
 
 
@@ -32,7 +37,9 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         self.assertIn("某演员与新剧选角争议升温", output)
         self.assertIn("### N-02", output)
         self.assertIn("某女团练习生出圈片段从 INS 扩散到韩媒", output)
-        self.assertIn("信源：[source.test]", output)
+        self.assertIn("[source.test](https://source.test/actor-casting-1)", output)
+        self.assertIn("[source.test](https://source.test/actor-casting-2)", output)
+        self.assertIn("[source.test](https://source.test/trainee-1)", output)
         self.assertNotIn("### 1.", output)
         self.assertIn("dig: N-01", output)
         self.assertIn("track: N-02", output)
@@ -192,7 +199,7 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         payload_path.write_text(
             json.dumps(
                 {
-                    "interface_version": "skrya.ingest.v1",
+                    "interface_version": "skrya.ingest.v2",
                     "topic_id": "k-entertainment",
                     "retrieved_at": "2026-04-25T10:30:00+08:00",
                     "producer": {"kind": "runtime-skill", "name": "agent-reach", "persistent": False},
@@ -221,7 +228,11 @@ class MainIntelligenceCommandTests(unittest.TestCase):
 
         self.assertEqual(0, exit_code)
         latest_path = root / "runs" / "k-entertainment" / "ingest" / "latest-ingest.json"
-        self.assertTrue(latest_path.exists())
+        recorded = json.loads(latest_path.read_text(encoding="utf-8"))
+        self.assertEqual("skrya.ingest.v2", recorded["interface_version"])
+        self.assertEqual({"example.com": 1}, recorded["source_generations"])
+        self.assertEqual(64, len(recorded["items"][0]["event_id"]))
+        self.assertEqual(64, len(recorded["items"][0]["content_hash"]))
         self.assertIn("latest-ingest.json", stdout.getvalue())
 
     def test_data_root_command_configures_workspace_storage_and_migrates_existing_data(self) -> None:
@@ -284,6 +295,502 @@ class MainIntelligenceCommandTests(unittest.TestCase):
         self.assertIn("threads", seed_payload)
         self.assertEqual("skrya.thread.v1", thread_payload["interface_version"])
         self.assertIn("Migrated thread naming", stdout.getvalue())
+
+    def test_digest_force_refresh_replaces_fresh_feed_content(self) -> None:
+        root = self._make_root("cli-digest-force-refresh")
+        self._write_feed_topic(root)
+        self._prime_http_cache(root, "Cached report")
+
+        with patch("skrya_orchestrator.http_cache.urlopen", return_value=self._feed_response("Updated report")):
+            exit_code, output, _ = self._run_cli(root, "digest", "--topic", "k-entertainment", "--force-refresh")
+
+        self.assertEqual(0, exit_code)
+        self.assertIn("Updated report", output)
+        self.assertNotIn("Cached report", output)
+        with patch("skrya_orchestrator.http_cache.urlopen", side_effect=AssertionError("Forced digest must persist its response")):
+            self.assertIn("Updated report", HttpCache(root).fetch("https://source.test/feed.xml"))
+        self.assertTrue((root / "runs" / "k-entertainment" / "latest-digest-events.json").exists())
+
+    def test_digest_force_refresh_preview_keeps_entire_data_root_unchanged(self) -> None:
+        root = self._make_root("cli-digest-force-preview")
+        self._write_feed_topic(root)
+        self._prime_http_cache(root, "Cached report")
+        before = self._snapshot(root)
+
+        with patch("skrya_orchestrator.http_cache.urlopen", side_effect=AssertionError("Fresh preview must use cache")):
+            code, output, _ = self._run_cli(root, "digest", "--topic", "k-entertainment", "--preview")
+        self.assertEqual(0, code)
+        self.assertIn("Cached report", output)
+        with patch("skrya_orchestrator.http_cache.urlopen", return_value=self._feed_response("Preview update")):
+            code, output, _ = self._run_cli(root, "digest", "--topic", "k-entertainment", "--preview", "--force-refresh")
+
+        self.assertEqual(0, code)
+        self.assertIn("Preview update", output)
+        self.assertNotIn("Cached report", output)
+        self.assertEqual(before, self._snapshot(root))
+
+    def test_cache_command_clears_only_recognized_http_entries(self) -> None:
+        root = self._make_root("cli-cache-clear-http")
+        data_root = root / ".skrya" / "data"
+        self._prime_http_cache(data_root, "Cached report")
+        http_dir = data_root / "cache" / "http"
+        recognized = next(http_dir.glob("*/meta.json")).parent
+        unrecognized = http_dir / "not-a-cache-dir"
+        unrecognized.mkdir(parents=True)
+        (unrecognized / "keep.txt").write_text("manual", encoding="utf-8")
+        (http_dir / "README.txt").write_text("manual note", encoding="utf-8")
+
+        code, output, _ = self._run_cli(root, "cache", "--data-root", str(data_root), "--clear-http-cache")
+
+        self.assertEqual(0, code)
+        self.assertIn("Cleared HTTP cache entries: 1", output)
+        self.assertFalse(recognized.exists())
+        self.assertEqual("manual note", (http_dir / "README.txt").read_text(encoding="utf-8"))
+        self.assertEqual("manual", (unrecognized / "keep.txt").read_text(encoding="utf-8"))
+
+    def test_cache_command_clear_translation_cache_scoped_by_language(self) -> None:
+        root = self._make_root("cli-cache-clear-translation")
+        data_root = root / ".skrya" / "data"
+        cache = TranslationCache(data_root)
+        cache.translate("Morning report", lambda text: "早间简报", language="zh-CN", provider="google-translate")
+        cache.translate("早间简报", lambda text: "Morning report", language="en", provider="google-translate")
+        manual = cache.cache_dir / "zh-CN" / "google-translate" / "notes.json"
+        manual.write_text("manual notes", encoding="utf-8")
+
+        code, output, _ = self._run_cli(
+            root, "cache", "--data-root", str(data_root), "--clear-translation-cache", "--translation-language", "zh-CN"
+        )
+
+        self.assertEqual(0, code)
+        self.assertIn("Cleared translation cache entries (zh-CN): 1", output)
+        self.assertEqual("新译文", cache.translate("Morning report", lambda text: "新译文", language="zh-CN", provider="google-translate", write=False))
+        self.assertEqual("Morning report", cache.translate("早间简报", lambda text: "Wrong replacement", language="en", provider="google-translate", write=False))
+        self.assertEqual("manual notes", manual.read_text(encoding="utf-8"))
+
+        code, output, _ = self._run_cli(root, "cache", "--data-root", str(data_root), "--clear-translation-cache")
+        self.assertEqual(0, code)
+        self.assertIn("Cleared translation cache entries: 1", output)
+        self.assertEqual("Replacement", cache.translate("早间简报", lambda text: "Replacement", language="en", provider="google-translate", write=False))
+        self.assertEqual("manual notes", manual.read_text(encoding="utf-8"))
+
+    def test_cache_language_without_translation_action_changes_nothing(self) -> None:
+        root = self._make_root("cli-cache-invalid-language-action")
+        self._prime_http_cache(root, "Keep this report")
+        before = self._snapshot(root)
+
+        code, _, error = self._run_cli(root, "cache", "--clear-http-cache", "--translation-language", "zh-CN")
+
+        self.assertEqual(2, code)
+        self.assertIn("--translation-language requires --clear-translation-cache", error)
+        self.assertEqual(before, self._snapshot(root))
+
+    def test_cache_invalid_language_preserves_all_requested_caches(self) -> None:
+        root = self._make_root("cli-cache-invalid-language")
+        self._prime_http_cache(root, "Keep this report")
+        cache = TranslationCache(root)
+        cache.translate("Morning report", lambda text: "早间简报", language="zh-CN", provider="google-translate")
+        before = self._snapshot(root)
+
+        code, output, _ = self._run_cli(
+            root, "cache", "--clear-http-cache", "--clear-translation-cache",
+            "--translation-language", "../outside", "--cleanup-expired",
+        )
+
+        self.assertEqual(1, code)
+        self.assertEqual("", output)
+        self.assertEqual(before, self._snapshot(root))
+
+    def test_cache_command_without_action_reports_usage_and_clears_nothing(self) -> None:
+        root = self._make_root("cli-cache-no-action")
+        data_root = root / ".skrya" / "data"
+        entry = data_root / "cache" / "http" / ("d" * 64)
+        entry.mkdir(parents=True)
+        (entry / "meta.json").write_text(json.dumps({"url_hash": "d" * 64}), encoding="utf-8")
+
+        stderr = io.StringIO()
+        with patch("sys.argv", ["skrya", "cache", "--root", str(root), "--data-root", str(data_root)]):
+            with redirect_stderr(stderr):
+                exit_code = main()
+
+        self.assertEqual(2, exit_code)
+        self.assertIn("No cache action requested", stderr.getvalue())
+        self.assertTrue((entry / "meta.json").exists())
+
+    def test_cache_command_cleanup_expired_removes_only_stale_entries(self) -> None:
+        root = self._make_root("cli-cache-cleanup")
+        self._prime_http_cache(root, "Fresh report")
+        self._prime_http_cache(root, "Grace report", url="https://source.test/grace.xml", clock=datetime.now(timezone.utc) - timedelta(hours=1))
+        self._prime_http_cache(root, "Expired report", url="https://source.test/expired.xml", clock=datetime.now(timezone.utc) - timedelta(days=3))
+        manual = root / "cache" / "http" / "notes.txt"
+        manual.write_text("keep notes", encoding="utf-8")
+        expired_path = next(path.parent for path in (root / "cache" / "http").glob("*/meta.json") if "expired.xml" in path.read_text())
+
+        code, output, _ = self._run_cli(root, "cache", "--cleanup-expired")
+
+        self.assertEqual(0, code)
+        self.assertIn("Removed expired HTTP cache entries: 1", output)
+        self.assertFalse(expired_path.exists())
+        self.assertEqual(2, len(list((root / "cache" / "http").glob("*/meta.json"))))
+        self.assertEqual("keep notes", manual.read_text(encoding="utf-8"))
+
+    def test_ingest_command_rejects_v1_payload_with_migration_guidance(self) -> None:
+        root = self._make_root("cli-ingest-v1-rejected")
+        self._write_topic(root)
+        payload_path = root / "ingest-v1.json"
+        payload_path.write_text(
+            json.dumps(
+                {
+                    "interface_version": "skrya.ingest.v1",
+                    "topic_id": "k-entertainment",
+                    "retrieved_at": "2026-04-25T10:30:00+08:00",
+                    "producer": {"kind": "runtime-skill", "name": "agent-reach", "persistent": False},
+                    "items": [],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        stderr = io.StringIO()
+        with patch(
+            "sys.argv",
+            ["skrya", "ingest", "--topic", "k-entertainment", "--root", str(root), "--file", str(payload_path)],
+        ):
+            with redirect_stderr(stderr):
+                exit_code = main()
+
+        self.assertEqual(1, exit_code)
+        self.assertIn("upgrade --migrate-ingest-v2", stderr.getvalue())
+        self.assertFalse((root / "runs" / "k-entertainment" / "ingest" / "latest-ingest.json").exists())
+
+    def test_digest_rejects_current_v1_ingest_without_mutation(self) -> None:
+        root = self._make_root("cli-digest-v1-current")
+        self._write_feed_topic(root)
+        latest = root / "runs" / "k-entertainment" / "ingest" / "latest-ingest.json"
+        latest.parent.mkdir(parents=True)
+        latest.write_text(json.dumps({
+            "interface_version": "skrya.ingest.v1", "topic_id": "k-entertainment",
+            "retrieved_at": "2026-10-19T00:00:00Z", "producer": {"name": "runtime", "kind": "agent"}, "items": [],
+        }), encoding="utf-8")
+        before = self._snapshot(root)
+
+        code, _, error = self._run_cli(root, "digest", "--topic", "k-entertainment")
+
+        self.assertEqual(1, code)
+        self.assertIn("upgrade --migrate-ingest-v2", error)
+        self.assertEqual(before, self._snapshot(root))
+
+    def test_upgrade_ingest_failure_preserves_current_file(self) -> None:
+        root = self._make_root("cli-upgrade-ingest-failure")
+        self._write_topic(root)
+        latest = root / "runs" / "k-entertainment" / "ingest" / "latest-ingest.json"
+        latest.parent.mkdir(parents=True)
+        latest.write_text("not valid JSON", encoding="utf-8")
+        before = self._snapshot(root)
+
+        code, _, error = self._run_cli(root, "upgrade", "--migrate-ingest-v2")
+
+        self.assertEqual(1, code)
+        self.assertIn("Ingest migration failed: k-entertainment", error)
+        self.assertEqual(before, self._snapshot(root))
+
+    def test_upgrade_command_migrates_ingest_v1_to_v2_with_backup(self) -> None:
+        root = self._make_root("cli-upgrade-ingest-v2")
+        self._write_topic(root)
+        ingest_dir = root / "runs" / "k-entertainment" / "ingest"
+        ingest_dir.mkdir(parents=True)
+        (ingest_dir / "latest-ingest.json").write_text(
+            json.dumps(
+                {
+                    "interface_version": "skrya.ingest.v1",
+                    "topic_id": "k-entertainment",
+                    "retrieved_at": "2026-04-25T10:30:00+08:00",
+                    "producer": {"kind": "runtime-skill", "name": "agent-reach", "persistent": False},
+                    "items": [
+                        {
+                            "title": "K-pop contract dispute update",
+                            "url": "https://example.com/kpop-contract",
+                            "source_name": "Example",
+                            "fetched_at": "2026-04-25T10:29:00+08:00",
+                            "summary": "A contract dispute has a new company response.",
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        original = (ingest_dir / "latest-ingest.json").read_bytes()
+        protected = {
+            "runs/k-entertainment/ingest/normalized/archived.json": b"archived v1 ingest",
+            "runs/k-entertainment/ingest/raw/archived.txt": b"original provider output",
+            "runs/k-entertainment/digest-20260101.events.json": b"frozen snapshot",
+            "runs/k-entertainment/threads/latest-threads.json": b"full thread history",
+            "topic-curation/agents/openai.yaml": b"custom skill metadata",
+            "topic-curation/agents/custom/nested/config.json": b"unrelated nested content",
+        }
+        for relative, content in protected.items():
+            path = root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+
+        stdout = io.StringIO()
+        with patch(
+            "sys.argv",
+            ["skrya", "upgrade", "--root", str(root), "--migrate-ingest-v2", "--topic", "k-entertainment"],
+        ):
+            with redirect_stdout(stdout):
+                exit_code = main()
+
+        self.assertEqual(0, exit_code)
+        migrated = json.loads((ingest_dir / "latest-ingest.json").read_text(encoding="utf-8"))
+        self.assertEqual("skrya.ingest.v2", migrated["interface_version"])
+        self.assertIn("source_generations", migrated)
+        self.assertTrue((ingest_dir / "latest-ingest.v1-backup.json").exists())
+        self.assertIn("Migrated ingest v2: k-entertainment", stdout.getvalue())
+        self.assertEqual(json.loads(original), json.loads((ingest_dir / "latest-ingest.v1-backup.json").read_text(encoding="utf-8")))
+        self.assertEqual({"example.com": 1}, migrated["source_generations"])
+        for relative, content in protected.items():
+            self.assertEqual(content, (root / relative).read_bytes())
+
+        before = self._snapshot(root)
+        code, output, _ = self._run_cli(root, "upgrade", "--migrate-ingest-v2", "--topic", "K-Entertainment")
+        self.assertEqual(0, code)
+        self.assertIn("Already ingest v2: k-entertainment", output)
+        self.assertEqual(before, self._snapshot(root))
+
+    def test_ingest_prune_command_protects_latest_and_requires_apply(self) -> None:
+        root = self._make_root("cli-ingest-prune")
+        self._write_topic(root)
+        service = IngestService(root)
+        batches = {}
+        for index in [*range(1, 12), 0]:
+            timestamp = f"2026-01-01T00:{index:02d}:00Z"
+            batches[index] = service.record_ingest_result(
+                "k-entertainment",
+                {
+                    "interface_version": "skrya.ingest.v2",
+                    "topic_id": "k-entertainment",
+                    "retrieved_at": timestamp,
+                    "producer": {"kind": "runtime-skill", "name": "runtime", "persistent": False},
+                    "items": [{
+                        "title": f"Recorded source report {index}",
+                        "url": "https://source.test/articles/report",
+                        "source_name": "Official updates",
+                        "fetched_at": timestamp,
+                        "summary": f"Source report details for batch {index}",
+                    }],
+                },
+                raw_text=f"original source output {index}",
+            )
+        protected = {
+            "runs/k-entertainment/ingest/normalized/20260101T000000Z-runtime.json": b'{"batch": 0}',
+            "runs/k-entertainment/ingest/raw/20260101T000000Z-runtime.txt": b"unowned raw output",
+            "runs/k-entertainment/ingest/raw/orphan.txt": b"unpaired historical output",
+            "runs/k-entertainment/digest-20260101.md": b"frozen digest",
+            "runs/k-entertainment/digest-20260101.events.json": b"frozen event snapshot",
+            "runs/k-entertainment/threads/latest-threads.json": b"full thread history",
+            "runs/k-entertainment/receipts/historical.json": b"delivery receipt",
+            "runs/k-entertainment/bindings/historical.json": b"delivery binding",
+        }
+        for relative, content in protected.items():
+            path = root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+        before = self._snapshot(root)
+
+        code, output, _ = self._run_cli(root, "ingest-prune", "--topic", "k-entertainment", "--keep", "10")
+
+        self.assertEqual(0, code)
+        report = json.loads(output)
+        self.assertFalse(report["apply"])
+        self.assertEqual(12, report["total_batches"])
+        self.assertIn(batches[0].normalized_path.name, report["protected_batches"])
+        self.assertEqual(
+            [{"normalized": batches[1].normalized_path.name, "raw": [batches[1].raw_path.name]}],
+            report["selected"],
+        )
+        self.assertEqual([], report["deleted"])
+        self.assertEqual([], report["failed"])
+        self.assertEqual(before, self._snapshot(root))
+
+        code, output, _ = self._run_cli(root, "ingest-prune", "--topic", "k-entertainment", "--keep", "10", "--apply")
+
+        self.assertEqual(0, code)
+        applied = json.loads(output)
+        self.assertTrue(applied["apply"])
+        self.assertEqual(report["selected"], applied["selected"])
+        self.assertEqual(
+            [f"normalized/{batches[1].normalized_path.name}", f"raw/{batches[1].raw_path.name}"],
+            applied["deleted"],
+        )
+        self.assertEqual([], applied["failed"])
+        expected = dict(before)
+        del expected[str(batches[1].normalized_path.relative_to(root))]
+        del expected[str(batches[1].raw_path.relative_to(root))]
+        self.assertEqual(expected, self._snapshot(root))
+
+    def test_ingest_prune_reports_failure_without_deleting_protected_batches(self) -> None:
+        root = self._make_root("cli-ingest-prune-invalid-latest")
+        self._write_topic(root)
+        batch = IngestService(root).record_ingest_result(
+            "k-entertainment",
+            {
+                "interface_version": "skrya.ingest.v2",
+                "topic_id": "k-entertainment",
+                "retrieved_at": "2026-01-01T00:00:00Z",
+                "producer": {"kind": "runtime-skill", "name": "runtime"},
+                "items": [],
+            },
+            raw_text="original source output",
+        )
+        batch.latest_path.write_text("invalid current ingest", encoding="utf-8")
+        before = self._snapshot(root)
+
+        for flags in [(), ("--apply",)]:
+            with self.subTest(flags=flags):
+                code, output, _ = self._run_cli(root, "ingest-prune", "--topic", "k-entertainment", "--keep", "0", *flags)
+
+                self.assertEqual(1, code)
+                report = json.loads(output)
+                self.assertEqual("latest-ingest.json", report["failed"][0]["path"])
+                self.assertIn(batch.normalized_path.name, report["protected_batches"])
+                self.assertEqual([], report["selected"])
+                self.assertEqual([], report["deleted"])
+                self.assertEqual(before, self._snapshot(root))
+
+    def test_ingest_prune_without_batches_creates_no_files(self) -> None:
+        root = self._make_root("cli-ingest-prune-empty")
+        self._write_topic(root)
+        before = self._snapshot(root)
+
+        code, output, _ = self._run_cli(root, "ingest-prune", "--topic", "K-Entertainment")
+
+        self.assertEqual(0, code)
+        report = json.loads(output)
+        self.assertEqual(0, report["total_batches"])
+        self.assertEqual([], report["deleted"])
+        self.assertEqual(before, self._snapshot(root))
+
+    def test_source_health_command_is_read_only_report(self) -> None:
+        root = self._make_root("cli-source-health-readonly")
+        self._write_feed_topic(root)
+        store = SourceHealthStore(root / "topics" / "k-entertainment")
+        for _ in range(3):
+            store.record_failure("official-updates", "connection refused")
+        store.save()
+        before = self._snapshot(root)
+
+        with patch("skrya_orchestrator.http_cache.urlopen", side_effect=AssertionError("Reports must not fetch")) as network:
+            code, output, _ = self._run_cli(root, "source-health", "--topic", "K-Entertainment")
+
+        self.assertEqual(0, code)
+        self.assertIn("Official updates", output)
+        self.assertIn("3 consecutive failures", output)
+        self.assertIn("connection refused", output)
+        network.assert_not_called()
+        self.assertEqual(before, self._snapshot(root))
+
+    def test_source_health_with_no_state_creates_no_files(self) -> None:
+        root = self._make_root("cli-source-health-empty")
+        self._write_topic(root)
+        before = self._snapshot(root)
+
+        code, output, _ = self._run_cli(root, "source-health", "--topic", "k-entertainment")
+
+        self.assertEqual(0, code)
+        self.assertIn("信源状态良好", output)
+        self.assertEqual(before, self._snapshot(root))
+
+    def test_source_health_refresh_collects_only_explicit_topic(self) -> None:
+        for flags in [("--refresh",), ("--force-refresh",), ("--refresh", "--force-refresh")]:
+            with self.subTest(flags=flags):
+                root = self._make_root("cli-source-health-" + "-".join(flags))
+                self._write_feed_topic(root)
+                self._write_new_energy_topic(root)
+                other_before = self._snapshot(root / "topics" / "new-energy-vehicles")
+                self._prime_http_cache(root, "Cached report")
+
+                with patch("skrya_orchestrator.http_cache.urlopen", return_value=self._feed_response("Refreshed report")) as network:
+                    code, output, _ = self._run_cli(root, "source-health", "--topic", "K-Entertainment", *flags)
+
+                self.assertEqual(0, code)
+                self.assertIn("All 1 sources are healthy", output)
+                state = json.loads((root / "topics" / "k-entertainment" / "source-health.json").read_text(encoding="utf-8"))
+                self.assertEqual("ok", state["sources"]["official-updates"]["status"])
+                self.assertEqual(1, state["sources"]["official-updates"]["item_count"])
+                lifecycle = json.loads((root / "runs" / "k-entertainment" / "event-state.json").read_text(encoding="utf-8"))
+                current = next(iter(lifecycle["sources"]["official-updates"]["events"].values()))
+                self.assertEqual("Refreshed report" if "--force-refresh" in flags else "Cached report", current["title"])
+                self.assertEqual(1 if "--force-refresh" in flags else 0, network.call_count)
+                self.assertFalse((root / "runs" / "k-entertainment" / "latest-digest.md").exists())
+                self.assertFalse((root / "runs" / "new-energy-vehicles").exists())
+                self.assertEqual(other_before, self._snapshot(root / "topics" / "new-energy-vehicles"))
+
+    def test_retrieval_request_merges_pending_fallbacks_without_collection(self) -> None:
+        root = self._make_root("cli-retrieval-pending-fallback")
+        self._write_topic(root)
+        topic_dir = root / "topics" / "k-entertainment"
+        (topic_dir / "sources.json").write_text(json.dumps({"sources": [
+            {"id": "public-web", "type": "runtime-retrieval", "enabled": True, "capabilities": ["web_search"], "queries": ["contract update"], "languages": ["en"], "max_items": 12},
+            {"id": "official-feed", "name": "Official source", "type": "rsshub", "enabled": True, "route": "/confirmed/updates", "fallback": {"capabilities": ["news_search", "web_search"], "queries": ["Official source contract update"]}},
+        ]}), encoding="utf-8")
+        store = SourceHealthStore(topic_dir)
+        for _ in range(3):
+            store.record_failure("official-feed", "feed unavailable")
+        store.save()
+        before = self._snapshot(root)
+
+        with patch("skrya_orchestrator.http_cache.urlopen", side_effect=AssertionError("Retrieval request must not fetch")) as network:
+            code, output, _ = self._run_cli(root, "retrieval-request", "--topic", "k-entertainment", "--since", "2026-10-19", "--until", "2026-10-20")
+
+        self.assertEqual(0, code)
+        request = json.loads(output)
+        self.assertEqual(["web_search", "news_search"], request["capabilities"])
+        self.assertEqual(["contract update", "Official source contract update"], request["queries"])
+        self.assertEqual({"since": "2026-10-19", "until": "2026-10-20"}, request["time_window"])
+        self.assertEqual(["en"], request["languages"])
+        self.assertEqual(12, request["max_items"])
+        self.assertEqual("official-feed", request["fallbacks"][0]["source_id"])
+        self.assertEqual("configured", request["fallbacks"][0]["origin"])
+        network.assert_not_called()
+        self.assertEqual(before, self._snapshot(root))
+
+    @staticmethod
+    def _run_cli(root: Path, command: str, *arguments: str) -> tuple[int, str, str]:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with patch("sys.argv", ["skrya", command, "--root", str(root), *arguments]):
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                code = main()
+        return code, stdout.getvalue(), stderr.getvalue()
+
+    @staticmethod
+    def _snapshot(root: Path) -> dict[str, bytes | None]:
+        return {str(path.relative_to(root)): path.read_bytes() if path.is_file() else None for path in root.rglob("*")}
+
+    @classmethod
+    def _write_feed_topic(cls, root: Path) -> None:
+        cls._write_topic(root)
+        topic_dir = root / "topics" / "k-entertainment"
+        metadata = json.loads((topic_dir / "topic.json").read_text(encoding="utf-8"))
+        metadata["language"] = "en"
+        (topic_dir / "topic.json").write_text(json.dumps(metadata), encoding="utf-8")
+        (topic_dir / "sources.json").write_text(json.dumps({"sources": [{"id": "official-updates", "name": "Official updates", "type": "rss", "enabled": True, "url": "https://source.test/feed.xml"}]}), encoding="utf-8")
+
+    @staticmethod
+    def _feed_response(title: str) -> io.BytesIO:
+        body = f"<rss><channel><item><title>{title}</title><link>https://source.test/articles/report</link><description>Verified report details</description></item></channel></rss>"
+        response = io.BytesIO(body.encode("utf-8"))
+        response.status = 200
+        response.headers = {"Content-Type": "application/rss+xml", "ETag": title}
+        return response
+
+    @classmethod
+    def _prime_http_cache(cls, root: Path, title: str, *, url: str = "https://source.test/feed.xml", clock=None) -> None:
+        cache = HttpCache(root, clock=clock, opener=lambda request, timeout: cls._feed_response(title))
+        cache.fetch(url, ttl_seconds=1800)
 
     @staticmethod
     def _make_root(name: str) -> Path:

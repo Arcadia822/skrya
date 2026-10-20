@@ -22,7 +22,7 @@ Read these files before drafting the digest:
 - topic-specific digest template file when configured; otherwise `digest/templates/default-digest.md`
 
 If available, also read the latest event candidates or prior digest artifacts for that topic.
-When runtime retrieval was used, consume only normalized `skrya.ingest.v1` artifacts under `<skrya-data-root>/runs/<topic-id>/ingest/`. Do not consume raw provider output directly.
+When runtime retrieval was used, consume only normalized `skrya.ingest.v2` artifacts under `<skrya-data-root>/runs/<topic-id>/ingest/`. Do not consume raw provider output directly.
 When thread seeds exist, use them to surface continuing thread updates and preserve durable topic memory. Every thread whose effective status is `active` must be visible in the digest even when the current scan finds no verified increment.
 
 Also inherit any applicable workspace defaults from `AGENTS.md`, `CLAUDE.md`, or the equivalent repository instruction file.
@@ -50,6 +50,7 @@ Digest generation and digest delivery are separate steps.
 - Do not derive digest language from install-time settings. Installation is language-neutral.
 - The title includes execution date and topic name. Preserve the actual scan interval near the title, not as an execution log.
 - Treat events as the primary unit, not articles. Show N-xx references and a source line for each item.
+- When collected source health reports a real problem for enabled sources, add one concise lead line before the first section naming the affected sources and the pending neutral retrieval handoff. This is part of the scan summary, not a sixth action; the trailing action list stays exactly five.
 - Use plain Markdown headings and paragraphs, never decorative line boxes or tab alignment. Native Feishu rendering adds the approved Schema 2.0 colors, badges and two-column title/date rows.
 - Keep facts concise when writing, approximately three lines, and judgment approximately two lines. Do not truncate collected facts or remove news to fit a card.
 - Include every effective active Thread before news. Show a T-xx reference and name, not the internal thread ID.
@@ -58,7 +59,7 @@ Digest generation and digest delivery are separate steps.
 - Keep the full underlying timeline, all unknown fields and complete sources for dig and write. Merge and deduplicate without deleting old entries.
 - With no verified update, keep the active Thread's latest known state and next observation. If historical curation is incomplete, say so rather than invent nodes.
 - Save real digests as `digest-YYYYMMDDTHHMMSS+0800.md` with a frozen events.json sidecar. Keep `latest-digest.md` as a symlink or pointer.
-- Test runs use the same digest template but stay in chat. Do not save previews or advance latest pointers unless explicitly asked.
+- Test runs use the same digest template but stay in chat. Do not save previews or advance latest pointers unless explicitly asked. Previews read existing state without writing: they do not advance repeat-hiding memory, source generations, source health records, or caches.
 - End with `---` and `## 可继续操作`, or `## Available actions` for English. Include exactly `dig: N-01`, `track: N-02`, `dig: T-01`, `write: T-01`, and natural-language feedback, explained in the topic language.
 - Keep model, framework, version, execution logs, delivery conclusions and file paths out of user output. Record operational information separately.
 - When upgrading, use `docs/upgrade.md` and keep each host's data, credentials, targets and schedule unchanged.
@@ -69,10 +70,10 @@ Digest generation and digest delivery are separate steps.
 ## Required Behavior
 
 1. Load topic configuration, topic-specific digest guidance, and the digest template file.
-2. Consume the available normalized `skrya.ingest.v1` items or event candidates.
-3. Remove obvious duplicates and low-value fragments.
+2. Consume the available normalized `skrya.ingest.v2` items or event candidates. Hide events already shown in the last three real digest snapshots with the same `event_id` and `content_hash`; a changed `content_hash` makes the event visible again, and previews do not update this memory.
+3. Remove obvious low-value fragments.
 4. Rank events using the topic brief and digest standard.
-5. Write uniform N-xx news items with facts, judgment and media-name source links.
+5. Write uniform N-xx news items with facts, judgment and media-name source links (or verified plain media labels when no article landing page exists).
 6. Review every active Thread, retaining each latest news item and projecting only explicitly curated historical milestones.
 7. Save real digests and their immutable reference snapshot, then update the latest digest pointer. Do not save test-run previews by default.
 8. Preserve full provenance and raw Thread history for follow-up.
@@ -108,4 +109,13 @@ Down-rank events that:
 
 ## Source Display
 
-Show compact source references for every item. Link the media name directly, separate multiple sources with ` | `, and never use the redundant label 原文链接. Return the complete relevant source list when asked.
+Show compact source references for every item. Link the media name directly, separate multiple sources with ` | `, and never use the redundant label 原文链接.
+
+Source links must come directly from genuine, event-specific tool retrieval results. Strictly forbid:
+- Inventing URLs or synthesizing deep link IDs.
+- Reusing a single link across multiple different events (cross-event link reuse / 张冠李戴).
+- Using full-site homepages (e.g. `81.cn`, `cctv.com`) or search result URLs (e.g. `/search`, `douyin.com/search`, `s.weibo.com`) as placeholder links.
+
+When tool retrieval provides only a media name or social trending topic without an exact article landing page URL, output the plain media name directly without a hyperlink (e.g. `信源：[新华社](https://...) | 央视军事 | 微博热搜` or `信源：央视军事 | 微博热搜`). Plain media labels are valid and supported; never invent a fake link or reuse another article's link just to satisfy formatting.
+
+Historical timeline milestone display strictly retains the requirement for a genuine event date and valid source URL; never relax the date or URL requirement for historical milestones. Return the complete relevant source list when asked.

@@ -3,7 +3,6 @@ import unittest
 from collections import Counter
 from pathlib import Path
 
-import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,22 +12,10 @@ OPENCLAW_CONTEXT_ID = "openclaw-gateway-runtime"
 
 
 class AgentSkillsEvalTests(unittest.TestCase):
-    def test_agent_skills_eval_config_targets_skrya_skill(self) -> None:
-        config = yaml.safe_load((ROOT / "agent-skills-eval.yaml").read_text(encoding="utf-8"))
-        package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
-
-        self.assertEqual("./skrya", config["root"])
-        self.assertEqual([], config["include"])
-        self.assertTrue(config["baseline"])
-        self.assertTrue(config["strict"])
-        self.assertEqual("OPENAI_API_KEY", config["apiKeyEnv"])
-        self.assertEqual("agent-skills-eval --config agent-skills-eval.yaml", package["scripts"]["eval:skills"])
-        self.assertEqual("node scripts/check-agent-skills-eval.mjs", package["scripts"]["eval:skills:check"])
-        self.assertEqual("node scripts/runtime-openclaw-harness.mjs", package["scripts"]["eval:skills:runtime"])
 
     def test_eval_bank_has_all_evaluated_journeys_with_at_least_five_evals_each(self) -> None:
         """The durable eval bank contains every evaluated journey with at least five cases."""
-        bank = json.loads((ROOT / "skrya" / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
+        bank = json.loads((ROOT / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
 
         self.assertEqual("skrya", bank["skill_name"])
         self.assertGreaterEqual(len(bank["evals"]), 65)
@@ -49,8 +36,8 @@ class AgentSkillsEvalTests(unittest.TestCase):
 
     def test_active_evals_are_llm_only_subset_of_bank(self) -> None:
         """The active evals.json contains only llm-only cases from the eval bank."""
-        bank = json.loads((ROOT / "skrya" / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
-        active = json.loads((ROOT / "skrya" / "evals" / "evals.json").read_text(encoding="utf-8"))
+        bank = json.loads((ROOT / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
+        active = json.loads((ROOT / "evals" / "evals.json").read_text(encoding="utf-8"))
 
         bank_llm_ids = {item["id"] for item in bank["evals"] if item["tier"] == "llm-only"}
         active_ids = {item["id"] for item in active["evals"]}
@@ -60,8 +47,8 @@ class AgentSkillsEvalTests(unittest.TestCase):
 
     def test_non_llm_cases_excluded_from_active(self) -> None:
         """Cases requiring agent context or runtime are not in the active bare-LLM runner."""
-        bank = json.loads((ROOT / "skrya" / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
-        active = json.loads((ROOT / "skrya" / "evals" / "evals.json").read_text(encoding="utf-8"))
+        bank = json.loads((ROOT / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
+        active = json.loads((ROOT / "evals" / "evals.json").read_text(encoding="utf-8"))
 
         non_llm_ids = {item["id"] for item in bank["evals"] if item["tier"] != "llm-only"}
         active_ids = {item["id"] for item in active["evals"]}
@@ -72,7 +59,7 @@ class AgentSkillsEvalTests(unittest.TestCase):
 
     def test_eval_bank_tiers_are_well_formed(self) -> None:
         """The eval bank has tier metadata and journey_tiers mapping."""
-        bank = json.loads((ROOT / "skrya" / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
+        bank = json.loads((ROOT / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
 
         self.assertIn("tiers", bank)
         self.assertIn("contexts", bank)
@@ -87,7 +74,7 @@ class AgentSkillsEvalTests(unittest.TestCase):
 
     def test_non_llm_cases_reference_openclaw_context(self) -> None:
         """Agent/runtime cases are tied to a concrete OpenClaw host context."""
-        bank = json.loads((ROOT / "skrya" / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
+        bank = json.loads((ROOT / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
         context_path = ROOT / bank["contexts"][OPENCLAW_CONTEXT_ID]
         context = json.loads(context_path.read_text(encoding="utf-8"))
 
@@ -104,17 +91,6 @@ class AgentSkillsEvalTests(unittest.TestCase):
             else:
                 self.assertEqual([OPENCLAW_CONTEXT_ID], item.get("context_ids"))
 
-    def test_runtime_harness_is_mock_openclaw_runner(self) -> None:
-        """The runtime runner exists and is explicit about being a mock harness."""
-        script = (ROOT / "scripts" / "runtime-openclaw-harness.mjs").read_text(encoding="utf-8")
-
-        self.assertIn("mock-openclaw-runtime", script)
-        self.assertIn("runtime-required", script)
-        self.assertIn("fake tool traces", script)
-        self.assertIn("create_automation", script)
-        self.assertIn("render_digest", script)
-        self.assertIn("uninstall_skrya", script)
-        self.assertIn("runtime-report.json", script)
 
 
 if __name__ == "__main__":

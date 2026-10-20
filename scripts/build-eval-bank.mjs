@@ -2,10 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
-const evalDir = path.join(root, "skrya", "evals");
+const evalDir = path.join(root, "evals");
 const activePath = path.join(evalDir, "evals.json");
 const bankPath = path.join(evalDir, "eval-bank.json");
-const openClawContextPath = "skrya/evals/contexts/openclaw.json";
+const openClawContextPath = "evals/contexts/openclaw.json";
 
 const active = JSON.parse(fs.readFileSync(activePath, "utf8"));
 
