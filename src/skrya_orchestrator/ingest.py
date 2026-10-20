@@ -203,23 +203,25 @@ class IngestService:
         _assert_ingest_paths(self._data_root, topic_id, "latest-ingest.json")
         if not latest_path.exists():
             return []
-        captured = latest_path.read_text(encoding="utf-8")
         lock_path = lifecycle.state_path.with_name("event-state.lock")
         try:
-            fd = os.open(lock_path, os.O_RDONLY | os.O_NOFOLLOW)
-        except FileNotFoundError:
-            payload = json.loads(captured)
-            state_sources = lifecycle.load_state().get("sources", {})
-        else:
-            with os.fdopen(fd, "r", encoding="utf-8") as lock:
-                fcntl.flock(lock.fileno(), fcntl.LOCK_SH)
-                try:
-                    if not latest_path.exists():
-                        return []
-                    payload = json.loads(latest_path.read_text(encoding="utf-8"))
-                    state_sources = lifecycle.load_state().get("sources", {})
-                finally:
-                    fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+            fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o644)
+        except OSError as exc:
+            if lock_path.is_symlink():
+                raise ValueError(f"Refusing linked event state path: {lock_path}") from exc
+            raise
+        with os.fdopen(fd, "r", encoding="utf-8") as lock:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_SH)
+            try:
+                # Re-check under the shared lock: a first-ingest rollback may
+                # remove latest between the pre-lock check and this point, and
+                # no unlocked capture may survive to answer for it.
+                if not latest_path.exists():
+                    return []
+                payload = json.loads(latest_path.read_text(encoding="utf-8"))
+                state_sources = lifecycle.load_state().get("sources", {})
+            finally:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
         normalized = self._normalize_payload(topic_id, payload)
         current_items = [
             item
@@ -374,11 +376,22 @@ class IngestService:
             if is_valid_ingest_item(item)
         ]
 
+        retrieved_at = payload.get("retrieved_at") or self._now_iso()
+        if not isinstance(retrieved_at, str) or not retrieved_at.strip():
+            raise ValueError("Invalid ingest retrieved_at: expected a non-empty ISO-8601 timestamp")
+        try:
+            datetime.fromisoformat(retrieved_at.strip().replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid ingest retrieved_at: {retrieved_at!r} is not an ISO-8601 timestamp; "
+                "refusing to publish ingest state"
+            ) from exc
+
         return {
             **payload,
             "interface_version": INGEST_VERSION,
             "topic_id": topic_id,
-            "retrieved_at": payload.get("retrieved_at") or self._now_iso(),
+            "retrieved_at": retrieved_at,
             "producer": producer,
             "source_generations": dict(payload.get("source_generations") or {}),
             "items": items,

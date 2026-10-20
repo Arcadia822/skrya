@@ -162,17 +162,24 @@ class TranslationCache:
             if isinstance(payload, dict):
                 source_text = payload.get("source_text")
                 cached_translation = payload.get("translated_text")
-                if (
-                    payload.get("content_hash") == h
-                    and payload.get("lang") == language
-                    and payload.get("model") == provider
-                    and isinstance(source_text, str)
-                    and self.content_hash(source_text) == h
-                    and isinstance(cached_translation, str)
-                    and bool(cached_translation.strip())
-                    and cached_translation.strip() != text.strip()
-                    and cached_translation.strip() != source_text.strip()
-                ):
+                try:
+                    valid = (
+                        payload.get("content_hash") == h
+                        and payload.get("lang") == language
+                        and payload.get("model") == provider
+                        and isinstance(source_text, str)
+                        and self.content_hash(source_text) == h
+                        and isinstance(cached_translation, str)
+                        and bool(cached_translation.strip())
+                        and cached_translation.strip() != text.strip()
+                        and cached_translation.strip() != source_text.strip()
+                    )
+                except UnicodeEncodeError:
+                    # Corrupted entry (e.g. lone surrogate in source_text):
+                    # treat as a miss so the translator runs and the cache is
+                    # repaired below.
+                    valid = False
+                if valid:
                     return cached_translation
 
         try:
@@ -275,12 +282,21 @@ class TranslationCache:
             except (ValueError, UnicodeEncodeError):
                 continue
 
+            try:
+                source_hash_ok = (
+                    isinstance(source_text, str)
+                    and self.content_hash(source_text) == stem
+                )
+            except UnicodeEncodeError:
+                # Corrupted entry (e.g. lone surrogate in source_text): skip it
+                # and keep processing the remaining entries.
+                continue
+
             if (
                 content_hash != stem
                 or payload_lang != entry_lang
                 or provider_key != entry_provider_dir
-                or not isinstance(source_text, str)
-                or self.content_hash(source_text) != stem
+                or not source_hash_ok
                 or not isinstance(translated_text, str)
                 or not translated_text.strip()
             ):

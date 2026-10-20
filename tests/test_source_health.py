@@ -248,7 +248,7 @@ class TestSourceHealth(unittest.TestCase):
 
             initial_json = {
                 "interface_version": "skrya.source-health.v1",
-                "updated_at": "2026-10-20T10:00:00+00:00",
+                "updated_at": "2020-06-01T10:00:00+00:00",
                 "custom_cluster_id": "cluster-999",
                 "meta_flags": {"monitored": True},
                 "sources": {
@@ -256,8 +256,8 @@ class TestSourceHealth(unittest.TestCase):
                         "status": "ok",
                         "consecutive_failures": 0,
                         "item_count": 10,
-                        "last_success_at": "2026-10-20T09:00:00+00:00",
-                        "last_fetch_at": "2026-10-20T09:00:00+00:00",
+                        "last_success_at": "2020-06-01T09:00:00+00:00",
+                        "last_fetch_at": "2020-06-01T09:00:00+00:00",
                         "last_error": None,
                         "custom_source_metric": 42.5,
                         "legacy_tag": "archived_feed",
@@ -675,6 +675,44 @@ class TestSourceHealth(unittest.TestCase):
             store_late.save()
             snap = SourceHealthStore(topic_dir, clock=clock).snapshot()["sources"]["src_a"]
             self.assertEqual(snap["generation"], 8)
+
+    def test_stale_replayed_success_never_regresses_newer_outcome(self) -> None:
+        early = datetime(2026, 10, 20, 12, 0, 0, tzinfo=timezone.utc)
+        late = early + timedelta(hours=1)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            topic_dir = Path(temp_dir) / "topic"
+            store_old = SourceHealthStore(topic_dir, clock=early)
+            store_new = SourceHealthStore(topic_dir, clock=late)
+
+            store_old.record_success("src_a", item_count=5)
+            store_new.record_failure("src_a", "Boom B")
+            store_new.save()
+            store_old.save()
+
+            snap = SourceHealthStore(topic_dir, clock=late).snapshot()["sources"]["src_a"]
+            self.assertEqual(1, snap["consecutive_failures"])
+            self.assertEqual(late.isoformat(), snap["last_fetch_at"])
+            self.assertEqual("Boom B", snap["last_error"])
+            self.assertIsNone(snap["last_success_at"])
+
+    def test_stale_replayed_failure_does_not_double_count(self) -> None:
+        early = datetime(2026, 10, 20, 12, 0, 0, tzinfo=timezone.utc)
+        late = early + timedelta(hours=1)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            topic_dir = Path(temp_dir) / "topic"
+            store_old = SourceHealthStore(topic_dir, clock=early)
+            store_new = SourceHealthStore(topic_dir, clock=late)
+
+            store_old.record_failure("src_a", "Boom A")
+            store_new.record_failure("src_a", "Boom B")
+            store_new.save()
+            store_old.save()
+
+            snap = SourceHealthStore(topic_dir, clock=late).snapshot()["sources"]["src_a"]
+            self.assertEqual(1, snap["consecutive_failures"])
+            self.assertEqual("Boom B", snap["last_error"])
+            self.assertEqual(late.isoformat(), snap["last_fetch_at"])
+            self.assertEqual(late.isoformat(), snap["last_error_at"])
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 """Tests for source fidelity, landing page preservation, and plain text degradation."""
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import tempfile
@@ -19,6 +20,7 @@ from skrya_orchestrator.sources import (
     parse_sources,
     primary_article_url,
     render_sources,
+    source_identity,
 )
 
 
@@ -609,6 +611,39 @@ class SourceFidelityTests(unittest.TestCase):
         self.assertEqual(host_name("https://www.xinhuanet.com/mil/123.htm"), "xinhuanet.com")
         self.assertEqual(host_name("http://news.cctv.com:8080/test"), "news.cctv.com")
 
+    def test_bare_url_paired_parentheses_survive_and_unpaired_terminate(self) -> None:
+        """Paired ASCII parentheses stay inside a bare URL; unpaired trailing parens terminate it."""
+        linked = [r for r in normalize_sources("详情见 https://en.wikipedia.org/wiki/GPT_(language_model) 说明") if r["url"]]
+        self.assertEqual(
+            ["https://en.wikipedia.org/wiki/GPT_(language_model)"],
+            [r["url"] for r in linked],
+        )
+        structured = normalize_sources([
+            {"name": "Wikipedia", "url": "https://en.wikipedia.org/wiki/GPT_(language_model)"}
+        ])[0]
+        self.assertEqual("https://en.wikipedia.org/wiki/GPT_(language_model)", structured["url"])
+        trailing = [r for r in normalize_sources("（见 https://x.com/a）") if r["url"]]
+        self.assertEqual(["https://x.com/a"], [r["url"] for r in trailing])
+
+    def test_ipv6_literal_article_urls_are_valid(self) -> None:
+        self.assertTrue(is_valid_article_url("http://[::1]:8000/posts/1"))
+        self.assertTrue(is_valid_article_url("http://[2001:db8::1]/articles/one"))
+        self.assertFalse(is_valid_article_url("http://[::1]/"))
+        self.assertFalse(is_valid_article_url("https://[fe80::1]/search?q=x"))
+
+    def test_source_identity_single_convention(self) -> None:
+        """Explicit ids win; otherwise identity digests the type-specific reference."""
+        self.assertEqual("confirmed", source_identity({"id": " confirmed ", "url": "https://a.test/x"}))
+        self.assertEqual(
+            "rss:" + hashlib.sha256(b"https://news.test/rss").hexdigest(),
+            source_identity({"type": "rss", "url": "https://news.test/rss"}),
+        )
+        self.assertEqual(
+            "rsshub:" + hashlib.sha256(b"/confirmed/news").hexdigest(),
+            source_identity({"type": "rsshub", "route": "/confirmed/news"}),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
+

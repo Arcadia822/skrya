@@ -1,10 +1,10 @@
 """Live source collection: feed config validation, RSS2/Atom/RDF parsing, RSSHub hedging and health results."""
 from __future__ import annotations
 
-import hashlib
 import html
 import json
 import re
+import time
 import xml.etree.ElementTree as ET
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -12,18 +12,19 @@ from datetime import datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Callable, Sequence
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from .event_lifecycle import EventLifecycle
 from .http_cache import HttpCache, default_ttl
 from .rsshub import fetch_rsshub
 from .source_health import SourceHealthCorruptError, SourceHealthStore
-from .sources import host_name, normalize_sources
+from .sources import host_name, normalize_sources, source_identity
 
 NEUTRAL_CAPABILITIES = ("web_search", "news_search")
 FALLBACK_TERMS_LIMIT = 6
 DEFAULT_MAX_ITEMS = 5
 
+XML_BASE_ATTR = "{http://www.w3.org/XML/1998/namespace}base"
 _FEED_TYPES = ("rss", "rsshub")
 
 _BRIEF_STOP_TERMS = {
@@ -199,20 +200,33 @@ class SourceCollector:
         return events, None
 
     def _rsshub_fetch_callback(self, source: dict) -> Callable[[str, float], str]:
-        """RSSHub hedge callback: reject bodies with no usable items before a winner is declared."""
+        """RSSHub hedge callback: validation happens inside _fetch_body before any
+        cache write, and the deadline bounds the underlying HTTP read."""
 
         def fetch(url: str, timeout_seconds: float) -> str:
-            body = self._fetch_body(url, timeout_seconds, source)
-            items = parse_feed_items(body)
-            if not self._events_from_items(items, source):
-                raise ValueError("feed response has no usable items")
-            return body
+            deadline = time.monotonic() + timeout_seconds
+            return self._fetch_body(url, timeout_seconds, source, deadline=deadline)
 
         return fetch
 
-    def _fetch_body(self, url: str, timeout: float, source: dict) -> str:
+    def _feed_validator(self, source: dict) -> Callable[[str], None]:
+        """Reject bodies with no usable items before they reach the cache."""
+
+        def validate(body_text: str) -> None:
+            items = parse_feed_items(body_text)
+            if not self._events_from_items(items, source):
+                raise ValueError("feed response has no usable items")
+
+        return validate
+
+    def _fetch_body(
+        self, url: str, timeout: float, source: dict, *, deadline: float | None = None
+    ) -> str:
+        validate = self._feed_validator(source)
         if self._fetcher is not None:
-            return self._fetcher(url)
+            body = self._fetcher(url)
+            validate(body)
+            return body
         if self._http_cache is None:
             self._http_cache = HttpCache(self._data_root(), clock=self._clock, opener=self._opener)
         return self._http_cache.fetch(
@@ -221,6 +235,8 @@ class SourceCollector:
             force_refresh=self._force_refresh,
             write=self._write,
             timeout=timeout,
+            deadline=deadline,
+            validate=validate,
         )
 
     def _events_from_items(self, items: list[dict], source: dict) -> list[dict]:
@@ -412,13 +428,7 @@ class SourceCollector:
 
     @staticmethod
     def _source_id(source: dict) -> str:
-        source_id = str(source.get("id") or "").strip()
-        if source_id:
-            return source_id
-        source_type = str(source.get("type") or "").strip().lower()
-        reference = source.get("route") if source_type == "rsshub" else source.get("url")
-        digest = hashlib.sha256(str(reference or "").strip().encode("utf-8")).hexdigest()
-        return f"{source_type}:{digest}"
+        return source_identity(source)
 
     def _data_root(self) -> Path:
         return self._topic_dir.parent.parent
@@ -473,15 +483,17 @@ def parse_feed_items(body: str) -> list[dict]:
 
     if _local_name(root.tag).lower() not in ("rss", "feed", "rdf"):
         return []
+    root_base = (root.get(XML_BASE_ATTR) or "").strip()
     items: list[dict] = []
     for node in root.findall(".//{*}item") + root.findall(".//{*}entry"):
         title = _node_text(node, ("title",))
         if not title:
             continue
+        entry_base = _inherited_base(root_base, node)
         items.append(
             {
                 "title": title,
-                "link": _feed_link(node),
+                "link": _feed_link(node, entry_base),
                 "summary": _node_text(node, ("description", "summary", "content", "encoded")),
                 "content": _node_text(node, ("content", "encoded")),
                 "date": _node_text(node, ("pubDate", "published", "updated", "date")),
@@ -516,25 +528,34 @@ def _node_text(node: ET.Element, local_names: tuple[str, ...]) -> str:
     return ""
 
 
-def _feed_link(node: ET.Element) -> str:
+def _feed_link(node: ET.Element, base: str = "") -> str:
     alternates: list[str] = []
     first_href = ""
     for child in node:
         if _local_name(child.tag) != "link":
             continue
+        child_base = _inherited_base(base, child)
         text = (child.text or "").strip()
         if text:
-            return text
+            return urljoin(child_base, text)
         href = (child.get("href") or "").strip()
         if not href:
             continue
+        resolved = urljoin(child_base, href)
         if not first_href:
-            first_href = href
+            first_href = resolved
         rel = (child.get("rel") or "").strip()
         if rel in ("", "alternate"):
-            alternates.append(href)
+            alternates.append(resolved)
     return alternates[0] if alternates else first_href
 
+
+def _inherited_base(parent_base: str, node: ET.Element) -> str:
+    """Resolve a node's xml:base against its parent's inherited base."""
+    own = (node.get(XML_BASE_ATTR) or "").strip()
+    if not own:
+        return parent_base
+    return urljoin(parent_base, own)
 
 def _local_name(tag: str) -> str:
     return tag.split("}", 1)[1] if "}" in tag else tag

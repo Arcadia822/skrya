@@ -624,3 +624,77 @@ class TranslationCacheTests(unittest.TestCase):
             self.assertTrue(entry_path.is_file())
             self.assertEqual(cache.clear(), 1)
             self.assertFalse(entry_path.exists())
+
+    def test_translate_repairs_lone_surrogate_source_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_root = Path(temp_dir) / "data"
+            cache = TranslationCache(data_root)
+            text = "Broken surrogate entry"
+            h = TranslationCache.content_hash(text)
+            entry_file = (
+                data_root
+                / "cache"
+                / "translations"
+                / "zh-CN"
+                / "google-translate"
+                / f"{h}.json"
+            )
+            entry_file.parent.mkdir(parents=True, exist_ok=True)
+            corrupt_payload = {
+                "source_text": "Broken \ud800 surrogate",
+                "translated_text": "损坏的翻译",
+                "content_hash": h,
+                "lang": "zh-CN",
+                "model": "google-translate",
+                "created_at": "2026-10-20T00:00:00+00:00",
+            }
+            entry_file.write_text(json.dumps(corrupt_payload), encoding="utf-8")
+
+            calls: list[str] = []
+
+            def translator(t: str) -> str:
+                calls.append(t)
+                return "修复后的翻译"
+
+            # Lone surrogate in source_text must be treated as an invalid entry,
+            # not raise UnicodeEncodeError out of translate().
+            result = cache.translate(text, translator)
+            self.assertEqual(result, "修复后的翻译")
+            self.assertEqual(calls, [text])
+
+            payload = json.loads(entry_file.read_text(encoding="utf-8"))
+            self.assertEqual(payload["translated_text"], "修复后的翻译")
+
+            cached = cache.translate(text, lambda t: self.fail("Cache should have hit"))
+            self.assertEqual(cached, "修复后的翻译")
+
+    def test_clear_skips_lone_surrogate_entries_and_removes_valid(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_root = Path(temp_dir) / "data"
+            cache = TranslationCache(data_root)
+            cache.translate("Valid entry", lambda t: "有效条目")
+
+            h_bad = TranslationCache.content_hash("Surrogate entry")
+            bad_file = (
+                data_root
+                / "cache"
+                / "translations"
+                / "zh-CN"
+                / "google-translate"
+                / f"{h_bad}.json"
+            )
+            bad_file.parent.mkdir(parents=True, exist_ok=True)
+            corrupt_payload = {
+                "source_text": "\ud800surrogate",
+                "translated_text": "占位",
+                "content_hash": h_bad,
+                "lang": "zh-CN",
+                "model": "google-translate",
+                "created_at": "2026-10-20T00:00:00+00:00",
+            }
+            bad_file.write_text(json.dumps(corrupt_payload), encoding="utf-8")
+
+            # clear() must skip the unencodable entry instead of raising.
+            removed = cache.clear()
+            self.assertEqual(removed, 1)
+            self.assertTrue(bad_file.exists())

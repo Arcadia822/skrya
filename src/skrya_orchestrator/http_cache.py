@@ -28,6 +28,12 @@ TTL_RUNTIME_RETRIEVAL = 0
 
 CLEANUP_GRACE_SECONDS = 86400
 
+# .tmp.* files younger than this are treated as active writes by another
+# concurrent request: cleanup/clear must skip such entries entirely.
+ACTIVE_TMP_MAX_AGE_SECONDS = 3600
+
+READ_CHUNK_SIZE = 65536
+
 
 def url_hash(url: str) -> str:
     """Compute normalized SHA-256 hex digest for a URL string."""
@@ -248,6 +254,8 @@ class HttpCache:
         write: bool = True,
         timeout: int | float = 20,
         headers: dict[str, str] | None = None,
+        validate: Callable[[str], None] | None = None,
+        deadline: float | None = None,
     ) -> str:
         """Fetch URL content with cache and conditional request support.
 
@@ -258,6 +266,10 @@ class HttpCache:
         - write: when False, performs read-only fetch with zero filesystem writes.
         - timeout: request timeout passed directly to opener.
         - headers: optional extra HTTP headers merged over defaults.
+        - validate: optional callback invoked with the decoded body text before
+          any cache write; raising rejects the response without persisting it.
+        - deadline: optional time.monotonic() time point; once exceeded while
+          reading the response body, raises TimeoutError and closes the connection.
         """
         if not url or not isinstance(url, str):
             raise ValueError(f"Invalid URL: {url!r}")
@@ -282,7 +294,7 @@ class HttpCache:
 
         if cached_entry is not None:
             meta, body = cached_entry
-            if self._is_fresh(meta, now):
+            if self._is_fresh(meta, now, ttl_seconds):
                 return body
 
         use_conditional = (
@@ -300,12 +312,14 @@ class HttpCache:
             timeout=timeout,
             headers=headers,
             now=now,
+            validate=validate,
+            deadline=deadline,
         )
         if write:
             self.cleanup(exclude_url_hash=h)
         return result_body
 
-    def _is_fresh(self, meta: HttpCacheMetadata, now: datetime) -> bool:
+    def _is_fresh(self, meta: HttpCacheMetadata, now: datetime, ttl_seconds: int) -> bool:
         if not meta.expires_at:
             return False
         try:
@@ -314,9 +328,23 @@ class HttpCache:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
             else:
                 expires_at = expires_at.astimezone(timezone.utc)
-            return now < expires_at
         except (ValueError, TypeError):
             return False
+        if now >= expires_at:
+            return False
+        # A shared cache hit must also respect this request's TTL: the entry may
+        # have been written by a different request with a longer TTL. When the
+        # real fetch timestamp cannot be parsed (legacy metadata), fall back to
+        # the expires_at-only judgment above.
+        try:
+            fetched_at = datetime.fromisoformat(meta.fetched_at.replace("Z", "+00:00"))
+            if fetched_at.tzinfo is None:
+                fetched_at = fetched_at.replace(tzinfo=timezone.utc)
+            else:
+                fetched_at = fetched_at.astimezone(timezone.utc)
+        except (ValueError, TypeError):
+            return True
+        return now < fetched_at + timedelta(seconds=ttl_seconds)
 
     def _read_metadata(
         self, hash_str: str, expected_url: str | None = None
@@ -386,6 +414,8 @@ class HttpCache:
         timeout: int | float,
         headers: dict[str, str] | None,
         now: datetime,
+        validate: Callable[[str], None] | None = None,
+        deadline: float | None = None,
     ) -> str:
         req_headers = dict(DEFAULT_HEADERS)
         if headers:
@@ -429,6 +459,8 @@ class HttpCache:
                         timeout=timeout,
                         headers=headers,
                         now=now,
+                        validate=validate,
+                        deadline=deadline,
                     )
 
                 if write and ttl_seconds > 0:
@@ -467,8 +499,11 @@ class HttpCache:
                 )
                 raise err
 
-            raw_body = resp.read()
+            raw_body = self._read_body_chunks(resp, deadline=deadline)
             body_text = raw_body.decode("utf-8", errors="replace")
+
+            if validate is not None:
+                validate(body_text)
 
             if write and ttl_seconds > 0:
                 self._save_response(
@@ -483,6 +518,36 @@ class HttpCache:
             return body_text
         finally:
             _close_quietly(resp)
+
+    def _read_body_chunks(self, resp: Any, *, deadline: float | None) -> bytes:
+        """Read the response body in bounded chunks, honoring an optional deadline.
+
+        A plain unbounded resp.read() can keep a connection open far past the
+        request timeout, and resp.read(n) blocks until n bytes or EOF, so a
+        server dribbling bytes below the socket timeout would stall it forever.
+        With a deadline, each iteration uses resp.read1(), which returns as
+        soon as any data is available, and checks time.monotonic() against the
+        deadline before the next read; exceeding it raises TimeoutError (the
+        caller's finally block closes the connection). Non-stream responses
+        without read1 fall back to a single resp.read().
+        """
+        if deadline is None:
+            return resp.read()
+        chunks: list[bytes] = []
+        while True:
+            if time.monotonic() > deadline:
+                raise TimeoutError("HTTP response body read exceeded deadline")
+            try:
+                chunk = resp.read1(READ_CHUNK_SIZE)
+            except (AttributeError, TypeError):
+                chunk = resp.read()
+                if chunk:
+                    chunks.append(chunk)
+                break
+            if not chunk:
+                break
+            chunks.append(chunk)
+        return b"".join(chunks)
 
     def _save_response(
         self,
@@ -577,9 +642,30 @@ class HttpCache:
                 except OSError:
                     pass
 
+    def _tmp_file_age(self, child: Path, now: datetime) -> timedelta | None:
+        """Return a .tmp.* file's age, or None when it cannot be determined."""
+        try:
+            mtime = datetime.fromtimestamp(child.stat().st_mtime, tz=timezone.utc)
+        except OSError:
+            return None
+        return now - mtime
+
     def _remove_entry_dir(self, entry_dir: Path) -> bool:
         if _has_symlink_ancestor(entry_dir) or not entry_dir.is_dir():
             return False
+
+        now = self._now()
+        active_tmp_age = timedelta(seconds=ACTIVE_TMP_MAX_AGE_SECONDS)
+
+        # Distinguish active tmp files from leftovers: when an entry holds a
+        # recent .tmp.* file another request may be mid-write, so the whole
+        # entry is left untouched. Only older leftovers are removed below.
+        for child in entry_dir.iterdir():
+            if not (child.is_file() and not child.is_symlink() and child.name.startswith(".tmp.")):
+                continue
+            age = self._tmp_file_age(child, now)
+            if age is None or age < active_tmp_age:
+                return False
 
         meta_path = entry_dir / "meta.json"
         body_path = entry_dir / "response.xml"
@@ -605,6 +691,9 @@ class HttpCache:
                 and not child.is_symlink()
                 and child.name.startswith(".tmp.")
             ):
+                age = self._tmp_file_age(child, now)
+                if age is not None and age < active_tmp_age:
+                    continue
                 try:
                     child.unlink()
                 except OSError:
@@ -618,7 +707,12 @@ class HttpCache:
         return removed_any
 
     def cleanup(self, *, exclude_url_hash: str | None = None) -> int:
-        """Remove owned entries expired beyond the 24-hour grace window."""
+        """Remove owned entries expired beyond the 24-hour grace window.
+
+        Entries with recent .tmp.* files (active writes by concurrent requests)
+        are skipped entirely; only leftover tmp files older than
+        ACTIVE_TMP_MAX_AGE_SECONDS are removed.
+        """
         if _has_symlink_ancestor(self._cache_dir) or not self._cache_dir.is_dir():
             return 0
 

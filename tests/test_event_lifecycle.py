@@ -11,6 +11,7 @@ from unittest.mock import patch
 from skrya_orchestrator.event_lifecycle import (
     EventLifecycle,
     event_identity,
+    identify_events,
     migrate_ingest_v1,
     prune_ingests,
 )
@@ -161,6 +162,32 @@ class EventLifecycleTests(unittest.TestCase):
         records = lifecycle.record_source("feed", [old, new])
         self.assertEqual(["New title"], [record["title"] for record in records])
         self.assertEqual(records, lifecycle.current_events("feed"))
+
+    def test_merge_source_never_carries_previous_generation_content(self) -> None:
+        root = self._make_root("stale-content")
+        lifecycle = EventLifecycle(root, "topic-a")
+
+        lifecycle.record_source(
+            "feed-a", [self._item("Story", summary="old summary", content="old body")], persist=True
+        )
+        updated = lifecycle.record_source(
+            "feed-a",
+            [{"title": "Story", "url": "https://example.com/Story", "summary": "new summary"}],
+            persist=True,
+        )
+        record = updated[0]
+        self.assertEqual(2, record["generation"])
+        self.assertIsNone(record.get("content"))
+        self.assertEqual("new summary", record["summary"])
+
+        reversed_update = lifecycle.record_source(
+            "feed-a",
+            [{"title": "Story", "url": "https://example.com/Story", "content": "newest body"}],
+            persist=True,
+        )
+        record = reversed_update[0]
+        self.assertEqual("newest body", record["content"])
+        self.assertIsNone(record.get("summary"))
 
     def test_record_source_preserves_unknown_fields_on_upsert(self) -> None:
         root = self._make_root("unknown-fields")
@@ -509,6 +536,91 @@ class MigrateIngestV1Tests(unittest.TestCase):
             (root / "runs" / "agi-news" / "ingest" / "latest-ingest.v1-backup.json").exists()
         )
 
+
+    def test_migration_initializes_event_state_for_migrated_sources(self) -> None:
+        root = self._make_root("migrate-init-state")
+        payload = self._write_v1_latest(root)
+
+        report = migrate_ingest_v1(root, "agi-news")
+
+        self.assertEqual(["agi-news"], [entry["topic_id"] for entry in report["migrated"]])
+        lifecycle = EventLifecycle(root, "agi-news")
+        state = lifecycle.load_state()
+        source_state = state["sources"]["example.com"]
+        self.assertEqual("ingest", source_state["origin"])
+        self.assertEqual(1, source_state["generation"])
+        events = lifecycle.current_events("example.com")
+        self.assertEqual([payload["items"][0]["title"]], [event["title"] for event in events])
+        self.assertEqual(1, events[0]["generation"])
+
+        # A rerun that only reports already_current never rewrites existing state.
+        before = state
+        rerun = migrate_ingest_v1(root, "agi-news")
+        self.assertEqual([{"topic_id": "agi-news"}], rerun["already_current"])
+        self.assertEqual(before, lifecycle.load_state())
+
+    def test_concurrent_migration_never_overwrites_committed_v2_state(self) -> None:
+        root = self._make_root("migrate-race")
+        self._write_v1_latest(root)
+        latest_path = root / "runs" / "agi-news" / "ingest" / "latest-ingest.json"
+
+        committed = {
+            "interface_version": "skrya.ingest.v2",
+            "topic_id": "agi-news",
+            "retrieved_at": "2026-04-26T10:30:00+08:00",
+            "producer": {"kind": "runtime-skill", "name": "agent-reach", "persistent": False},
+            "source_generations": {"example.com": 1},
+            "items": identify_events(
+                [
+                    {
+                        "id": "fresh",
+                        "title": "Fresh committed item",
+                        "url": "https://example.com/fresh",
+                        "source_name": "Example News",
+                        "fetched_at": "2026-04-26T10:29:00+08:00",
+                        "summary": "Fresh summary.",
+                    }
+                ]
+            ),
+        }
+        lifecycle = EventLifecycle(root, "agi-news")
+        state = {"sources": {}}
+        lifecycle.merge_source(state, "example.com", committed["items"], origin="ingest")
+        lifecycle.commit_state(state)
+
+        fired: list[bool] = []
+        original_lock = EventLifecycle.state_lock
+
+        def intruding_lock(lock_self):
+            inner = original_lock(lock_self)
+
+            class IntrudingLock:
+                def __enter__(self):
+                    inner.__enter__()
+                    if not fired:
+                        fired.append(True)
+                        # A concurrent writer commits a newer v2 ingest right
+                        # after this migration takes the lock and before it
+                        # re-reads latest.
+                        latest_path.write_text(
+                            json.dumps(committed, ensure_ascii=False, indent=2),
+                            encoding="utf-8",
+                        )
+                    return self
+
+                def __exit__(self, *exc_info):
+                    return inner.__exit__(*exc_info)
+
+            return IntrudingLock()
+
+        with patch.object(EventLifecycle, "state_lock", intruding_lock):
+            report = migrate_ingest_v1(root, "agi-news")
+
+        self.assertEqual([], report["migrated"])
+        self.assertEqual([{"topic_id": "agi-news"}], report["already_current"])
+        latest = json.loads(latest_path.read_text(encoding="utf-8"))
+        self.assertEqual("Fresh committed item", latest["items"][0]["title"])
+        self.assertEqual("Fresh committed item", lifecycle.current_events("example.com")[0]["title"])
 
     def test_migration_preserves_original_bytes_and_all_unknown_fields(self) -> None:
         root = self._make_root("unknown-bytes")
