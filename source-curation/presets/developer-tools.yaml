@@ -1,0 +1,98 @@
+preset_id: developer-tools
+name: 开发工具与开源生态
+description: 覆盖平台官方更新、独立开发者产品热榜、开源技术社区与现代编程语言生态演进的信源预设库
+tags:
+  - developer-tools
+  - devtools
+  - programming
+  - open-source
+  - github
+  - software-engineering
+
+source_groups:
+  - name: 开发者社区发现与热榜
+    description: 汇聚全球开发者自荐项目、热门开源仓库与创新产品的发现平台
+    sources:
+      - name: Hacker News - Show HN
+        type: rss
+        url: https://hnrss.org/show
+        description: 全球独立开发者与工程团队自荐开源库、命令行工具与新产品的首发平台
+      - name: Hacker News - Front Page
+        type: rss
+        url: https://hnrss.org/frontpage
+        description: 计算机科学核心领域、软件工程争议与重量级开源项目探讨
+      - name: GitHub Trending (Daily)
+        type: rsshub
+        route: /github/trending/daily/any
+        instance: https://rsshub.app
+        instance_urls:
+          - https://rsshub.app
+        description: GitHub 每日最受全球开发者关注与 Star 激增的开源项目趋势榜单（since=daily，language=any 不过滤）
+      - name: Lobsters
+        type: rss
+        url: https://lobste.rs/rss
+        description: 聚焦系统编程、计算机底层原理与高质量工程实践的技术社区
+      - name: Product Hunt - Developer Tools
+        type: rsshub
+        route: /producthunt/today
+        instance: https://rsshub.app
+        instance_urls:
+          - https://rsshub.app
+        description: 全球产品经理与极客每日打榜的开发者效率工具与 SaaS 平台
+
+  - name: 平台官方更新与工程播客
+    description: 主流开发平台、云原生环境与知名极客媒体的一手发布
+    sources:
+      - name: GitHub Changelog
+        type: rss
+        url: https://github.blog/changelog/feed/
+        description: GitHub 官方功能特性、Actions、Codespaces 与安全防护更新日志
+      - name: GitHub Blog
+        type: rss
+        url: https://github.blog/feed/
+        description: GitHub 团队关于开源文化、代码安全与软件架构的深度长文
+      - name: Changelog News
+        type: rss
+        url: https://changelog.com/feed
+        description: 软件工程、开源生态与开发者访谈顶级周报与播客
+      - name: Vercel Blog
+        type: rss
+        url: https://vercel.com/atom
+        description: 前端架构、Serverless、Next.js 与边缘计算演进前沿
+      - name: JetBrains Blog
+        type: rss
+        url: https://blog.jetbrains.com/feed/
+        description: 现代集成开发环境（IDE）、编程语言工具链与开发者生产力洞见
+
+  - name: 编程语言与工程架构
+    description: 核心系统级语言核心团队的架构设计与技术栈演进
+    sources:
+      - name: The Go Blog
+        type: rss
+        url: https://go.dev/blog/feed.atom
+        description: Go 语言官方团队发布的版本特性解析、工具链改进与并发设计思想
+      - name: Rust Blog
+        type: rss
+        url: https://blog.rust-lang.org/feed.xml
+        description: Rust 官方团队发布的编译器优化、生态路线图与重要安全通告
+      - name: Stack Overflow Blog
+        type: rss
+        url: https://stackoverflow.blog/feed/
+        description: 针对开发者工作流、现代架构范式与工程满意度的行业调查报告
+
+  - name: AI 辅助编程与自动化工具全网检索
+    description: 检索快速迭代的 AI 代码助手、智能体开发框架与终端工具
+    sources:
+      - name: AI 辅助开发与代码智能体全网检索
+        type: runtime-retrieval
+        capabilities:
+          - news_search
+          - web_search
+        queries:
+          - AI code editor release update
+          - developer tooling agent launch
+          - AI 编程工具 代码生成 agent 发布 评测
+        languages:
+          - en
+          - zh
+        description: 全网追踪最新发布的 AI 编辑器、代码智能体架构与开发者命令行生产力套件

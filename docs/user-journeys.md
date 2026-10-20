@@ -288,6 +288,14 @@ agent 发现已有「新能源汽车」topic，建议扩展。用户回复：
 - 在没有确认信源计划前创建或更新每日自动化
 - 创建成功后不主动询问是否试跑
 
+### 信源采集、备用检索与健康提示
+
+候选预设覆盖 AI/LLM、科技新闻、开发者工具、新能源汽车和加密货币五类，另有 RSSHub 路由目录。预设不等于启用或可达。agent 应确认具体来源并实时探测；使用 RSSHub 时，同时确认实例、路由和备用检索能力、查询范围。
+
+Skrya 负责 RSS/Atom 解析及 ingest v2 规范化，外部搜索工具 API 保持不变。RSSHub 失败后由 agent 根据运行时请求，使用中立的网页或新闻检索覆盖同一来源；不静默增加来源、不编造 URL、不把 provider 名写进长期配置。已配置的备用方案优先，旧配置没有备用方案时，运行时按确认过的来源名、路由及主题需求生成请求。
+
+来源失败或退避时，先在首个章节之前用简短提示说明覆盖缺口，保留固定五项操作，不用样例替代真实采集。`source-health --topic <topic-id>` 只读状态；用户要求重新诊断时可用 `--refresh` 采集该主题，`--force-refresh` 还会绕过 HTTP 缓存新鲜度。生成或渲染成功不代表已部署定时任务或已送达消息。
+
 ## 旅程 11：试跑输出必须等同正式日报模板
 
 用户在 topic 配置完成后说：
@@ -403,3 +411,31 @@ Skrya 的长期数据保存在哪里？
 - 先覆盖原模板，再检查新模板是否合格
 - 因为用户自建布局而允许删除 active Thread 模块
 - 检查失败后仍宣称模板已经保存
+
+
+## 旅程 15：重复新闻、升级与清理历史
+
+用户说：
+
+```text
+为什么今天少了一条昨天的新闻？历史会被删掉吗？
+```
+
+期望流程：
+
+1. 解释只隐藏最近三份正式日报中事件身份和内容哈希都相同的重复报道；内容变化后可再次出现，不是只按标题删除新闻。
+2. 解释身份由来源与原始文章 URL 确定，无 URL 时使用规范化标题；内容哈希覆盖规范化标题、摘要和正文。每次成功的正式采集推进该来源 generation，缓存命中并成功解析也算，失败、跳过和预览不推进。
+3. 说明当前集只取各来源最新 generation，但旧事件记录、完整 Thread 原始历史、冻结日报、编号快照和回执仍保留。active Thread 没有新进展也继续展示最新状态。
+4. 若旧版当前 ingest 阻止运行，先备份 data root，再显式运行 `upgrade --migrate-ingest-v2`。它只转换当前 `latest-ingest.json` 并保存旁路备份，不改写旧归档，不重编号冻结快照。技能元数据修复由独立的 build/install 完成，不混入数据迁移。
+5. 用户要求清理 ingest 时，先运行 dry-run 并展示选择，再确认是否使用 `--apply`。不把“少推重复内容”理解为删除历史的授权。
+
+在仓库根目录执行，topic 使用已解析的真实 ID：
+
+```bash
+PYTHONPATH=src python3 -m skrya_orchestrator.main upgrade --root . --topic <topic-id> --migrate-ingest-v2
+PYTHONPATH=src python3 -m skrya_orchestrator.main ingest-prune --root . --topic <topic-id> --keep 10
+# 审阅 dry-run 结果并获得删除授权后才执行
+PYTHONPATH=src python3 -m skrya_orchestrator.main ingest-prune --root . --topic <topic-id> --keep 10 --apply
+```
+
+清理只选择 topic ingest 子树内符合条件的 raw/normalized 批次，保护最新引用批次，不跟随符号链接目录，不删除日报、`.events.json`、Thread、回执或绑定。缓存清理是独立操作，`cache` 不传操作参数时不删除任何内容。完整操作见[升级说明](upgrade.md)。

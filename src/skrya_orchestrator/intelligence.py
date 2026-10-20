@@ -1,22 +1,36 @@
 from __future__ import annotations
 
-import html
 import json
 import os
 import re
 import textwrap
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import quote, urlparse
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
+from .event_lifecycle import EventLifecycle, _stage_ingest_bytes, event_identity, infer_source_id
+from .http_cache import HttpCache
 from .ingest import IngestService
+from .source_collector import CollectionResult, SourceCollector, with_source_fallbacks
+from .sources import normalize_sources, primary_article_url, render_sources
+from .translation_cache import TranslationCache
 from .paths import resolve_data_root
 from .references import build_snapshot, snapshot_path
 from .thread_milestones import recorded_date, select_milestones
+
+MAX_VISIBLE_EVENTS = 15
+
+
+def _write_artifact(path: Path, text: str) -> None:
+    """Stage exclusively then replace, so a planted symlink can never truncate a frozen target."""
+    staged = _stage_ingest_bytes(path, text.encode("utf-8"))
+    try:
+        os.replace(staged, path)
+    finally:
+        staged.unlink(missing_ok=True)
 
 
 @dataclass(slots=True)
@@ -25,6 +39,7 @@ class DigestResult:
     digest_path: Path
     artifact_path: Path
     preview: bool = False
+    retrieval_request: dict | None = None
 
 
 @dataclass(slots=True)
@@ -46,23 +61,62 @@ class ThreadRefreshResult:
 
 
 class IntelligenceService:
-    def __init__(self, root: Path | str, fetcher=None, translator=None, data_root: Path | str | None = None) -> None:
+    def __init__(
+        self, root: Path | str, fetcher=None, translator=None,
+        data_root: Path | str | None = None, *, translation_provider: str | None = None,
+    ) -> None:
         self._root = Path(root)
         self._data_root = resolve_data_root(self._root, data_root).data_root
-        self._fetcher = fetcher or self._default_fetch
-        self._translator = translator or self._default_translate
+        self._fetcher = fetcher
+        self._translator = translator if translator is not None else self._default_translate
+        self._translation_provider = (
+            translation_provider if translator is not None else "google-translate"
+        )
+        self._http_cache = HttpCache(self._data_root)
+        self._translation_cache = TranslationCache(self._data_root)
+        self._translation_write = True
 
-    def generate_digest(self, topic_id: str, prefer_live: bool = True, preview: bool = False) -> DigestResult:
+    def generate_digest(
+        self, topic_id: str, prefer_live: bool = True, preview: bool = False,
+        force_refresh: bool = False,
+    ) -> DigestResult:
+        previous_write = self._translation_write
+        self._translation_write = not preview
+        try:
+            return self._generate_digest(topic_id, prefer_live, preview, force_refresh)
+        finally:
+            self._translation_write = previous_write
+
+    def _generate_digest(
+        self, topic_id: str, prefer_live: bool, preview: bool, force_refresh: bool,
+    ) -> DigestResult:
         topic_id = self.resolve_topic_id(topic_id)
-        events = self._load_events(topic_id, prefer_live=prefer_live)
-        events = self._rank_events(topic_id, events)
-        self._ensure_topic(topic_id)
+        collection, real_collection = self._load_collection(
+            topic_id, prefer_live=prefer_live, write=not preview, force_refresh=force_refresh,
+        )
+        retrieval_request = with_source_fallbacks(
+            IngestService(self._root, data_root=self._data_root).build_retrieval_request(topic_id),
+            fallbacks=collection.fallbacks,
+        ) if collection.fallbacks else None
+        all_events = self._rank_events(topic_id, collection.events)
+        events = EventLifecycle(self._data_root, topic_id).filter_recent(all_events) if real_collection else all_events
+        if real_collection:
+            events = events[:MAX_VISIBLE_EVENTS]
         numbered_events = list(enumerate(events, start=1))
         execution_time = datetime.now(ZoneInfo("Asia/Shanghai"))
         language = self._topic_output_language(topic_id)
         indexed_items = [self._digest_event_index_item(index, event) for index, event in numbered_events]
 
-        materialized_threads, active_threads = self._materialize_topic_threads(topic_id, indexed_items)
+        visible_numbers = {id(event): number for number, event in numbered_events}
+        archive_items = [
+            self._digest_event_index_item(visible_numbers.get(id(event)), event)
+            for event in all_events
+        ]
+        materialized_threads, active_threads = self._materialize_topic_threads(topic_id, archive_items)
+        for thread in materialized_threads:
+            thread["_matched_items"] = [
+                item for item in thread.get("_matched_items", []) if isinstance(item.get("number"), int)
+            ]
         thread_updates, updated_thread_count = self._build_digest_thread_updates(
             topic_id,
             numbered_events,
@@ -75,6 +129,8 @@ class IntelligenceService:
             prefix = "Scan window: " if language == "en" else "扫描时间范围："
             lines.append(f"{prefix}{scan_label}")
             lines.append("")
+        if collection.health_notice:
+            lines.extend([collection.health_notice, ""])
         if thread_updates:
             lines.append("## Event Timeline Updates" if language == "en" else "## 事件线时间线更新")
             lines.append("")
@@ -106,6 +162,7 @@ class IntelligenceService:
                 digest_path=Path(""),
                 artifact_path=Path(""),
                 preview=True,
+                retrieval_request=retrieval_request,
             )
 
         artifact_dir = self._data_root / "runs" / topic_id
@@ -118,26 +175,15 @@ class IntelligenceService:
             digest_path = artifact_dir / f"{base_name}-{counter}.md"
             counter += 1
 
-        digest_tmp = digest_path.with_suffix(".tmp")
-        digest_tmp.write_text(markdown, encoding="utf-8")
-        digest_tmp.replace(digest_path)
+        _write_artifact(digest_path, markdown)
 
         indexed_items = [self._digest_event_index_item(index, event) for index, event in numbered_events]
 
         event_index_path = artifact_dir / "latest-digest-events.json"
-        event_index_tmp = event_index_path.with_suffix(".tmp")
-        event_index_tmp.write_text(
-            json.dumps(
-                {
-                    "topic": topic_id,
-                    "items": indexed_items,
-                },
-                ensure_ascii=False,
-                indent=2,
-            ),
-            encoding="utf-8",
+        _write_artifact(
+            event_index_path,
+            json.dumps({"topic": topic_id, "items": indexed_items}, ensure_ascii=False, indent=2),
         )
-        event_index_tmp.replace(event_index_path)
 
         clean_threads = [
             {k: v for k, v in t.items() if not k.startswith("_")}
@@ -151,20 +197,16 @@ class IntelligenceService:
                 "topic_id": topic_id,
                 "threads": clean_threads,
             }
-            thread_artifact_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            _write_artifact(thread_artifact_path, json.dumps(payload, ensure_ascii=False, indent=2))
 
         snapshot_active_threads = [
             {k: v for k, v in t.items() if not k.startswith("_")}
             for t in active_threads
         ]
         sidecar = build_snapshot(topic_id, digest_path, indexed_items, snapshot_active_threads)
+        sidecar["collection_mode"] = "real" if real_collection else "sample"
         sidecar_path = snapshot_path(digest_path)
-        sidecar_tmp = sidecar_path.with_suffix(".tmp")
-        sidecar_tmp.write_text(
-            json.dumps(sidecar, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        sidecar_tmp.replace(sidecar_path)
+        _write_artifact(sidecar_path, json.dumps(sidecar, ensure_ascii=False, indent=2))
 
         self._point_latest_artifact(artifact_dir / "latest-digest.md", digest_path)
 
@@ -172,6 +214,7 @@ class IntelligenceService:
             markdown=markdown,
             digest_path=digest_path,
             artifact_path=event_index_path,
+            retrieval_request=retrieval_request,
         )
 
     @staticmethod
@@ -185,7 +228,7 @@ class IntelligenceService:
         try:
             latest_path.symlink_to(os.path.relpath(target_path, latest_path.parent))
         except OSError:
-            latest_path.write_text(target_path.read_text(encoding="utf-8"), encoding="utf-8")
+            _write_artifact(latest_path, target_path.read_text(encoding="utf-8"))
 
     def _build_digest_title(self, topic_id: str, execution_time: datetime, language: str) -> str:
         topic_name = self._topic_display_name(topic_id)
@@ -269,14 +312,14 @@ class IntelligenceService:
         artifact_dir = self._data_root / "runs" / topic_id
         artifact_dir.mkdir(parents=True, exist_ok=True)
         analysis_path = artifact_dir / f"deep-analysis-{event_number}.md"
-        analysis_path.write_text(markdown, encoding="utf-8")
+        _write_artifact(analysis_path, markdown)
 
         return DeepAnalysisResult(markdown=markdown, artifact_path=analysis_path)
 
-    def get_event_sources(self, topic_id: str, event_number: int) -> list[str]:
+    def get_event_sources(self, topic_id: str, event_number: int) -> list[dict]:
         topic_id = self.resolve_topic_id(topic_id)
         event = self._resolve_event(topic_id, event_number)
-        return list(event["sources"])
+        return normalize_sources(event.get("sources", []))
 
     def generate_thread_timeline(self, topic_id: str, thread_reference: str) -> ThreadResult:
         topic_id = self.resolve_topic_id(topic_id)
@@ -448,7 +491,7 @@ class IntelligenceService:
                 "topic_id": topic_id,
                 "threads": clean_threads,
             }
-            artifact_threads_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            _write_artifact(artifact_threads_path, json.dumps(payload, ensure_ascii=False, indent=2))
         return materialized_threads
     def _write_thread_artifact(self, topic_id: str, definitions: list[dict], items: list[dict]) -> tuple[Path, dict]:
         threads = [self._materialize_thread(definition, items) for definition in definitions]
@@ -459,7 +502,7 @@ class IntelligenceService:
         }
         artifact_path = self._data_root / "runs" / topic_id / "threads" / "latest-threads.json"
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
-        artifact_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_artifact(artifact_path, json.dumps(payload, ensure_ascii=False, indent=2))
         return artifact_path, payload
 
     def _thread_definitions(self, seed_threads: list[dict], existing_threads: list[dict]) -> list[dict]:
@@ -557,6 +600,9 @@ class IntelligenceService:
                 entries_by_signature[signature].update({
                     key: value for key, value in entry.items() if key.startswith("milestone_")
                 })
+                entries_by_signature[signature]["sources"] = normalize_sources(
+                    entry["sources"] + normalize_sources(entries_by_signature[signature].get("sources", []))
+                )
                 continue
             entries_by_signature[signature] = entry
             new_entries.append(entry)
@@ -604,11 +650,7 @@ class IntelligenceService:
             "headline": str(item.get("analysis_title") or item.get("title") or "事件推进").strip(),
             "summary": str(item.get("analysis_body") or item.get("analysis_title") or item.get("title") or "").strip(),
             "related_digest_numbers": related_numbers,
-            "sources": [
-                s.get("url", "") if isinstance(s, dict) else str(s)
-                for s in item.get("sources", [])
-                if str(s.get("url", "") if isinstance(s, dict) else s).strip()
-            ],
+            "sources": normalize_sources(item.get("sources", [])),
         }
         for key in ("milestone_reason", "milestone_title", "milestone_date", "milestone_date_basis"):
             if item.get(key):
@@ -652,8 +694,7 @@ class IntelligenceService:
         ]
         for item in matched_items:
             title = str(item.get("title") or item.get("analysis_title") or "")
-            sources = item.get("sources", [])
-            first_url = sources[0].get("url", "") if (sources and isinstance(sources[0], dict)) else (sources[0] if sources else "")
+            first_url = primary_article_url(item)
             link = f"[{title}]({first_url})" if first_url else title
             raw_date = str(item.get("date", "")).strip()
             date = recorded_date(raw_date) or raw_date
@@ -705,8 +746,7 @@ class IntelligenceService:
         history = select_milestones(self._materialize_thread(definition, matched_items)["timeline"])
         for entry in history:
             title = str(entry.get("headline", "")).strip()
-            sources = entry.get("sources", [])
-            first_url = sources[0].get("url", "") if (sources and isinstance(sources[0], dict)) else (sources[0] if sources else "")
+            first_url = primary_article_url(entry)
             link = f"[{title}]({first_url})" if first_url else title
             lines.append(f"- {link} ｜ {entry.get('date', '')}")
         if not history:
@@ -740,7 +780,7 @@ class IntelligenceService:
             return f"{prefix}: {summary}" if language == "en" else f"{prefix}：{summary}"
         return "the configured tracking baseline" if language == "en" else "已配置的追踪基线"
 
-    def _digest_event_index_item(self, number: int, event: dict) -> dict:
+    def _digest_event_index_item(self, number: int | None, event: dict) -> dict:
         item = {
             **event,
             "number": number,
@@ -748,7 +788,7 @@ class IntelligenceService:
             "title": event.get("title", ""),
             "analysis_title": event.get("analysis_title", event.get("title", "")),
             "analysis_body": event.get("analysis_body", ""),
-            "sources": event.get("sources", []),
+            "sources": normalize_sources(event.get("sources", [])),
             "date": event.get("date", ""),
         }
         for key in ("milestone_reason", "milestone_title", "milestone_date", "milestone_date_basis"):
@@ -756,11 +796,15 @@ class IntelligenceService:
                 item[key] = event[key]
         return item
 
-    def _thread_entry_signature(self, entry: dict) -> tuple[str, str, tuple[str, ...]]:
+    def _thread_entry_signature(self, entry: dict) -> tuple[str, str, tuple[str, ...], str]:
         return (
             str(entry.get("date", "")).strip(),
             self._normalize_reference(str(entry.get("headline", ""))),
-            tuple(sorted(str(source) for source in entry.get("sources", []) if str(source).strip())),
+            tuple(sorted({
+                str(source.get("url") or self._normalize_reference(source.get("name", "")))
+                for source in normalize_sources(entry.get("sources", []))
+            })),
+            " ".join(str(entry.get("summary") or entry.get("analysis_body") or "").split()),
         )
 
     def _ensure_topic(self, topic_id: str) -> Path:
@@ -769,78 +813,52 @@ class IntelligenceService:
             raise FileNotFoundError(f"Topic '{topic_id}' not found")
         return topic_dir
 
-    def _load_events(self, topic_id: str, prefer_live: bool = False) -> list[dict]:
+    def pending_source_fallbacks(self, topic_id: str) -> list[dict]:
+        topic_id = self.resolve_topic_id(topic_id)
+        return SourceCollector(self._ensure_topic(topic_id), write=False).fallback_records()
+
+    def _load_collection(
+        self, topic_id: str, *, prefer_live: bool, write: bool, force_refresh: bool,
+    ) -> tuple[CollectionResult, bool]:
         topic_dir = self._ensure_topic(topic_id)
         sample_path = topic_dir / "sample-events.json"
+        if not prefer_live and sample_path.exists():
+            return CollectionResult(events=json.loads(sample_path.read_text(encoding="utf-8"))), False
+
         ingest_service = IngestService(self._root, data_root=self._data_root)
-        sources_payload = json.loads((topic_dir / "sources.json").read_text(encoding="utf-8"))
-        has_rss_sources = any(
-            source.get("enabled", True) and source.get("type") == "rss"
-            for source in sources_payload.get("sources", [])
+        sources_path = topic_dir / "sources.json"
+        payload = json.loads(sources_path.read_text(encoding="utf-8")) if sources_path.exists() else {}
+        has_feeds = any(
+            isinstance(source, dict) and source.get("enabled", True)
+            and str(source.get("type", "")).lower() in {"rss", "rsshub"}
+            for source in payload.get("sources", [])
         )
-        has_runtime_retrieval_sources = ingest_service.has_runtime_retrieval_sources(topic_id)
+        ingest_events = ingest_service.load_events(topic_id) if prefer_live else []
+        has_live = has_feeds or bool(ingest_events) or ingest_service.has_runtime_retrieval_sources(topic_id)
+        if not has_live and sample_path.exists():
+            return CollectionResult(events=json.loads(sample_path.read_text(encoding="utf-8"))), False
 
-        if prefer_live:
-            ingest_events = ingest_service.load_events(topic_id)
-            if ingest_events:
-                return ingest_events
-            if has_rss_sources:
-                return self._load_events_from_sources(topic_dir)
-            if has_runtime_retrieval_sources:
-                return []
+        collection = SourceCollector(
+            topic_dir, self._http_cache, self._fetcher, write=write, force_refresh=force_refresh,
+        ).collect() if has_feeds else CollectionResult()
+        collection.events = self._merge_current_source_events(topic_id, collection.events, ingest_events)
+        return collection, True
 
-        if sample_path.exists():
-            return json.loads(sample_path.read_text(encoding="utf-8"))
+    def _merge_current_source_events(
+        self, topic_id: str, live_events: list[dict], ingest_events: list[dict]
+    ) -> list[dict]:
+        """Overlay freshly collected sources on the current ingest source sets."""
+        fresh_sources = {infer_source_id(event) for event in live_events}
+        current_ingest = [
+            event for event in ingest_events
+            if infer_source_id(event) not in fresh_sources
+        ]
+        by_identity: dict[str, dict] = {}
+        for event in live_events + current_ingest:
+            event_id = str(event.get("event_id") or "").strip() or event_identity(event)[0]
+            by_identity[event_id] = event
+        return list(by_identity.values())
 
-        if has_rss_sources:
-            return self._load_events_from_sources(topic_dir)
-
-        return []
-
-    def _load_events_from_sources(self, topic_dir: Path) -> list[dict]:
-        sources_payload = json.loads((topic_dir / "sources.json").read_text(encoding="utf-8"))
-        events: list[dict] = []
-
-        for source in sources_payload.get("sources", []):
-            if not source.get("enabled", True):
-                continue
-            if source.get("type") != "rss":
-                continue
-
-            try:
-                rss_text = self._fetcher(source["url"])
-                root = ET.fromstring(rss_text)
-            except Exception:
-                continue
-            items = root.findall("./channel/item")
-            for item in items[:5]:
-                title = (item.findtext("title") or "").strip()
-                link = (item.findtext("link") or "").strip()
-                description = self._strip_html((item.findtext("description") or "").strip())
-                if not title or not link:
-                    continue
-                events.append(
-                    {
-                        "key": self._slugify(title),
-                        "title": title,
-                        "headline_summary": description or title,
-                        "list_summary": description or title,
-                        "analysis_title": title,
-                        "analysis_body": description or title,
-                        "sources": [link],
-                    }
-                )
-
-        unique: list[dict] = []
-        seen_titles: set[str] = set()
-        for event in events:
-            normalized_title = event["title"].strip().lower()
-            if normalized_title in seen_titles:
-                continue
-            seen_titles.add(normalized_title)
-            unique.append(event)
-
-        return unique[:15]
 
     def _rank_events(self, topic_id: str, events: list[dict]) -> list[dict]:
         if not events:
@@ -988,18 +1006,6 @@ class IntelligenceService:
         return " ".join(parts).lower()
 
     @staticmethod
-    def _default_fetch(url: str) -> str:
-        request = Request(
-            url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0 Safari/537.36",
-                "Accept": "application/rss+xml, application/xml, text/xml, */*",
-            },
-        )
-        with urlopen(request, timeout=20) as response:
-            return response.read().decode("utf-8", errors="ignore")
-
-    @staticmethod
     def _default_translate(text: str) -> str:
         request = Request(
             "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=zh-CN&dt=t&q=" + quote(text),
@@ -1027,26 +1033,6 @@ class IntelligenceService:
                 chars.append("-")
         return "".join(chars).strip("-") or "event"
 
-    @staticmethod
-    def _strip_html(value: str) -> str:
-        text = []
-        in_tag = False
-        for char in value:
-            if char == "<":
-                in_tag = True
-                continue
-            if char == ">":
-                in_tag = False
-                continue
-            if not in_tag:
-                text.append(char)
-
-        cleaned = " ".join("".join(text).split())
-        cleaned = html.unescape(cleaned)
-        cleaned = re.sub(r"Continue reading.*$", "", cleaned, flags=re.IGNORECASE).strip()
-        cleaned = re.sub(r"The post .*? appeared first on .*\.?$", "", cleaned, flags=re.IGNORECASE).strip()
-        return cleaned
-
     def _translate_title(self, text: str, language: str = "zh-CN") -> str:
         if language == "en":
             return text
@@ -1066,16 +1052,15 @@ class IntelligenceService:
         if analysis and language != "en":
             analysis = self._to_chinese(analysis)
 
-        sources = self._build_source_references(event.get("sources", []), language=language)
+        sources = render_sources(event.get("sources", []), language=language)
 
         lines = [header, summary]
         if analysis:
             label = "Why it matters" if language == "en" else "为何重要"
             sep = ": " if language == "en" else "："
             lines.append(f"{label}{sep}{analysis}")
-        source_label = "Sources" if language == "en" else "信源"
-        sep = ": " if language == "en" else "："
-        lines.append(f"{source_label}{sep}{sources}")
+        if sources:
+            lines.append(sources)
         return "\n".join(lines)
 
     @staticmethod
@@ -1091,24 +1076,6 @@ class IntelligenceService:
         )
         return [f"│ {line}" for line in (wrapped or [text])]
 
-    def _build_source_references(self, sources: list[Any], language: str = "zh-CN") -> str:
-        references = [self._format_source_reference(source) for source in sources if str(source).strip()]
-        if references:
-            return " | ".join(references)
-        return "No displayable sources yet" if language == "en" else "暂无可展示信源"
-
-    def _format_source_reference(self, source: Any) -> str:
-        if isinstance(source, dict):
-            url = str(source.get("url") or source.get("link") or "").strip()
-            label = str(source.get("name") or source.get("title") or "").strip()
-        else:
-            url = str(source).strip()
-            label = ""
-        parsed = urlparse(url)
-        if parsed.scheme in {"http", "https"} and parsed.netloc:
-            netloc_label = parsed.netloc.removeprefix("www.")
-            return f"[{label or netloc_label}]({url})"
-        return url or label
     def _build_chinese_brief(self, text: str) -> str:
         return self._build_brief(text, language="zh-CN")
 
@@ -1133,8 +1100,16 @@ class IntelligenceService:
     def _to_chinese(self, text: str) -> str:
         if any("\u4e00" <= char <= "\u9fff" for char in text):
             return text
-        translated = self._translator(text)
-        return translated if translated else text
+        if self._translation_provider:
+            return self._translation_cache.translate(
+                text, self._translator, language="zh-CN", provider=self._translation_provider,
+                write=self._translation_write,
+            )
+        try:
+            translated = self._translator(text)
+        except Exception:
+            return text
+        return translated if isinstance(translated, str) and translated.strip() else text
 
     def _build_deep_analysis_markdown(self, event: dict, language: str = "zh-CN") -> str:
         title = self._translate_title(event["analysis_title"], language=language)

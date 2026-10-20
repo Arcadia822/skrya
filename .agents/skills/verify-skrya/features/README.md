@@ -23,7 +23,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 
 - CLI proof is the step dir `tmp/verify-skrya/evidence/<run>/NN-<label>/` with `cmd.txt`, `stdout.txt`, `stderr.txt`, `exit_code`.
 - Mutation proof adds `$V snapshot <label>` after the call, plus a read-only second command that consumes what was written.
-- Side-effect-free claims (`--preview`) need a snapshot showing nothing was written.
+- Side-effect-free claims (`--preview`) require equal full-data-root manifests before and after, including file hashes, directory entries, and symlink targets. A runs-only snapshot is insufficient. See [Source maintenance and lifecycle](source-maintenance.md).
 - Record nonzero exit and stdout/stderr, then run doctor again before any further drive. Native render/reference/delivery failures need not be Python tracebacks.
 - Record the feature file and sub-feature ID used in your report alongside the evidence path.
 - Report an unreachable path with the attempted command and the unmet precondition. Do not report a path as verified through a different entry point.
@@ -42,8 +42,10 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 - [Daily digest](./daily-digest.md) covers real digest runs, test-run preview, active-thread timeline section, empty state, artifacts, and the `latest-digest.md` pointer.
 - [Deep analysis](./deep-analysis.md) covers the legacy numeric analysis CLI and its latest-only boundary; current frozen follow-ups are mapped separately.
 - [Event threads](./threads.md) covers thread timelines by id or alias and thread refresh.
-- [Retrieval and ingest](./retrieval-ingest.md) covers provider-neutral retrieval requests, recording normalized `skrya.ingest.v1` results, and digests built from them.
+- [Retrieval and ingest](./retrieval-ingest.md) covers provider-neutral retrieval requests, recording normalized `skrya.ingest.v2` results, and digests built from them.
 - [Digest template validation](./digest-template-validation.md) covers the template save gate.
 - [Data root and install](./data-root-install.md) covers data-root resolution, persisted config, skill-pack install, and uninstall modes.
 - [Native cards and references](./native-cards-and-references.md) covers offline card bundles and N/T artifact snapshots.
 - [Feishu delivery](./feishu-delivery.md) covers isolated precondition failures and the explicit sandbox prerequisites for remote delivery, recovery and received-message mapping.
+
+- [Source maintenance and lifecycle](./source-maintenance.md) covers isolated loopback RSS/RSSHub, health, caches, full-data-root preview equality, unchanged-event hiding, explicit migration, and dry-run-first pruning.

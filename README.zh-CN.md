@@ -81,6 +81,10 @@ python3 -m pip install -e .
 
 在创建任务前先确认信源。Skrya 会区分能自动接入的来源、需要运行时检索的来源、暂时不能自动接入的来源。
 
+直接 RSS、Atom 和 RSSHub 路由由 Skrya 自己采集、解析并规范化为 `skrya.ingest.v2`。智能体已有的外部搜索工具 API 不变，结果适配和规范化由 Skrya 与智能体负责。已确认的 RSSHub 来源拉取失败时，运行时请求会交给智能体，通过中立的网页或新闻检索覆盖同一个已确认来源，不编造文章 URL，也不静默换源。
+
+`source-curation/presets/` 提供 AI/LLM、科技新闻、开发者工具、新能源汽车、加密货币五类候选，以及 RSSHub 路由目录。它们只是选源参考，不代表已接入或当前可达。启用前仍须确认来源并实时探测；RSSHub 还须确认实例、路由，以及备用检索能力和查询。未配置备用方案的旧来源会按来源名、路由和主题需求生成中立检索请求，不修改长期来源配置。
+
 ### 组合扩展
 
 Skrya 会自主寻找本地可用的技能，尽量扩大信源覆盖。比如用 `agent-reach` 扩展公开网页与社交检索，用 `wechat-article-search` 补微信公众号文章。Skrya 不关注绕过登录墙或访问限制的手段，只负责把可用信源组织成可复用的简报流程。
@@ -92,6 +96,18 @@ Skrya 会自主寻找本地可用的技能，尽量扩大信源覆盖。比如�
 ### 反馈会变成记忆
 
 你说“这类少推”“这条继续跟”“展开第 3 条”，Skrya 会把反馈转成后续简报的长期偏好，而不是只在当前聊天里回应。
+
+### 重复内容与本地缓存
+
+同一 `event_id` 和 `content_hash` 已出现在最近三份正式日报的 `.events.json` 快照中时，本轮隐藏这条重复内容；内容变化后可以再次出现。预览不改变这份记忆。`event_id` 来自 `source_id` 和原始文章 URL；没有 URL 时使用规范化标题。`content_hash` 来自规范化后的标题、摘要和正文，不改写保存的文章 URL。
+
+每个来源成功完成非预览采集后，独立推进 generation；成功解析缓存响应也算成功采集，不代表发生了新网络请求。失败、跳过和预览不推进。最新 generation 定义当前事件集，旧记录和完整 Thread 原始历史继续保留。当前状态保存在 `runs/<topic-id>/event-state.json`。旧版 `skrya.ingest.v1` 当前文件必须显式运行 `upgrade --migrate-ingest-v2`，转换前会备份，详见[升级说明](docs/upgrade.md)。
+
+HTTP 缓存支持采集时的条件请求和新鲜度判断，中文翻译使用不过期的内容哈希缓存。`digest --force-refresh` 仅绕过本轮 HTTP 缓存新鲜度。`cache` 无须 topic，只维护已识别的缓存条目，可用 `--clear-http-cache`、`--clear-translation-cache --translation-language zh-CN` 或 `--cleanup-expired`；不传操作参数只显示用法，不清理任何内容。预览不会改变 data root 中的任何文件。
+
+来源健康状态保存在 topic 目录中。连续失败会触发降级和临时退避，`source-health --topic <topic-id>` 只读报告，`--refresh` 为该主题采集一次。健康提示放在日报首个章节之前，不另加第六项操作。真实来源失败时不会静默改用样例。
+
+`ingest-prune --topic <topic-id> --keep 10` 默认只报告将删除的归档批次。先审阅选择，再加 `--apply` 才删除对应 raw/normalized ingest 文件。最新引用批次始终受保护；日报、编号快照、Thread、投递回执和绑定都不删除。
 
 ### 通道不串台
 
@@ -136,6 +152,9 @@ Skrya 支持三种卸载方式：
 | [用户旅程](docs/user-journeys.md) | 智能体面向普通用户时应该怎么行动 |
 | [事件线](docs/threads.md) | 如何持续跟踪同一条事件线 |
 | [通道绑定](docs/delivery-bindings.md) | 如何把主题投递隔离在创建它的通道和用户上下文里 |
+| [信源健康](docs/source-health.md) | 连续失败、退避与诊断 |
+| [HTTP 缓存](docs/http-cache.md) | 持久化缓存与条件请求 |
+| [翻译缓存](docs/translation-cache.md) | 中文输出的内容哈希缓存 |
 | [外部检索接口](docs/external-retrieval-interface.md) | 如何接入运行时检索结果 |
 | [领域模型](docs/domain-model.md) | 主题、请求、信源、事件线、通道等实体 |
 | [贡献指南](CONTRIBUTING.md) | 开发、测试、代码结构和技术设计 |

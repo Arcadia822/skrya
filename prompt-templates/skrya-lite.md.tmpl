@@ -26,3 +26,9 @@ Before applying any other rule to a topic-scoped request, check the resolved dat
 14. Keep topic-scoped work tied to an explicit `topic-id`.
 15. Report what changed, what was regenerated, and what you verified.
 
+
+## Retrieval State Contract
+
+Normalize external retrieval into `skrya.ingest.v2` before digest or deep-analysis consumption. Never pass raw provider text directly to those consumers. Keep provider names in runtime ingest provenance, not durable source configuration. Record source identity with `source_id`; the ingest writer derives `event_id`, `content_hash`, and `source_generations`. Mixed topics collect enabled live feeds together with explicitly ingested events; ingest does not override all live sources.
+
+Current legacy ingest requires explicit `upgrade --migrate-ingest-v2` migration with backups. Do not rewrite archived batches, frozen digest snapshots, or Thread history. Hide only unchanged event-ID/content-hash pairs from the last three real digest snapshots; changed content remains eligible. Preview must leave the entire data root unchanged. Ingest pruning is dry-run first; inspect its selected batches and obtain explicit approval before `ingest-prune --apply`.

@@ -1,0 +1,144 @@
+preset_id: ai-llm
+name: AI / LLM 前沿研究与产业动态
+description: 覆盖基础模型实验室、AI 前沿预印本论文、顶尖研究者专栏、权威科技媒体与开发者社区的信源预设库
+tags:
+  - ai
+  - llm
+  - artificial-intelligence
+  - machine-learning
+  - deep-learning
+  - agent
+  - research
+
+source_groups:
+  - name: 基础模型实验室与研究机构
+    description: 全球顶尖 AI 实验室的官方技术博客与研究公告
+    sources:
+      - name: OpenAI News & Research
+        type: rss
+        url: https://openai.com/news/rss.xml
+        description: OpenAI 官方新闻、技术公告与产品发布
+      - name: Google DeepMind Blog
+        type: rss
+        url: https://deepmind.google/blog/rss.xml
+        description: DeepMind 团队突破性前沿算法与模型架构发布
+      - name: Hugging Face Blog
+        type: rss
+        url: https://huggingface.co/blog/feed.xml
+        description: 开源模型生态、微调评测与部署工程实践
+      - name: Microsoft Research Blog
+        type: rss
+        url: https://www.microsoft.com/en-us/research/feed/
+        description: 微软研究院前沿计算机科学与 AI 基础理论研究
+      - name: BAIR (Berkeley AI Research) Blog
+        type: rss
+        url: https://bair.berkeley.edu/blog/feed.xml
+        description: 加州大学伯克利分校 AI 实验室深度算法解析
+
+  - name: 学术论文预印本
+    description: 权威预印本平台的计算机科学与大语言模型学术追踪
+    sources:
+      - name: arXiv AI (cs.AI)
+        type: rss
+        url: https://rss.arxiv.org/rss/cs.AI
+        description: arXiv 人工智能领域最新预印本论文速递
+      - name: arXiv Computation and Language (cs.CL)
+        type: rss
+        url: https://rss.arxiv.org/rss/cs.CL
+        description: arXiv 自然语言处理、语言模型与上下文学习研究
+
+  - name: 研究者专栏与深度技术分析
+    description: 行业领军人物与资深从业者的独立技术博客与周刊
+    sources:
+      - name: Import AI (Jack Clark)
+        type: rss
+        url: https://importai.substack.com/feed
+        description: Anthropic 联合创始人 Jack Clark 主笔的 AI 政策与技术周报
+      - name: Interconnects (Nathan Lambert)
+        type: rss
+        url: https://www.interconnects.ai/feed
+        description: 聚焦开源大模型、RLHF 强化学习与评测基准的深度技术分析
+      - name: Simon Willison's Weblog
+        type: rss
+        url: https://simonwillison.net/atom/everything/
+        description: 大模型工程实现、Prompt 安全与开发者工具实践观察
+      - name: The Gradient
+        type: rss
+        url: https://thegradient.pub/rss/
+        description: 斯坦福学术支持的深度机器学习评论杂志与长篇访谈
+      - name: One Useful Thing (Ethan Mollick)
+        type: rss
+        url: https://www.oneusefulthing.org/feed
+        description: 沃顿商学院教授 Ethan Mollick 关于生成式 AI 生产力与社会影响的研究
+
+  - name: 行业媒体与产业动态
+    description: 全球科技媒体对生成式 AI 商业落地与资本动向的专业报道
+    sources:
+      - name: The Verge - AI
+        type: rss
+        url: https://www.theverge.com/rss/ai-artificial-intelligence/index.xml
+        description: 主流消费级 AI 产品、监管法案与伦理争议报道
+      - name: TechCrunch - AI
+        type: rss
+        url: https://techcrunch.com/category/artificial-intelligence/feed/
+        description: 全球 AI 创业公司融资、并购与商业化进展
+      - name: MIT Technology Review - AI
+        type: rss
+        url: https://www.technologyreview.com/topic/artificial-intelligence/feed
+        description: 麻省理工科技评论对 AI 技术纵深与工业转型的深度分析
+
+  - name: 开发者社区与学术讨论
+    description: 全球开发者与算法工程师的高频互动与技术辩论
+    sources:
+      - name: Hacker News - LLM Discussions
+        type: rss
+        url: https://hnrss.org/newest?q=LLM
+        description: Hacker News 上关于大语言模型与 AI 智能体的一手讨论
+      - name: r/MachineLearning
+        type: runtime-retrieval
+        capabilities:
+          - social_search
+          - web_search
+        queries:
+          - r/MachineLearning machine learning paper discussion
+          - reddit.com/r/MachineLearning open source implementation
+        languages:
+          - en
+        description: Reddit 机器学习专业社区前沿论文讨论与开源实现
+      - name: r/artificial
+        type: runtime-retrieval
+        capabilities:
+          - social_search
+          - web_search
+        queries:
+          - r/artificial artificial intelligence discussion
+          - reddit.com/r/artificial AI frontier discovery
+        languages:
+          - en
+        description: Reddit 人工智能大众讨论与前沿发现热帖
+
+  - name: 全网检索与社交追踪
+    description: 针对突发模型权重开源与研究员社交动态的实时检索
+    sources:
+      - name: AI 模型突破与测评全网检索
+        type: runtime-retrieval
+        capabilities:
+          - news_search
+          - web_search
+        queries:
+          - LLM benchmark release evaluation
+          - 大模型发布 评测 权重 开源
+        languages:
+          - en
+          - zh
+        description: 突发大模型发布、基准评测更新与重要开源权重上线的全网新闻检索
+      - name: X / Twitter AI 专家动态追踪
+        type: runtime-retrieval
+        capabilities:
+          - social_search
+        queries:
+          - AI research paper announcement
+          - foundation model open weights release
+        languages:
+          - en
+        description: 追踪顶级 AI 科学家与研究机构负责人在社交网络上的实时研究声明

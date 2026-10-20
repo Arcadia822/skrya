@@ -1,7 +1,0 @@
-interface:
-  display_name: skrya
-  short_description: Topic-driven briefing skill pack with curation, digest, and deep-analysis
-    workflows.
-  default_prompt: 告诉我你想持续关注什么，我会先帮你确认重点，再建立或更新这个 Skrya 话题。
-policy:
-  allow_implicit_invocation: true

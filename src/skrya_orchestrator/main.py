@@ -57,6 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     preview_group = digest_parser.add_mutually_exclusive_group()
     preview_group.add_argument("--preview", action="store_true", help="Preview digest output without writing artifacts")
     preview_group.add_argument("--test-run", action="store_true", help="Alias for --preview")
+    digest_parser.add_argument("--force-refresh", action="store_true", help="Bypass HTTP cache freshness for live source collection")
 
     analysis_parser = subparsers.add_parser("deep-analysis")
     analysis_parser.add_argument("--topic", required=True, help="Topic id")
@@ -90,8 +91,39 @@ def build_parser() -> argparse.ArgumentParser:
     ingest_parser.add_argument("--topic", required=True, help="Topic id or topic name")
     ingest_parser.add_argument("--root", default=".", help="Workspace root")
     ingest_parser.add_argument("--data-root", default=None, help="Skrya data root for topics and runs")
-    ingest_parser.add_argument("--file", required=True, help="Path to skrya.ingest.v1 JSON")
+    ingest_parser.add_argument("--file", required=True, help="Path to skrya.ingest.v2 JSON")
     ingest_parser.add_argument("--raw-file", default=None, help="Optional raw provider output file")
+
+
+    cache_parser = subparsers.add_parser("cache", help="Maintain Skrya HTTP and translation caches")
+    cache_parser.add_argument("--root", default=".", help="Workspace root")
+    cache_parser.add_argument("--data-root", default=None, help="Skrya data root holding cache subtrees")
+    cache_parser.add_argument("--clear-http-cache", action="store_true", help="Remove recognized HTTP cache entries")
+    cache_parser.add_argument(
+        "--clear-translation-cache",
+        action="store_true",
+        help="Remove recognized translation cache entries, optionally scoped by --translation-language",
+    )
+    cache_parser.add_argument(
+        "--translation-language",
+        default=None,
+        help="Optional language scope for --clear-translation-cache (for example zh-CN or en)",
+    )
+    cache_parser.add_argument("--cleanup-expired", action="store_true", help="Remove HTTP cache entries past the expiry grace window")
+
+    source_health_parser = subparsers.add_parser("source-health", help="Report topic source health")
+    source_health_parser.add_argument("--topic", required=True, help="Topic id or topic name")
+    source_health_parser.add_argument("--root", default=".", help="Workspace root")
+    source_health_parser.add_argument("--data-root", default=None, help="Skrya data root for topics and runs")
+    source_health_parser.add_argument("--refresh", action="store_true", help="Refresh health via one live collection for the explicit topic")
+    source_health_parser.add_argument("--force-refresh", action="store_true", help="Implies --refresh and bypasses HTTP cache freshness")
+
+    ingest_prune_parser = subparsers.add_parser("ingest-prune", help="Prune archived ingest batches for a topic")
+    ingest_prune_parser.add_argument("--topic", required=True, help="Topic id or topic name")
+    ingest_prune_parser.add_argument("--root", default=".", help="Workspace root")
+    ingest_prune_parser.add_argument("--data-root", default=None, help="Skrya data root for topics and runs")
+    ingest_prune_parser.add_argument("--keep", type=int, default=10, help="Number of newest ingest batches to keep (default 10)")
+    ingest_prune_parser.add_argument("--apply", action="store_true", help="Delete selected batches; without this flag the command only reports")
 
     data_root_parser = subparsers.add_parser("data-root")
     data_root_parser.add_argument("--root", default=".", help="Workspace root")
@@ -161,6 +193,8 @@ def build_parser() -> argparse.ArgumentParser:
     upgrade_parser.add_argument("--migrate-data", action="store_true", help="Copy existing workspace topics/runs")
     upgrade_parser.add_argument("--migrate-thread-naming", action="store_true", help="Migrate legacy thread file names")
     upgrade_parser.add_argument("--check-latest", action="store_true", help="Check visible upstream revision")
+    upgrade_parser.add_argument("--topic", default=None, help="Optional topic id or name scoped to --migrate-ingest-v2")
+    upgrade_parser.add_argument("--migrate-ingest-v2", action="store_true", help="Migrate current latest-ingest files from skrya.ingest.v1 to v2 with backups")
 
     return parser
 
@@ -224,7 +258,13 @@ def main() -> int:
     if args.command == "digest":
         service = IntelligenceService(root, data_root=args.data_root)
         is_preview = getattr(args, "preview", False) or getattr(args, "test_run", False)
-        result = service.generate_digest(args.topic, prefer_live=not args.sample, preview=is_preview)
+        try:
+            result = service.generate_digest(
+                args.topic, prefer_live=not args.sample, preview=is_preview, force_refresh=args.force_refresh
+            )
+        except (OSError, ValueError) as error:
+            print(f"Digest failed: {error}", file=sys.stderr)
+            return 1
         print(result.markdown, end="")
         return 0
 
@@ -258,20 +298,100 @@ def main() -> int:
         return 1
 
     if args.command == "retrieval-request":
+        from .source_collector import with_source_fallbacks
+
         request = IngestService(root, data_root=args.data_root).build_retrieval_request(
             args.topic,
             since=args.since,
             until=args.until,
         )
+        service = IntelligenceService(root, data_root=args.data_root)
+        request = with_source_fallbacks(request, fallbacks=service.pending_source_fallbacks(args.topic))
         print(json.dumps(request, ensure_ascii=False, indent=2))
         return 0
 
     if args.command == "ingest":
-        payload = json.loads(Path(args.file).read_text(encoding="utf-8"))
-        raw_text = Path(args.raw_file).read_text(encoding="utf-8") if args.raw_file else None
-        result = IngestService(root, data_root=args.data_root).record_ingest_result(args.topic, payload, raw_text=raw_text)
+        try:
+            payload = json.loads(Path(args.file).read_text(encoding="utf-8"))
+            raw_text = Path(args.raw_file).read_text(encoding="utf-8") if args.raw_file else None
+            result = IngestService(root, data_root=args.data_root).record_ingest_result(args.topic, payload, raw_text=raw_text)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            print(f"Record ingest failed: {error}", file=sys.stderr)
+            return 1
         print(f"Recorded ingest: {result.latest_path}")
         return 0
+
+    if args.command == "cache":
+        from .http_cache import HttpCache
+        from .translation_cache import TranslationCache
+
+        if not (args.clear_http_cache or args.clear_translation_cache or args.cleanup_expired):
+            print(
+                "No cache action requested. Use --clear-http-cache, --clear-translation-cache "
+                "[--translation-language zh-CN|en] or --cleanup-expired.",
+                file=sys.stderr,
+            )
+            return 2
+
+        if args.translation_language is not None and not args.clear_translation_cache:
+            print("--translation-language requires --clear-translation-cache.", file=sys.stderr)
+            return 2
+
+        try:
+            data_root = resolve_data_root(root, args.data_root).data_root
+            if args.clear_translation_cache:
+                removed = TranslationCache(data_root).clear(language=args.translation_language)
+                scope = f" ({args.translation_language})" if args.translation_language else ""
+                print(f"Cleared translation cache entries{scope}: {removed}")
+            if args.clear_http_cache:
+                print(f"Cleared HTTP cache entries: {HttpCache(data_root).clear()}")
+            if args.cleanup_expired:
+                print(f"Removed expired HTTP cache entries: {HttpCache(data_root).cleanup()}")
+        except (OSError, ValueError) as error:
+            print(f"Cache maintenance failed: {error}", file=sys.stderr)
+            return 1
+        return 0
+
+    if args.command == "source-health":
+        from .source_collector import SourceCollector
+        from .source_health import SourceHealthStore
+        from .sources import normalize_sources
+
+        data_root = resolve_data_root(root, args.data_root).data_root
+        topic_id = IntelligenceService(root, data_root=data_root).resolve_topic_id(args.topic)
+        topic_dir = data_root / "topics" / topic_id
+        if not topic_dir.is_dir():
+            raise FileNotFoundError(f"Topic '{topic_id}' not found")
+        sources_payload = json.loads((topic_dir / "sources.json").read_text(encoding="utf-8"))
+        raw_sources = sources_payload.get("sources", []) if isinstance(sources_payload, dict) else sources_payload
+        source_names = {
+            str(source.get("id")): str(source.get("name") or source.get("id"))
+            for source in normalize_sources(raw_sources)
+            if source.get("id")
+        }
+        topic_language = "zh-CN"
+        topic_config = topic_dir / "topic.json"
+        if topic_config.is_file():
+            topic_language = str(json.loads(topic_config.read_text(encoding="utf-8")).get("language") or "zh-CN")
+        store = SourceHealthStore(topic_dir, source_names=source_names)
+        if args.refresh or args.force_refresh:
+            result = SourceCollector(topic_dir, force_refresh=args.force_refresh, health=store).collect()
+            if result.health_notice:
+                print(result.health_notice)
+        print(store.report(language=topic_language))
+        return 0
+
+    if args.command == "ingest-prune":
+        from .event_lifecycle import prune_ingests
+
+        if args.keep < 0:
+            print("--keep must be nonnegative.", file=sys.stderr)
+            return 2
+        data_root = resolve_data_root(root, args.data_root).data_root
+        topic_id = IntelligenceService(root, data_root=data_root).resolve_topic_id(args.topic)
+        report = prune_ingests(data_root, topic_id, keep=args.keep, apply=args.apply)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 1 if report["failed"] else 0
 
     if args.command == "data-root":
         if args.set_data_root:
@@ -361,6 +481,21 @@ def main() -> int:
             if check.remote_revision:
                 print(f"Remote main: {check.remote_revision}")
                 print(f"Update available: {'yes' if check.has_remote_update else 'no'}")
+        if args.migrate_ingest_v2:
+            from .event_lifecycle import migrate_ingest_v1
+
+            topic_id = None
+            if args.topic:
+                topic_id = IntelligenceService(root, data_root=resolution.data_root).resolve_topic_id(args.topic)
+            migration = migrate_ingest_v1(resolution.data_root, topic_id)
+            for entry in migration["migrated"]:
+                print(f"Migrated ingest v2: {entry['topic_id']} (items: {entry['item_count']}, backup: {entry['backup_path']})")
+            for entry in migration["already_current"]:
+                print(f"Already ingest v2: {entry['topic_id']}")
+            for entry in migration["failed"]:
+                print(f"Ingest migration failed: {entry['topic_id']}: {entry['error']}", file=sys.stderr)
+            if migration["failed"]:
+                return 1
         print("Upgrade checks complete")
         return 0
 

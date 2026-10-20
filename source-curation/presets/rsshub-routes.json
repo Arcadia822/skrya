@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0",
+  "description": "Standardized RSSHub route directory for discovery and source configuration",
+  "documentation_url": "https://docs.rsshub.app",
+  "verified_source": "https://github.com/DIYgod/RSSHub",
+  "verified_tree": "5b399b2fdd77d006973f73959f8f24b2bc117d5f",
+  "verified_on": "2026-10-20",
+  "routes": [
+    {
+      "platform": "zhihu",
+      "platform_name": "知乎",
+      "name": "知乎热榜",
+      "route": "/zhihu/hot",
+      "documentation": "https://docs.rsshub.app/routes/social-media#zhi-hu",
+      "documentation_source": "https://docs.rsshub.app/routes/social-media#zhi-hu",
+      "handler_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/zhihu/hot.ts",
+      "description": "知乎全站热榜，聚合知乎高热度讨论与问答",
+      "parameters": {
+        "category": "可选热榜分类参数"
+      },
+      "categories": [
+        "social",
+        "trending",
+        "discussion"
+      ]
+    },
+    {
+      "platform": "zhihu",
+      "platform_name": "知乎",
+      "name": "知乎日报",
+      "route": "/zhihu/daily",
+      "documentation": "https://docs.rsshub.app/routes/social-media#zhi-hu",
+      "documentation_source": "https://docs.rsshub.app/routes/social-media#zhi-hu",
+      "handler_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/zhihu/daily.ts",
+      "description": "知乎日报编辑精选优质问答与长文",
+      "categories": [
+        "news",
+        "editorial"
+      ]
+    },
+    {
+      "platform": "bilibili",
+      "platform_name": "哔哩哔哩",
+      "name": "Bilibili 热搜榜",
+      "route": "/bilibili/hot-search",
+      "documentation": "https://docs.rsshub.app/routes/social-media#bi-li-bi-li",
+      "documentation_source": "https://docs.rsshub.app/routes/social-media#bi-li-bi-li",
+      "handler_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/bilibili/hot-search.ts",
+      "description": "哔哩哔哩全站热搜关键词与热门内容趋势",
+      "categories": [
+        "video",
+        "trending"
+      ]
+    },
+    {
+      "platform": "bilibili",
+      "platform_name": "哔哩哔哩",
+      "name": "Bilibili 全站排行榜",
+      "route": "/bilibili/ranking/all",
+      "documentation": "https://docs.rsshub.app/routes/social-media#bi-li-bi-li",
+      "documentation_source": "https://docs.rsshub.app/routes/social-media#bi-li-bi-li",
+      "handler_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/bilibili/ranking.ts",
+      "description": "哔哩哔哩排行榜，rid=all 为全站榜（当前 handler 无日/三日/周/月榜参数，路径第二段为内嵌视频开关；番剧等 PGC 分区排行暂不支持）",
+      "parameters": {
+        "rid": "分区代号或数字 rid，all 为全站（默认 all）",
+        "embed": "任意值关闭内嵌视频，默认开启"
+      },
+      "categories": [
+        "video",
+        "ranking"
+      ]
+    },
+    {
+      "platform": "weibo",
+      "platform_name": "微博",
+      "name": "微博热搜榜",
+      "route": "/weibo/search/hot",
+      "documentation": "https://docs.rsshub.app/routes/social-media#wei-bo",
+      "documentation_source": "https://docs.rsshub.app/routes/social-media#wei-bo",
+      "handler_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/weibo/search/hot.tsx",
+      "description": "微博实时热搜榜，反映中文社交网络实时热点事件",
+      "parameters": {
+        "fulltext": "可选；fulltext 附带热搜条目摘要信息"
+      },
+      "categories": [
+        "social",
+        "trending",
+        "realtime"
+      ]
+    },
+    {
+      "platform": "juejin",
+      "platform_name": "掘金",
+      "name": "掘金全站热门",
+      "route": "/juejin/trending/all/weekly",
+      "documentation": "https://docs.rsshub.app/routes/programming#jue-jin",
+      "documentation_source": "https://docs.rsshub.app/routes/programming#jue-jin",
+      "handler_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/juejin/trending.ts",
+      "description": "掘金技术社区全站热门文章榜（category=all，type=weekly 本周最热）",
+      "parameters": {
+        "category": "android|frontend|ios|backend|design|product|freebie|article|ai|devops|all（默认 all）",
+        "type": "weekly|monthly|historical 本周最热|本月最热|历史最热（默认 weekly）"
+      },
+      "categories": [
+        "developer",
+        "tech",
+        "trending"
+      ]
+    },
+    {
+      "platform": "juejin",
+      "platform_name": "掘金",
+      "name": "掘金后端热门",
+      "route": "/juejin/trending/backend/monthly",
+      "documentation": "https://docs.rsshub.app/routes/programming#jue-jin",
+      "documentation_source": "https://docs.rsshub.app/routes/programming#jue-jin",
+      "handler_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/juejin/trending.ts",
+      "description": "掘金技术社区后端热门文章（category=backend，type=monthly 本月最热）",
+      "parameters": {
+        "category": "android|frontend|ios|backend|design|product|freebie|article|ai|devops|all（默认 all）",
+        "type": "weekly|monthly|historical 本周最热|本月最热|历史最热（默认 weekly）"
+      },
+      "categories": [
+        "developer",
+        "backend"
+      ]
+    },
+    {
+      "platform": "github",
+      "platform_name": "GitHub",
+      "name": "GitHub Trending (Daily)",
+      "route": "/github/trending/daily/any",
+      "documentation": "https://docs.rsshub.app/routes/programming#github",
+      "documentation_source": "https://docs.rsshub.app/routes/programming#github",
+      "handler_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/github/trending.tsx",
+      "description": "GitHub 每日最受全球开发者关注与 Star 激增的开源项目趋势榜单（语言段必填，any 表示不过滤；需实例配置 GITHUB_ACCESS_TOKEN）",
+      "parameters": {
+        "since": "daily|weekly|monthly 今日|本周|本月",
+        "language": "语言段必填，any 为不过滤，可填 GitHub Trending 页语言代号",
+        "spoken_language": "可选自然语言"
+      },
+      "categories": [
+        "developer",
+        "open-source"
+      ]
+    },
+    {
+      "platform": "producthunt",
+      "platform_name": "Product Hunt",
+      "name": "Product Hunt 今日产品榜",
+      "route": "/producthunt/today",
+      "documentation": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/producthunt/today.tsx",
+      "documentation_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/producthunt/today.tsx",
+      "description": "全球产品经理与极客每日打榜的开发者效率工具与 SaaS 平台今日发布产品榜",
+      "categories": [
+        "product",
+        "trending"
+      ]
+    },
+    {
+      "platform": "theblockbeats",
+      "platform_name": "律动 BlockBeats",
+      "name": "BlockBeats 快讯",
+      "route": "/theblockbeats/newsflash",
+      "documentation": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/theblockbeats/index.tsx",
+      "documentation_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/theblockbeats/index.tsx",
+      "description": "中文加密圈高频一手快讯、早期投融资动态与大额链上异动（channel 仅支持 newsflash|article）",
+      "parameters": {
+        "channel": "newsflash|article 快讯|文章（默认 newsflash）",
+        "original": "仅 channel=article 时有效的文章类型"
+      },
+      "categories": [
+        "crypto",
+        "finance",
+        "news"
+      ]
+    },
+    {
+      "platform": "panewslab",
+      "platform_name": "PANews",
+      "name": "PANews 快讯",
+      "route": "/panewslab/news",
+      "documentation": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/panewslab/news.ts",
+      "documentation_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/panewslab/news.ts",
+      "description": "PANews（panewslab.com）快讯，聚焦区块链商业创新、金融合规趋势与亚太监管动向",
+      "categories": [
+        "crypto",
+        "finance",
+        "news"
+      ]
+    },
+    {
+      "platform": "36kr",
+      "platform_name": "36氪",
+      "name": "36氪 7x24h 实时快讯",
+      "route": "/36kr/newsflashes",
+      "documentation": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/36kr/index.ts",
+      "documentation_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/36kr/index.ts",
+      "description": "中国新经济、科技大厂动态与一级市场投资一手快讯（category=newsflashes）",
+      "parameters": {
+        "category": "news|newsflashes|recommend|life|estate|workplace|search（官方分类表，search 为搜索文章/快讯）",
+        "subCategory": "选填，兼容旧路由",
+        "keyword": "选填，仅搜索文章/快讯时有效"
+      },
+      "categories": [
+        "tech",
+        "business",
+        "news"
+      ]
+    },
+    {
+      "platform": "geekpark",
+      "platform_name": "极客公园",
+      "name": "极客公园首页资讯",
+      "route": "/geekpark",
+      "documentation": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/geekpark/index.ts",
+      "documentation_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/geekpark/index.ts",
+      "description": "极客公园首页资讯与综合报道，前沿极客产品、创新创业者专访与软硬件跨界体验",
+      "parameters": {
+        "column": "可选栏目 id，默认首页资讯"
+      },
+      "categories": [
+        "tech",
+        "new-media"
+      ]
+    },
+    {
+      "platform": "huxiu",
+      "platform_name": "虎嗅",
+      "name": "虎嗅 24 小时资讯",
+      "route": "/huxiu/moment",
+      "documentation": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/huxiu/moment.ts",
+      "documentation_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/huxiu/moment.ts",
+      "description": "虎嗅 24 小时资讯流，商业科技深度观察、产业互联网转型与商业公司动态",
+      "categories": [
+        "business",
+        "tech",
+        "news"
+      ]
+    },
+    {
+      "platform": "foresightnews",
+      "platform_name": "Foresight News",
+      "name": "Foresight News 快讯",
+      "route": "/foresightnews/news",
+      "documentation": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/foresightnews/news.ts",
+      "documentation_source": "https://github.com/DIYgod/RSSHub/blob/master/lib/routes/foresightnews/news.ts",
+      "description": "Foresight News 快讯，海外前沿叙事梳理与中文 Web3 开发者生态动态",
+      "categories": [
+        "crypto",
+        "news"
+      ]
+    }
+  ]
+}

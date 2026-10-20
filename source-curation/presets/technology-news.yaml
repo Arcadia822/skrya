@@ -1,0 +1,104 @@
+preset_id: technology-news
+name: 前沿科技与商业科技新闻
+description: 覆盖全球主流综合科技媒体、消费硬件与前沿技术突破、新兴市场科技生态与国内权威商业科技快讯的信源预设库
+tags:
+  - tech
+  - technology
+  - consumer-electronics
+  - innovation
+  - science
+  - business-tech
+
+source_groups:
+  - name: 全球顶级科技与消费电子媒体
+    description: 欧美最具影响力的综合科技旗舰媒体与深度技术报道
+    sources:
+      - name: The Verge
+        type: rss
+        url: https://www.theverge.com/rss/index.xml
+        description: 消费级电子产品、数字化生活方式与科技政策权威报道
+      - name: TechCrunch
+        type: rss
+        url: https://techcrunch.com/feed/
+        description: 全球科技创新创业、早期融资与独角兽企业深度追踪
+      - name: Ars Technica
+        type: rss
+        url: https://feeds.arstechnica.com/arstechnica/index
+        description: 计算机系统架构、信息安全、基础科学与法务政策深度长文
+      - name: Engadget
+        type: rss
+        url: https://www.engadget.com/rss.xml
+        description: 全球消费电子产品动手玩、发布会实况与智能硬件生态评测
+      - name: MIT Technology Review
+        type: rss
+        url: https://www.technologyreview.com/feed/
+        description: 麻省理工科技评论对改变人类未来的突破性工程技术的深度审视
+
+  - name: 泛技术与全球商业创新
+    description: 探索硅谷中心以外的全球数字化转型与前沿数字生活方式
+    sources:
+      - name: Rest of World
+        type: rss
+        url: https://restofworld.org/feed/
+        description: 聚焦西方世界之外、全球新兴市场科技演进与本土创新生态
+      - name: 爱范儿 (ifanr)
+        type: rss
+        url: https://www.ifanr.com/feed
+        description: 聚焦科技美学、明日产品发布与消费数字化趋势
+      - name: 少数派 (sspai)
+        type: rss
+        url: https://sspai.com/feed
+        description: 聚焦数字生产力工具、高质量硬件实测与数字生活工作流
+
+  - name: 中文商业科技前沿
+    description: 中国新经济、互联网商业模式与硬科技创业前沿资讯
+    sources:
+      - name: 极客公园 (GeekPark)
+        type: rsshub
+        route: /geekpark
+        instance: https://rsshub.app
+        instance_urls:
+          - https://rsshub.app
+        description: 关注前沿极客产品、创新创业者专访与软硬件跨界体验
+      - name: 36氪 7x24h 实时快讯
+        type: rsshub
+        route: /36kr/newsflashes
+        instance: https://rsshub.app
+        instance_urls:
+          - https://rsshub.app
+        description: 覆盖中国新经济、科技大厂动态与一级市场投资动态的一手快讯
+      - name: 虎嗅 24小时资讯
+        type: rsshub
+        route: /huxiu/moment
+        instance: https://rsshub.app
+        instance_urls:
+          - https://rsshub.app
+        description: 关注商业科技深度观察、产业互联网转型与商业公司财报解析
+
+  - name: 科技巨头发布与反垄断监管检索
+    description: 针对突发大型硬件发布会、季度财报与多国科技监管的实时检索
+    sources:
+      - name: 科技巨头重大发布会与财报追踪
+        type: runtime-retrieval
+        capabilities:
+          - news_search
+          - web_search
+        queries:
+          - Apple Google Microsoft hardware launch keynote
+          - 科技巨头 财报 发布会 苹果 微软 谷歌
+        languages:
+          - en
+          - zh
+        description: 针对苹果秋季发布会、谷歌 I/O、微软 Build 等年度硬件与重大战略发布的检索
+      - name: 全球科技反垄断与监管风向追踪
+        type: runtime-retrieval
+        capabilities:
+          - news_search
+          - web_search
+        queries:
+          - tech antitrust investigation FTC EU digital markets act
+          - 科技反垄断 监管 听证会 调查
+        languages:
+          - en
+          - zh
+        description: 全球科技反垄断诉讼、数据安全审查与跨国数字税立法进展追踪

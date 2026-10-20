@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -122,7 +123,7 @@ class SkillPackBuilder:
         written.append(
             self._write_text(output_root / "agents" / "openai.yaml", self._render_openai_metadata(pack_source))
         )
-        written.extend(self._write_installer_entry(output_root, pack_source))
+        self.repair_legacy_duplicate(output_root)
 
         for skill in self._load_skill_sources():
             skill_dir = output_root / skill.name
@@ -131,18 +132,99 @@ class SkillPackBuilder:
                 self._write_text(skill_dir / "agents" / "openai.yaml", self._render_openai_metadata(skill))
             )
             written.extend(self._copy_skill_asset_dir(skill.template_path.parent, skill_dir, "templates"))
+            written.extend(self._copy_skill_asset_dir(skill.template_path.parent, skill_dir, "presets"))
 
         return written
 
-    def _write_installer_entry(self, output_root: Path, pack_source: SkillSource) -> list[Path]:
-        installer_root = output_root / INSTALLER_ENTRY_DIR
-        return [
-            self._write_text(installer_root / "SKILL.md", self._render_skill_markdown(pack_source)),
-            self._write_text(
-                installer_root / "agents" / "openai.yaml",
-                self._render_openai_metadata(pack_source),
-            ),
-        ]
+    def repair_legacy_duplicate(self, output_root: Path | str) -> list[Path]:
+        output_root = Path(output_root)
+        legacy_dir = output_root / INSTALLER_ENTRY_DIR
+        if not legacy_dir.is_dir() or legacy_dir.is_symlink():
+            return []
+
+        # Preflight every candidate before unlinking so a later conflict never
+        # leaves a partially destroyed legacy entry behind.
+        candidates = self._legacy_duplicate_candidates(output_root, legacy_dir)
+        for path in candidates:
+            path.unlink()
+        self._prune_empty_legacy_dirs(legacy_dir)
+        return candidates
+
+    def _legacy_duplicate_candidates(self, output_root: Path, legacy_dir: Path) -> list[Path]:
+        candidates: list[Path] = []
+        legacy_skill = legacy_dir / "SKILL.md"
+        if legacy_skill.exists() or legacy_skill.is_symlink():
+            if not self._is_generated_duplicate_skill(legacy_skill):
+                raise ValueError(
+                    f"Refusing to remove unknown conflicting nested entry: {legacy_skill}"
+                )
+            candidates.append(legacy_skill)
+
+        legacy_agents = legacy_dir / "agents"
+        if legacy_agents.is_symlink() or (legacy_agents.exists() and not legacy_agents.is_dir()):
+            raise ValueError(
+                f"Refusing to repair through symlinked or non-directory agents entry: {legacy_agents}"
+            )
+        if not legacy_agents.is_dir():
+            return candidates
+
+        legacy_openai = legacy_agents / "openai.yaml"
+        if legacy_openai.exists() or legacy_openai.is_symlink():
+            if not self._is_generated_duplicate_openai(legacy_openai, output_root):
+                raise ValueError(
+                    f"Refusing to remove unknown conflicting nested entry: {legacy_openai}"
+                )
+            candidates.append(legacy_openai)
+        return candidates
+
+    @staticmethod
+    def _prune_empty_legacy_dirs(legacy_dir: Path) -> None:
+        legacy_agents = legacy_dir / "agents"
+        if legacy_agents.is_dir() and not legacy_agents.is_symlink() and not any(legacy_agents.iterdir()):
+            legacy_agents.rmdir()
+        if legacy_dir.is_dir() and not legacy_dir.is_symlink() and not any(legacy_dir.iterdir()):
+            legacy_dir.rmdir()
+
+    @classmethod
+    def _is_generated_duplicate_skill(cls, path: Path) -> bool:
+        if not path.is_file() or path.is_symlink():
+            return False
+        try:
+            content = path.read_text(encoding="utf-8")
+        except OSError:
+            return False
+        has_skrya_name = bool(re.search(r"^name:\s*skrya\s*$", content, re.MULTILINE))
+        has_auto_generated = "<!-- AUTO-GENERATED from" in content
+        return has_skrya_name and has_auto_generated
+
+    def _is_generated_duplicate_openai(self, path: Path, output_root: Path) -> bool:
+        if not path.is_file() or path.is_symlink():
+            return False
+        try:
+            candidate = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError):
+            return False
+        if not isinstance(candidate, dict):
+            return False
+        expected = self._canonical_pack_metadata(output_root)
+        return isinstance(expected, dict) and candidate == expected
+
+    def _canonical_pack_metadata(self, output_root: Path) -> dict | None:
+        canonical = output_root / "agents" / "openai.yaml"
+        if canonical.is_file() and not canonical.is_symlink():
+            try:
+                data = yaml.safe_load(canonical.read_text(encoding="utf-8"))
+            except (OSError, yaml.YAMLError):
+                return None
+            return data if isinstance(data, dict) else None
+        return self._rendered_pack_metadata()
+
+    def _rendered_pack_metadata(self) -> dict | None:
+        try:
+            data = yaml.safe_load(self._render_openai_metadata(self._load_pack_source()))
+        except (OSError, yaml.YAMLError):
+            return None
+        return data if isinstance(data, dict) else None
 
     def build_host_prompts(self, output_root: Path | str, host_name: str = "all") -> list[Path]:
         output_root = Path(output_root)
@@ -387,6 +469,7 @@ class SkillPackInstaller:
         if target.exists():
             try:
                 if target.resolve() == source.resolve():
+                    self._builder.repair_legacy_duplicate(target)
                     return InstallResult(host=host, skill_name=skill_name, target_path=target, mode="in-place")
             except OSError:
                 pass
@@ -399,6 +482,7 @@ class SkillPackInstaller:
             return InstallResult(host=host, skill_name=skill_name, target_path=target, mode="symlink")
         except OSError:
             shutil.copytree(source, target, ignore=COPY_IGNORE)
+            self._builder.repair_legacy_duplicate(target)
             return InstallResult(host=host, skill_name=skill_name, target_path=target, mode="copy")
 
     @staticmethod

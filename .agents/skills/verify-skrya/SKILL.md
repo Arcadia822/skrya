@@ -1,6 +1,6 @@
 ---
 name: verify-skrya
-description: Verify Skrya's real CLI from this checkout in isolated HOME and data roots, retaining command/output/artifact evidence. Covers digests, legacy numeric analysis, Threads, retrieval/ingest, template validation, native cards and frozen references, delivery preconditions, and install/uninstall. Use after changes to CLI behavior, templates, fixtures, delivery or installation.
+description: Verify Skrya's real CLI from this checkout in isolated HOME and data roots, retaining command/output/artifact evidence. Covers digests, legacy numeric analysis, Threads, retrieval/ingest v2, template validation, native cards and frozen references, delivery preconditions, source health/cache/ingest-prune maintenance, ingest v1 migration, and install/uninstall. Use after changes to CLI behavior, templates, fixtures, delivery or installation.
 ---
 
 # verify-skrya
@@ -56,13 +56,17 @@ Core commands (exact flags from `main.py`):
 
 | User action | Command |
 |---|---|
-| Daily digest (writes artifacts) | `digest --root . --topic <id-or-name> [--sample]` |
+| Daily digest (writes artifacts) | `digest --root . --topic <id-or-name> [--sample] [--force-refresh]` |
 | Test run / preview (no artifacts) | `digest --root . --topic <id> --preview` (alias `--test-run`) |
 | Legacy numeric analysis | `deep-analysis --root . --topic <id> --event-number N`; current agent follow-ups use frozen resolution below |
 | Thread timeline | `thread --root . --topic <id> --thread <id-or-name>` |
 | Rebuild threads | `refresh-threads --root . --topic <id>` |
 | Retrieval request | `retrieval-request --root . --topic <id> [--since ISO] [--until ISO]` |
-| Record normalized retrieval | `ingest --root . --topic <id> --file <skrya.ingest.v1 json> [--raw-file f]` |
+| Record normalized retrieval | `ingest --root . --topic <id> --file <skrya.ingest.v2 json> [--raw-file f]` |
+| Source health report | `source-health --root . --topic <id> [--refresh]`; `--refresh` runs one live collection for the explicit topic (network) |
+| Cache maintenance | `cache --root .` `--clear-http-cache` / `--clear-translation-cache [--translation-language L]` / `--cleanup-expired`; no topic required; with no flag it prints usage and exits 2 |
+| Prune ingest batches | `ingest-prune --root . --topic <id> [--keep N] [--apply]`; dry-run by default, `--apply` deletes only selected archived batch files |
+| Migrate ingest state to v2 | `upgrade --root . --migrate-ingest-v2 [--topic <id>]`; rewrites only current latest-ingest files and keeps `latest-ingest.v1-backup.json` next to them |
 | Template save gate | `validate-digest-template --root . --file <md>` |
 | Data root | `data-root --root . [--set P --scope home\|workspace] [--migrate]` |
 | Install / uninstall | `install-skill-pack --root "$R" --host codex\|claude\|openclaw ...` / `uninstall-skill-pack --root "$R" ...`; R is the archived scratch checkout |
@@ -73,7 +77,7 @@ Core commands (exact flags from `main.py`):
 
 Topic arguments accept the id or display name. Legacy digest/analysis/thread errors may end in a Python traceback; render/delivery/reference commands instead print a concise failure and exit 1. Inspect both exit code and captured stdout/stderr, not one assumed error format.
 
-Feature recipes with exact commands and expected observations: `features/README.md`.
+Feature recipes with exact commands and expected observations: `features/README.md`. Open `features/source-maintenance.md` for isolated RSSHub, health, cache, lifecycle maintenance, and full-data-root preview equality.
 
 ## Evidence
 
@@ -84,7 +88,7 @@ Proof standards:
 - Drive the real CLI entry point (`python -m skrya_orchestrator.main`), not `IntelligenceService` methods or test helpers.
 - Capture the action and the resulting state: the call's stdout/exit code **and** a `snapshot` of what it wrote (`runs/<topic>/digest-*.md`, `latest-digest.md` symlink target, `latest-digest-events.json`, `deep-analysis-N.md`, `threads/latest-threads.json`, `ingest/...`).
 - For mutations, prove with a second read: e.g. after `digest`, `deep-analysis` resolving the same item number; after `ingest`, a `digest --preview` whose items and `扫描时间范围` come from the ingested file.
-- Check side effects by observation, not by name: `--preview` is proven side-effect-free by a snapshot showing no `runs/<topic>/` was created/changed. Do not trust "preview" alone.
+- Check side effects across the entire data root, not just `runs/`: compare before/after manifests of every file hash, directory entry, and symlink target. Use `features/source-maintenance.md` for the runnable recipe; it covers topic health, event state, HTTP and translation caches as well as digest artifacts.
 - Network boundaries: live RSS retrieval and translation of non-Chinese text can use the network. Digest no longer adds a version-check footer. `doctor` invokes `version`, whose upstream check may use the network. Say when fixtures were used.
 - Plain Markdown ends in five actions without model/version/Agent/LLM execution metadata. Native card date badges and layout are checked separately from archive dates.
 - Before delivery-precondition tests, remove inherited `SKRYA_FEISHU_APP_ID`, `SKRYA_FEISHU_APP_SECRET`, and `SKRYA_FEISHU_CONFIG` from the helper's environment. Never borrow real credentials or bindings just to make a path reachable. `delivery-check` can contact the API even though it sends no message.

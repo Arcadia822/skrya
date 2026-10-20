@@ -9,12 +9,10 @@ from skrya_orchestrator.digest_document import (
     DigestDocument,
     DigestItem,
     Milestone,
-    SourceRef,
     ThreadProgress,
     ThreadView,
     detect_language,
     parse_digest,
-    parse_sources,
     parse_threads,
 )
 from skrya_orchestrator.feishu_cards import (
@@ -25,6 +23,7 @@ from skrya_orchestrator.feishu_cards import (
     render_card_bundle,
     summary_markdown,
 )
+from skrya_orchestrator.sources import parse_sources
 
 
 def extract_markdown_texts(element: dict[str, Any]) -> Iterator[str]:
@@ -407,7 +406,8 @@ Comet 增加了用于多步骤浏览任务的企业代理模式，支持跨标�
             "信源：[原文链接](https://news.ycombinator.com/item?id=1) | "
             "[查看](https://www.reuters.com/world/1) | "
             "[*Bloomberg*](https://bloomberg.com/news/2) | "
-            "[link](https://example.org/item)"
+            "[link](https://example.org/item) | "
+            "[view](https://www.reuters.com/world/2)"
         )
         sources = parse_sources(raw_text)
         self.assertEqual(sources[0].name, "news.ycombinator.com")
@@ -421,6 +421,121 @@ Comet 增加了用于多步骤浏览任务的企业代理模式，支持跨标�
 
         self.assertEqual(sources[3].name, "example.org")
         self.assertEqual(sources[3].url, "https://example.org/item")
+
+        self.assertEqual(sources[4].name, "reuters.com")
+        self.assertEqual(sources[4].url, "https://www.reuters.com/world/2")
+
+    def test_news_card_retains_every_link_within_source_segments(self) -> None:
+        for sources in (
+            "https://example.org/a https://example.org/b",
+            "[A](https://example.org/a) [B](https://example.org/b) | CCTV",
+        ):
+            with self.subTest(sources=sources):
+                markdown = (
+                    "# Daily Briefing\n\n## News\n\n### N-01 Report\nFacts.\n"
+                    f"Sources: {sources}\n"
+                )
+                doc = parse_digest(markdown)
+                self.assertEqual(
+                    [source.url for source in doc.items[0].sources if source.url],
+                    ["https://example.org/a", "https://example.org/b"],
+                )
+                bundle = render_card_bundle(markdown)
+                text = "\n".join(text for card in bundle["cards"] for text in extract_markdown_texts(card["body"]))
+                self.assertIn("](https://example.org/a)", text)
+                self.assertIn("](https://example.org/b)", text)
+                if "CCTV" in sources:
+                    self.assertIn("CCTV", text)
+
+    def test_name_only_thread_progress_sources_reach_full_cards(self) -> None:
+        cases = [
+            (
+                "# 每日简报\n\n## 事件线时间线更新\n\n### T-01 演练\n\n"
+                "**最新进展**：\n演练进入新阶段\n多型舰艇开展演训。\n信源：央视军事\n",
+                "演练进入新阶段 多型舰艇开展演训。",
+            ),
+            (
+                "# Daily Briefing\n\n## Event Timeline Updates\n\n### T-01 Drill\n\n"
+                "**Latest developments**:\nDrill advances\nJoint exercises continue.\nSources: CCTV\n",
+                "Drill advances Joint exercises continue.",
+            ),
+            (
+                "# 每日简报\n\n┌─ **【Thread】演练 (drill)**\n"
+                "│ 今日增量：多型舰艇开展演训。\n│ 信源：央视军事\n└\n",
+                "多型舰艇开展演训。",
+            ),
+            (
+                "# 每日简报\n\n## 事件线时间线更新\n\n### T-01 演练\n\n"
+                "**最新进展**：\n信源：央视军事\n",
+                "",
+            ),
+        ]
+        for markdown, facts in cases:
+            with self.subTest(markdown=markdown):
+                thread = parse_digest(markdown).threads[0]
+                self.assertEqual(len(thread.progress), 1)
+                progress = thread.progress[0]
+                name = "CCTV" if "Sources: CCTV" in markdown else "央视军事"
+                self.assertEqual(progress.facts, facts)
+                self.assertEqual([(source.name, source.url) for source in progress.sources], [(name, "")])
+                self.assertEqual(progress.url, "")
+                bundle = render_card_bundle(markdown)
+                text = "\n".join(text for card in bundle["cards"] for text in extract_markdown_texts(card["body"]))
+                self.assertIn(name, text)
+                if facts:
+                    self.assertIn(facts, text)
+                self.assertNotIn("](http", text)
+
+    def test_pending_thread_sources_do_not_attach_to_later_linked_progress_or_history(self) -> None:
+        markdown = (
+            "# Daily Briefing\n\n## Event Timeline Updates\n\n### T-01 Drill\n\n"
+            "**Latest developments**:\nPlain update.\nSources: CCTV\n"
+            "- **2026-10-20** · [Linked update](https://example.org/update) · N-01\n"
+            "New facts.\nSources: [Reuters](https://example.org/reuters)\n"
+            "**Historical timeline**:\n"
+            "- [Initial decision](https://example.org/initial) | 2025-01-02\n"
+            "Sources: [Historical publisher](https://example.org/history-source)\n"
+        )
+        thread = parse_digest(markdown).threads[0]
+        self.assertEqual(len(thread.progress), 2)
+        self.assertEqual(thread.progress[0].facts, "Plain update.")
+        self.assertEqual([(source.name, source.url) for source in thread.progress[0].sources], [("CCTV", "")])
+        self.assertEqual(thread.progress[1].title, "Linked update")
+        self.assertEqual(
+            [(source.name, source.url) for source in thread.progress[1].sources],
+            [("Reuters", "https://example.org/reuters")],
+        )
+        self.assertEqual([(entry.title, entry.url, entry.date) for entry in thread.timeline], [
+            ("Initial decision", "https://example.org/initial", "2025-01-02"),
+        ])
+        bundle = render_card_bundle(markdown)
+        text = "\n".join(text for card in bundle["cards"] for text in extract_markdown_texts(card["body"]))
+        self.assertIn("CCTV", text)
+        self.assertIn("[Reuters](https://example.org/reuters)", text)
+        self.assertIn("[Initial decision](https://example.org/initial)", text)
+        self.assertNotIn("https://example.org/history-source", text)
+
+    def test_thread_history_requires_an_explicit_date_and_article_url(self) -> None:
+        markdown = (
+            "# Daily Briefing\n\n## Event Timeline Updates\n\n### T-01 Project\n\n"
+            "**Latest developments**:\nNo verified update in this scan.\n"
+            "**Historical timeline**:\n"
+            "- [Initial decision](https://example.org/initial) | 2025-01-02\n"
+            "- [Undated article](https://example.org/2024-02-03/report)\n"
+            "- [Homepage](https://example.org/) | 2025-02-03\n"
+            "- Date without a source | 2025-03-04\n"
+            "Sources: [Publisher](https://example.org/source) | 2025-04-05\n"
+        )
+        thread = parse_digest(markdown).threads[0]
+        self.assertEqual([(entry.title, entry.url, entry.date) for entry in thread.timeline], [
+            ("Initial decision", "https://example.org/initial", "2025-01-02"),
+        ])
+        bundle = render_card_bundle(markdown)
+        text = "\n".join(text for card in bundle["cards"] for text in extract_markdown_texts(card["body"]))
+        self.assertIn("[Initial decision](https://example.org/initial)", text)
+        self.assertIn("2025-01-02", text)
+        self.assertNotIn("https://example.org/2024-02-03/report", text)
+        self.assertNotIn("https://example.org/source", text)
 
     def test_no_date_handling_no_clock_fallback(self) -> None:
         content = """# 2026-10-19｜无日期新闻｜每日简报
@@ -614,6 +729,26 @@ Sources: [TechCrunch](https://example.com/tc) | [Reuters](https://example.com/re
         self.assertNotIn("dig:", summary)
         self.assertNotIn("track:", summary)
 
+
+    def test_summary_markdown_retains_health_lead_notice(self) -> None:
+        """The document's health lead line reaches the summary card, not only the full card."""
+        content = """# 2026-10-19｜测试｜每日简报
+
+RSS 采集有 2 个信源连续失败，本期部分内容依赖运行时检索补充。
+
+## 今日简讯
+
+### N-01 事实标题 ｜ 2026-10-19 10:00
+事实简介。
+信源：[媒体](https://example.com/source)
+
+## 可继续操作
+- dig: N-01
+"""
+        summary = summary_markdown(content, limit=5)
+        self.assertIn("RSS 采集有 2 个信源连续失败", summary)
+        self.assertIn("N-01", summary)
+        self.assertNotIn("dig:", summary)
 
     def test_cross_year_date_badge_retention(self) -> None:
         content = """# 2026-10-19｜跨年度新闻｜每日简报
