@@ -130,7 +130,8 @@ Invalid TTL values less than or equal to zero or non-numeric types raise `ValueE
 
 | Scenario | Cache State | Network Action | Disk Action | Returned Value |
 |---|---|---|---|---|
-| Fresh hit | `now < expires_at` | None | None | Cached body |
+| Fresh hit | `now < min(expires_at, fetched_at + ttl_seconds of this request)` | None | None | Cached body |
+| Stale hit (still before `expires_at`, but this request's TTL elapsed) | `now >= fetched_at + ttl_seconds` | Conditional GET | On 304: atomically update `meta.json` | Cached body |
 | Expired hit (304) | `now >= expires_at` | Conditional GET | Atomically update `meta.json` | Cached body |
 | Expired hit (200) | `now >= expires_at` | Conditional GET | Atomically update response and meta | New network body |
 | Cache miss | None | Unconditional GET | Atomically write response and meta | New network body |
@@ -145,8 +146,8 @@ The cache implements a 24-hour grace window for expired entries.
 When an entry expires, its ETag and Last-Modified validators remain valuable for future conditional requests.
 Deleting an entry immediately at expiration forces a full body download on the next run.
 Therefore, `cleanup()` only removes entries whose `expires_at` is older than 24 hours.
+Entries containing `.tmp.*` files younger than `ACTIVE_TMP_MAX_AGE_SECONDS` (1 hour) are skipped entirely, since another concurrent request may be mid-write; only older leftover `.tmp.*` files are removed.
 During fetch execution, the current URL's directory is excluded from immediate cleanup.
-Validators for the active request are never deleted before the request is attempted.
 
 Both `cleanup()` and `clear()` restrict modifications to recognized 64-character hex directories matching owned cache entries. Manual files, custom subdirectories, and symlink directories outside the cache are strictly preserved.
 

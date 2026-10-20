@@ -1,6 +1,7 @@
 """Canonical boundary helpers for source records and fidelity."""
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from typing import Any, Iterable
@@ -29,7 +30,12 @@ GENERIC_LINK_TEXT = {
 }
 
 LINK_RE = re.compile(r"\[([^\]]*)\]\((https?://[^)]*)\)")
-BARE_URL_RE = re.compile(r"https?://[^\s)\]]+")
+BARE_URL_RE = re.compile(
+    # Bare URLs keep one level of paired ASCII parentheses
+    # (e.g. https://en.wikipedia.org/wiki/GPT_(language_model)); an unpaired
+    # closing parenthesis (ASCII or full-width) terminates the URL.
+    r"https?://(?:[^\s()\[\]()（）]|\((?:[^\s()\[\]()（）]|\([^\s()\[\]()（）]*\))*\))+"
+)
 SOURCE_TOKEN_RE = re.compile(f"{LINK_RE.pattern}|{BARE_URL_RE.pattern}")
 
 HOMEPAGE_PATHS = {
@@ -103,6 +109,22 @@ def host_name(url: str) -> str:
     return host or "link"
 
 
+def source_identity(source: dict) -> str:
+    """Single public convention for a source's stable identity.
+
+    Explicit `id` wins when present; otherwise the identity digests the
+    type-specific reference (route for rsshub, url otherwise) as
+    "<type>:<sha256>".
+    """
+    source_id = str(source.get("id") or "").strip()
+    if source_id:
+        return source_id
+    source_type = str(source.get("type") or "").strip().lower()
+    reference = source.get("route") if source_type == "rsshub" else source.get("url")
+    digest = hashlib.sha256(str(reference or "").strip().encode("utf-8")).hexdigest()
+    return f"{source_type}:{digest}"
+
+
 def is_valid_article_url(url: str) -> bool:
     """Validate http(s) URL structure and detect obvious homepage/search placeholders.
 
@@ -137,7 +159,7 @@ def is_valid_article_url(url: str) -> bool:
         return False
     if username or password:
         return False
-    if "." not in hostname and hostname != "localhost":
+    if ":" not in hostname and "." not in hostname and hostname != "localhost":
         return False
     if port is not None and not (0 < port <= 65535):
         return False

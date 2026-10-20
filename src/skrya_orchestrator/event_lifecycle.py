@@ -22,7 +22,14 @@ EVENT_STATE_SCHEMA = "skrya.event-state.v1"
 EVENT_STATE_FILENAME = "event-state.json"
 EVENT_STATE_LOCK_FILENAME = "event-state.lock"
 SNAPSHOT_WINDOW_DEFAULT = 3
-
+_CONTENT_FIELDS = (
+    "content",
+    "summary",
+    "headline_summary",
+    "list_summary",
+    "analysis_title",
+    "analysis_body",
+)
 
 
 def _sha256_hex(value: str) -> str:
@@ -176,6 +183,15 @@ class EventLifecycle:
         for record in identified:
             event_id = record["event_id"]
             merged = dict(records.get(event_id) or {})
+            # Content fields absent from the new generation must never be
+            # inherited from the previous one: drop them so every surviving
+            # content field is sourced from the current generation. They are
+            # not backfilled here because identify_events' content_hash covers
+            # content/summary, and backfilling would change hashes of records
+            # whose canonical body fields stay absent.
+            for field in _CONTENT_FIELDS:
+                if field in merged and field not in record:
+                    del merged[field]
             merged.update(record)
             merged["generation"] = generation
             records[event_id] = merged
@@ -429,42 +445,73 @@ def migrate_ingest_v1(data_root: Path | str, topic_id: str | None = None) -> dic
 
     for tid in topic_ids:
         staged_paths: list[Path] = []
+        lifecycle = EventLifecycle(data_root, tid)
         try:
             _assert_ingest_paths(data_root, tid, "latest-ingest.json", "latest-ingest.v1-backup.json")
             latest_path = runs_root / tid / "ingest" / "latest-ingest.json"
             if not latest_path.exists():
                 continue
-            original_bytes = latest_path.read_bytes()
-            payload = json.loads(original_bytes)
-            version = payload.get("interface_version") if isinstance(payload, dict) else None
-            if version == INGEST_VERSION_V2:
-                _validate_ingest_payload(payload, tid, INGEST_VERSION_V2)
-                report["already_current"].append({"topic_id": tid})
-                continue
-            _validate_ingest_payload(payload, tid, INGEST_VERSION_V1)
-            converted = _convert_v1_payload(payload)
-            _validate_ingest_payload(converted, tid, INGEST_VERSION_V2)
-            converted_bytes = json.dumps(converted, ensure_ascii=False, indent=2).encode("utf-8")
-            backup_path = latest_path.with_name("latest-ingest.v1-backup.json")
-            if backup_path.exists() and backup_path.read_bytes() != original_bytes:
-                raise ValueError(f"Existing ingest backup differs from current state: {backup_path}")
+            with lifecycle.state_lock():
+                # From the original read through os.replace the migration runs
+                # under the per-topic state lock, so no concurrent migration or
+                # ingest commit can interleave; re-reading latest inside the
+                # lock skips topics another writer already migrated.
+                _assert_ingest_paths(data_root, tid, "latest-ingest.json", "latest-ingest.v1-backup.json")
+                latest_path = runs_root / tid / "ingest" / "latest-ingest.json"
+                if not latest_path.exists():
+                    continue
+                original_bytes = latest_path.read_bytes()
+                payload = json.loads(original_bytes)
+                version = payload.get("interface_version") if isinstance(payload, dict) else None
+                if version == INGEST_VERSION_V2:
+                    _validate_ingest_payload(payload, tid, INGEST_VERSION_V2)
+                    report["already_current"].append({"topic_id": tid})
+                    continue
+                _validate_ingest_payload(payload, tid, INGEST_VERSION_V1)
+                converted = _convert_v1_payload(payload)
+                _validate_ingest_payload(converted, tid, INGEST_VERSION_V2)
+                converted_bytes = json.dumps(converted, ensure_ascii=False, indent=2).encode("utf-8")
+                backup_path = latest_path.with_name("latest-ingest.v1-backup.json")
+                if backup_path.exists() and backup_path.read_bytes() != original_bytes:
+                    raise ValueError(f"Existing ingest backup differs from current state: {backup_path}")
 
-            staged_current = _stage_ingest_bytes(latest_path, converted_bytes)
-            staged_paths.append(staged_current)
-            if not backup_path.exists():
-                staged_backup = _stage_ingest_bytes(backup_path, original_bytes)
-                staged_paths.append(staged_backup)
-                try:
-                    os.link(staged_backup, backup_path)
-                except FileExistsError:
-                    if backup_path.read_bytes() != original_bytes:
-                        raise ValueError(f"Existing ingest backup differs from current state: {backup_path}")
-            if backup_path.read_bytes() != original_bytes:
-                raise ValueError(f"Existing ingest backup differs from current state: {backup_path}")
-            os.replace(staged_current, latest_path)
-            report["migrated"].append(
-                {"topic_id": tid, "backup_path": str(backup_path), "item_count": len(converted["items"])}
-            )
+                staged_current = _stage_ingest_bytes(latest_path, converted_bytes)
+                staged_paths.append(staged_current)
+                if not backup_path.exists():
+                    staged_backup = _stage_ingest_bytes(backup_path, original_bytes)
+                    staged_paths.append(staged_backup)
+                    try:
+                        os.link(staged_backup, backup_path)
+                    except FileExistsError:
+                        if backup_path.read_bytes() != original_bytes:
+                            raise ValueError(f"Existing ingest backup differs from current state: {backup_path}")
+                if backup_path.read_bytes() != original_bytes:
+                    raise ValueError(f"Existing ingest backup differs from current state: {backup_path}")
+                os.replace(staged_current, latest_path)
+                report["migrated"].append(
+                    {"topic_id": tid, "backup_path": str(backup_path), "item_count": len(converted["items"])}
+                )
+
+                # Initialize event state in the same lock so the first
+                # incremental ingest after migration keeps every migrated
+                # source instead of only the sources in the new batch. An
+                # already-current topic never reaches this, and an existing
+                # state with committed sources is never overwritten.
+                state = lifecycle.load_state()
+                if not state.get("sources"):
+                    initialized: dict[str, Any] = {"sources": {}}
+                    by_source: dict[str, list[dict[str, Any]]] = {}
+                    for item in converted["items"]:
+                        by_source.setdefault(item["source_id"], []).append(item)
+                    for source_id, group in by_source.items():
+                        lifecycle.merge_source(initialized, source_id, group, origin="ingest")
+                    for source_id, source_generation in converted["source_generations"].items():
+                        source_state = initialized["sources"].get(source_id)
+                        if source_state is not None:
+                            source_state["generation"] = int(source_generation)
+                            for record in source_state["events"].values():
+                                record["generation"] = int(source_generation)
+                    lifecycle.commit_state(initialized)
         except (OSError, ValueError, TypeError) as exc:
             report["failed"].append({"topic_id": tid, "error": str(exc)})
         finally:

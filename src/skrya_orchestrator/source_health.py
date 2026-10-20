@@ -350,16 +350,33 @@ class SourceHealthStore:
             sources[source_id] = entry
         return entry
 
-    def _apply_op(self, sources: dict[str, SourceHealthEntry], op: tuple[Any, ...]) -> None:
+    @staticmethod
+    def _op_is_current(entry_last_fetch_at: Any, op_ts: str) -> bool:
+        """A replayed outcome applies only when it is at least as new as the entry's last fetch."""
+        entry_dt = _parse_iso_datetime(entry_last_fetch_at)
+        if entry_dt is None:
+            return True
+        op_dt = _parse_iso_datetime(op_ts)
+        if op_dt is None:
+            return True
+        return op_dt >= entry_dt
+
+    def _apply_op(
+        self, sources: dict[str, SourceHealthEntry], op: tuple[Any, ...], *, replay: bool = False
+    ) -> None:
         """Apply one recorded outcome to sources state, live or replayed on save.
 
         Integer generation mirrors are monotonic: a stale lower mirror value
-        never regresses a newer one.
+        never regresses a newer one. Replayed success/failure outcomes apply
+        only when they are at least as new as the entry's current last_fetch_at,
+        so a stale store never regresses a newer committed outcome on disk.
         """
         kind, source_id = op[0], op[1]
         entry = self._entry_in(sources, source_id)
         if kind == "success":
             _, _, item_count, ts = op
+            if replay and not self._op_is_current(entry.last_fetch_at, ts):
+                return
             entry.status = "degraded" if entry.status == "error" else "ok"
             entry.consecutive_failures = 0
             entry.item_count = max(0, int(item_count))
@@ -369,6 +386,8 @@ class SourceHealthStore:
             entry.last_error_at = None
         elif kind == "failure":
             _, _, error_text, ts = op
+            if replay and not self._op_is_current(entry.last_fetch_at, ts):
+                return
             entry.consecutive_failures += 1
             failures = entry.consecutive_failures
             if failures >= ERROR_THRESHOLD:
@@ -540,7 +559,7 @@ class SourceHealthStore:
 
             sources = state.sources
             for op in self._pending_ops:
-                self._apply_op(sources, op)
+                self._apply_op(sources, op, replay=True)
             payload = self._render_payload(
                 state.interface_version, state.top_level_extra, now_str, sources
             )

@@ -40,8 +40,10 @@ class FakeHttpResponse:
                 msg[k] = v
         self.headers = msg
 
-    def read(self) -> bytes:
-        return self._body_bytes
+    def read(self, size: int | None = None) -> bytes:
+        if size is None:
+            return self._body_bytes
+        return self._body_bytes[:size]
 
     def info(self) -> Message:
         return self.headers
@@ -920,6 +922,179 @@ class TestHttpCache(unittest.TestCase):
         with self.assertRaises(ValueError):
             cache.fetch("https://example.com", ttl_seconds=True)  # type: ignore
 
+    def test_shared_cache_hit_respects_request_ttl(self) -> None:
+        cache = HttpCache(self.data_root, clock=self.clock, opener=self.opener)
+        url = "https://example.com/shared.xml"
+        body = "<rss><title>Shared</title></rss>"
+        self.opener.handler = FakeHttpResponse(
+            body, status=200, headers={"ETag": '"v1"'}
+        )
+        cache.fetch(url, ttl_seconds=7200)
+        self.assertEqual(len(self.opener.calls), 1)
 
-if __name__ == "__main__":
-    unittest.main()
+        # Still within the write-time 7200s expiry, but this request asks for
+        # a 1800s TTL, so the shared hit must not be served: revalidate.
+        self.current_time += timedelta(seconds=2400)
+        self.opener.handler = FakeHttpResponse(
+            "", status=304, headers={"ETag": '"v1"'}
+        )
+        result = cache.fetch(url, ttl_seconds=1800)
+        self.assertEqual(result, body)
+        self.assertEqual(len(self.opener.calls), 2)
+
+        meta = cache.get_metadata(url)
+        self.assertIsNotNone(meta)
+        self.assertEqual(meta.ttl_seconds, 1800)  # type: ignore
+        self.assertEqual(meta.fetched_at, self.current_time.isoformat())  # type: ignore
+
+    def test_request_ttl_longer_than_remaining_expiry_still_hits(self) -> None:
+        cache = HttpCache(self.data_root, clock=self.clock, opener=self.opener)
+        url = "https://example.com/warm.xml"
+        body = "<rss><title>Warm</title></rss>"
+        self.opener.handler = FakeHttpResponse(body, status=200)
+        cache.fetch(url, ttl_seconds=600)
+        self.assertEqual(len(self.opener.calls), 1)
+
+        self.current_time += timedelta(seconds=100)
+        result = cache.fetch(url, ttl_seconds=7200)
+        self.assertEqual(result, body)
+        self.assertEqual(len(self.opener.calls), 1)
+
+    def test_legacy_metadata_with_unparseable_fetched_at_falls_back_to_expires_at(self) -> None:
+        cache = HttpCache(self.data_root, clock=self.clock, opener=self.opener)
+        url = "https://example.com/legacy.xml"
+        body = "<rss>legacy</rss>"
+        h = url_hash(url)
+        entry_dir = cache.cache_dir / h
+        entry_dir.mkdir(parents=True, exist_ok=True)
+        legacy_meta = {
+            "url": url,
+            "url_hash": h,
+            "fetched_at": "not-a-real-timestamp",
+            "etag": None,
+            "last_modified": None,
+            "content_type": None,
+            "status": 200,
+            "ttl_seconds": 1800,
+            "expires_at": (self.fixed_time + timedelta(seconds=1800)).isoformat(),
+            "body_digest": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+        }
+        (entry_dir / "meta.json").write_text(json.dumps(legacy_meta), encoding="utf-8")
+        (entry_dir / "response.xml").write_text(body, encoding="utf-8")
+
+        # Old-format metadata must not crash: fall back to expires_at judgment.
+        result = cache.fetch(url, ttl_seconds=1800)
+        self.assertEqual(result, body)
+        self.assertEqual(len(self.opener.calls), 0)
+
+    def test_cleanup_skips_entry_with_active_tmp_file(self) -> None:
+        cache = HttpCache(self.data_root, clock=self.clock, opener=self.opener)
+        url = "https://example.com/inflight.xml"
+        self.opener.handler = FakeHttpResponse("<rss>A</rss>", status=200)
+        cache.fetch(url, ttl_seconds=600)
+        h = url_hash(url)
+        entry_dir = cache.cache_dir / h
+        meta_path = entry_dir / "meta.json"
+
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        meta["expires_at"] = (self.current_time - timedelta(hours=25)).isoformat()
+        meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+        # Simulate another request mid-write: recent .tmp.* file in the entry.
+        tmp_file = entry_dir / f".tmp.response.{os.getpid()}.999.xml"
+        tmp_file.write_text("partial", encoding="utf-8")
+        stamp = self.current_time.timestamp()
+        os.utime(tmp_file, (stamp, stamp))
+
+        removed = cache.cleanup()
+        self.assertEqual(removed, 0)
+        self.assertTrue(entry_dir.is_dir())
+        self.assertTrue(tmp_file.exists())
+        self.assertTrue(meta_path.exists())
+
+    def test_cleanup_removes_stale_tmp_files_with_expired_entry(self) -> None:
+        cache = HttpCache(self.data_root, clock=self.clock, opener=self.opener)
+        url = "https://example.com/abandoned.xml"
+        self.opener.handler = FakeHttpResponse("<rss>B</rss>", status=200)
+        cache.fetch(url, ttl_seconds=600)
+        h = url_hash(url)
+        entry_dir = cache.cache_dir / h
+        meta_path = entry_dir / "meta.json"
+
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        meta["expires_at"] = (self.current_time - timedelta(hours=25)).isoformat()
+        meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+        # Leftover tmp file older than the active-write threshold.
+        tmp_file = entry_dir / f".tmp.meta.{os.getpid()}.998.json"
+        tmp_file.write_text("stale", encoding="utf-8")
+        stamp = (self.current_time - timedelta(hours=2)).timestamp()
+        os.utime(tmp_file, (stamp, stamp))
+
+        removed = cache.cleanup()
+        self.assertEqual(removed, 1)
+        self.assertFalse(entry_dir.exists())
+
+    def test_clear_skips_entry_with_active_tmp_file(self) -> None:
+        cache = HttpCache(self.data_root, clock=self.clock, opener=self.opener)
+        url = "https://example.com/clear-inflight.xml"
+        self.opener.handler = FakeHttpResponse("<rss>C</rss>", status=200)
+        cache.fetch(url, ttl_seconds=600)
+        h = url_hash(url)
+        entry_dir = cache.cache_dir / h
+
+        tmp_file = entry_dir / f".tmp.response.{os.getpid()}.997.xml"
+        tmp_file.write_text("partial", encoding="utf-8")
+        stamp = self.current_time.timestamp()
+        os.utime(tmp_file, (stamp, stamp))
+
+        self.assertEqual(cache.clear(), 0)
+        self.assertTrue(entry_dir.is_dir())
+        self.assertTrue(tmp_file.exists())
+
+        # Once the tmp file ages past the active-write threshold, clear removes it.
+        self.current_time += timedelta(hours=2)
+        self.assertEqual(cache.clear(), 1)
+        self.assertFalse(entry_dir.exists())
+
+    def test_deadline_aborts_real_drip_fed_response_read(self) -> None:
+        # Regression for the chunked-read path against a real HTTPResponse:
+        # resp.read(n) blocks until n bytes or EOF, so a server dribbling
+        # bytes below the socket timeout must be bounded by read1 + deadline.
+        import threading
+        import time as time_module
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+        class DripHandler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                self.send_response(200)
+                self.end_headers()
+                try:
+                    while True:
+                        self.wfile.write(b"x")
+                        self.wfile.flush()
+                        time_module.sleep(0.02)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+
+            def log_message(self, *args) -> None:
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), DripHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join)
+        self.addCleanup(server.shutdown)
+        self.addCleanup(server.server_close)
+
+        cache = HttpCache(self.data_root, clock=self.clock)
+        url = f"http://127.0.0.1:{server.server_port}/drip"
+        deadline = time_module.monotonic() + 0.5
+        started = time_module.monotonic()
+        with self.assertRaises(TimeoutError):
+            cache.fetch(url, ttl_seconds=600, write=False, timeout=30, deadline=deadline)
+        elapsed = time_module.monotonic() - started
+        # The read must abort near the deadline, not run for the full timeout.
+        self.assertLess(elapsed, 5.0)
+        # Nothing was written for the aborted response.
+        self.assertFalse((self.data_root / "http-cache" / url_hash(url)).exists())

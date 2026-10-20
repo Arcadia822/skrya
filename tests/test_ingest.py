@@ -8,8 +8,7 @@ from unittest.mock import patch
 
 from skrya_orchestrator.ingest import IngestService
 from skrya_orchestrator.intelligence import IntelligenceService
-from skrya_orchestrator.event_lifecycle import EventLifecycle
-
+from skrya_orchestrator.event_lifecycle import EventLifecycle, migrate_ingest_v1
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST_TEMP_ROOT = ROOT / "tmp" / "unit-tests"
@@ -119,6 +118,119 @@ class IngestServiceTests(unittest.TestCase):
         self.assertNotIn(first["title"], preview.markdown)
         self.assertEqual(before, {str(path): path.read_bytes() for path in root.rglob("*") if path.is_file()})
 
+
+    def test_first_ingest_after_migration_keeps_migrated_sources(self) -> None:
+        root = self._make_root("post-migration-subset")
+        self._write_topic(root)
+        v1_payload = {
+            "interface_version": "skrya.ingest.v1",
+            "topic_id": "ai-browser",
+            "retrieved_at": "2026-04-25T10:30:00+08:00",
+            "producer": {"kind": "runtime-skill", "name": "agent-reach", "persistent": False},
+            "items": [
+                {
+                    "id": "keep-a",
+                    "title": "来源甲迁移新闻",
+                    "url": "https://example.com/mig-a",
+                    "source_name": "来源甲",
+                    "source_id": "source-a",
+                    "fetched_at": "2026-04-25T10:29:00+08:00",
+                    "summary": "来源甲迁移摘要",
+                },
+                {
+                    "id": "keep-b",
+                    "title": "来源乙迁移新闻",
+                    "url": "https://example.com/mig-b",
+                    "source_name": "来源乙",
+                    "source_id": "source-b",
+                    "fetched_at": "2026-04-25T10:29:00+08:00",
+                    "summary": "来源乙迁移摘要",
+                },
+            ],
+        }
+        latest_path = root / "runs" / "ai-browser" / "ingest" / "latest-ingest.json"
+        latest_path.parent.mkdir(parents=True, exist_ok=True)
+        latest_path.write_text(json.dumps(v1_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        report = migrate_ingest_v1(root, "ai-browser")
+        self.assertEqual(["ai-browser"], [entry["topic_id"] for entry in report["migrated"]])
+
+        payload = self._ingest_payload()
+        payload["items"] = [
+            dict(
+                payload["items"][0],
+                source_id="source-a",
+                title="来源甲增量新闻",
+                url="https://example.com/inc-a",
+            )
+        ]
+        IngestService(root).record_ingest_result("ai-browser", payload)
+
+        loaded = {event["source_id"]: event for event in IngestService(root).load_events("ai-browser")}
+        self.assertEqual("来源甲增量新闻", loaded["source-a"]["title"])
+        self.assertIn("source-b", loaded)
+        self.assertEqual("来源乙迁移新闻", loaded["source-b"]["title"])
+
+    def test_load_events_hides_rolled_back_latest_without_a_lock_file(self) -> None:
+        root = self._make_root("rollback-reader-race")
+        self._write_topic(root)
+        service = IngestService(root)
+        result = service.record_ingest_result("ai-browser", self._ingest_payload())
+        latest_path = result.latest_path
+        lock_path = latest_path.parent.parent / "event-state.lock"
+        lock_path.unlink()
+
+        real_open = os.open
+
+        def roll_back_during_lock_open(path, flags, *args, **kwargs):
+            fd = real_open(path, flags, *args, **kwargs)
+            if str(path).endswith("event-state.lock"):
+                # A first-ingest rollback deletes latest under the exclusive
+                # lock; it lands between the reader's pre-lock existence check
+                # and the shared lock acquisition.
+                latest_path.unlink(missing_ok=True)
+            return fd
+
+        with patch("os.open", roll_back_during_lock_open):
+            events = service.load_events("ai-browser")
+
+        self.assertEqual([], events)
+
+    def test_load_events_refuses_symlinked_lock_file(self) -> None:
+        root = self._make_root("lock-symlink-reader")
+        self._write_topic(root)
+        service = IngestService(root)
+        result = service.record_ingest_result("ai-browser", self._ingest_payload())
+        lock_path = result.latest_path.parent.parent / "event-state.lock"
+        lock_path.unlink()
+        lock_path.symlink_to(root / "topics" / "ai-browser" / "topic.json")
+
+        with self.assertRaises(ValueError):
+            service.load_events("ai-browser")
+
+    def test_record_ingest_rejects_invalid_retrieved_at_without_publishing(self) -> None:
+        root = self._make_root("bad-retrieved-at")
+        self._write_topic(root)
+        payload = self._ingest_payload()
+        payload["retrieved_at"] = "25/04/2026 10:30"
+
+        with self.assertRaises(ValueError) as context:
+            IngestService(root).record_ingest_result("ai-browser", payload)
+
+        self.assertIn("retrieved_at", str(context.exception))
+        self.assertFalse((root / "runs" / "ai-browser" / "ingest" / "latest-ingest.json").exists())
+        self.assertFalse((root / "runs" / "ai-browser" / "event-state.json").exists())
+
+    def test_record_ingest_accepts_z_suffix_retrieved_at(self) -> None:
+        root = self._make_root("z-suffix-retrieved-at")
+        self._write_topic(root)
+        payload = self._ingest_payload()
+        payload["retrieved_at"] = "2026-04-25T02:30:00Z"
+
+        result = IngestService(root).record_ingest_result("ai-browser", payload)
+
+        latest = json.loads(result.latest_path.read_text(encoding="utf-8"))
+        self.assertEqual("2026-04-25T02:30:00Z", latest["retrieved_at"])
+
     def test_reader_does_not_retain_an_ingest_that_fails_state_commit(self) -> None:
         root = self._make_root("reader-rollback")
         self._write_topic(root)
@@ -129,21 +241,21 @@ class IngestServiceTests(unittest.TestCase):
         candidate["items"][0].update(source_id="new-source", title="Uncommitted source B", url="https://example.com/b")
         published, captured, rolled_back = Event(), Event(), Event()
         errors, results = [], []
-        read_text = Path.read_text
+        exists = Path.exists
 
         def fail_commit(*args):
             published.set()
             if not captured.wait(5):
-                raise AssertionError("reader never captured the staged latest file")
+                raise AssertionError("reader never reached the published latest state")
             raise OSError("injected commit failure")
 
-        def capture_latest(path, *args, **kwargs):
-            text = read_text(path, *args, **kwargs)
+        def capture_probe(path, *args, **kwargs):
+            result = exists(path, *args, **kwargs)
             if current_thread().name == "ingest-reader" and path == written.latest_path and not captured.is_set():
                 captured.set()
                 if not rolled_back.wait(5):
                     raise AssertionError("writer did not roll back")
-            return text
+            return result
 
         def write_candidate():
             try:
@@ -156,7 +268,7 @@ class IngestServiceTests(unittest.TestCase):
         def read_current():
             results.extend(service.load_events("ai-browser"))
 
-        with patch.object(EventLifecycle, "commit_state", fail_commit), patch.object(Path, "read_text", capture_latest):
+        with patch.object(EventLifecycle, "commit_state", fail_commit), patch.object(Path, "exists", capture_probe):
             writer = Thread(target=write_candidate, name="ingest-writer")
             writer.start()
             self.assertTrue(published.wait(5))

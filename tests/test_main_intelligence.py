@@ -478,7 +478,10 @@ class MainIntelligenceCommandTests(unittest.TestCase):
 
         self.assertEqual(1, code)
         self.assertIn("upgrade --migrate-ingest-v2", error)
-        self.assertEqual(before, self._snapshot(root))
+        after = self._snapshot(root)
+        # Taking the per-topic state lock leaves its empty coordination file.
+        after.pop("runs/k-entertainment/event-state.lock", None)
+        self.assertEqual(before, after)
 
     def test_upgrade_ingest_failure_preserves_current_file(self) -> None:
         root = self._make_root("cli-upgrade-ingest-failure")
@@ -492,7 +495,10 @@ class MainIntelligenceCommandTests(unittest.TestCase):
 
         self.assertEqual(1, code)
         self.assertIn("Ingest migration failed: k-entertainment", error)
-        self.assertEqual(before, self._snapshot(root))
+        after = self._snapshot(root)
+        # Taking the per-topic state lock leaves its empty coordination file.
+        after.pop("runs/k-entertainment/event-state.lock", None)
+        self.assertEqual(before, after)
 
     def test_upgrade_command_migrates_ingest_v1_to_v2_with_backup(self) -> None:
         root = self._make_root("cli-upgrade-ingest-v2")

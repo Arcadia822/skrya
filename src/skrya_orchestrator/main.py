@@ -355,7 +355,7 @@ def main() -> int:
     if args.command == "source-health":
         from .source_collector import SourceCollector
         from .source_health import SourceHealthStore
-        from .sources import normalize_sources
+        from .sources import normalize_sources, source_identity
 
         data_root = resolve_data_root(root, args.data_root).data_root
         topic_id = IntelligenceService(root, data_root=data_root).resolve_topic_id(args.topic)
@@ -364,11 +364,12 @@ def main() -> int:
             raise FileNotFoundError(f"Topic '{topic_id}' not found")
         sources_payload = json.loads((topic_dir / "sources.json").read_text(encoding="utf-8"))
         raw_sources = sources_payload.get("sources", []) if isinstance(sources_payload, dict) else sources_payload
-        source_names = {
-            str(source.get("id")): str(source.get("name") or source.get("id"))
-            for source in normalize_sources(raw_sources)
-            if source.get("id")
-        }
+        source_names: dict[str, str] = {}
+        for source in normalize_sources(raw_sources):
+            identity = source_identity(source)
+            name = str(source.get("name") or "").strip()
+            if identity and name:
+                source_names[identity] = name
         topic_language = "zh-CN"
         topic_config = topic_dir / "topic.json"
         if topic_config.is_file():
