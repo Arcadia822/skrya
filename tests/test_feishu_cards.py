@@ -1,4 +1,3 @@
-"""Deterministic behavior tests for pure Python Feishu card rendering and digest models."""
 from __future__ import annotations
 
 import json
@@ -27,7 +26,6 @@ from skrya_orchestrator.sources import parse_sources
 
 
 def extract_markdown_texts(element: dict[str, Any]) -> Iterator[str]:
-    """Helper to extract all markdown text content from nested Feishu elements."""
     if element.get("tag") == "markdown":
         yield element.get("content", "")
     for col in element.get("columns", []):
@@ -175,7 +173,6 @@ Comet 增加了用于多步骤浏览任务的企业代理模式，支持跨标�
         self.assertTrue(first_card["config"]["update_multi"])
         self.assertIn("2026-10-19｜AI 浏览器｜每日简报", first_card["header"]["title"]["content"])
 
-        # Envelope constraints
         env_bytes = estimate_request_envelope_bytes(first_card)
         self.assertLessEqual(env_bytes, DEFAULT_PAYLOAD_BYTES)
         elems_count = sum(count_elements(el) for el in first_card["body"]["elements"])
@@ -228,17 +225,14 @@ Comet 增加了用于多步骤浏览任务的企业代理模式，支持跨标�
         total_parts = len(cards)
         all_card_text = ""
         for idx, card in enumerate(cards, 1):
-            # Check envelope and element budgets on every split card
             env_bytes = estimate_request_envelope_bytes(card)
             self.assertLessEqual(env_bytes, DEFAULT_PAYLOAD_BYTES, f"Card {idx}/{total_parts} exceeded envelope budget")
             elem_count = sum(count_elements(el) for el in card["body"]["elements"])
             self.assertLessEqual(elem_count, ELEMENT_BUDGET, f"Card {idx}/{total_parts} exceeded element budget")
 
-            # Check part title suffix (i/n)
             self.assertIn(f"({idx}/{total_parts})", card["header"]["title"]["content"])
             all_card_text += " " + " ".join(extract_markdown_texts(card["body"]))
 
-        # Verify all 40 items are present without loss
         for i in range(1, 41):
             self.assertIn(f"N-{i:02d}", all_card_text, f"Item N-{i:02d} vanished during card splitting")
             self.assertIn(f"https://example.org/news/{i}", all_card_text)
@@ -273,13 +267,10 @@ Comet 增加了用于多步骤浏览任务的企业代理模式，支持跨标�
         cards = bundle["cards"]
         all_card_text = " ".join(" ".join(extract_markdown_texts(c["body"])) for c in cards)
 
-        # Check entity badge T-01 repeated on subblocks
         self.assertIn("T-01", all_card_text)
-        # Check all 34 milestone links are present
         for i in range(1, 35):
             self.assertIn(f"https://example.org/milestone/{i}", all_card_text)
 
-        # Ensure budget satisfied on all cards
         for card in cards:
             self.assertLessEqual(estimate_request_envelope_bytes(card), DEFAULT_PAYLOAD_BYTES)
             self.assertLessEqual(sum(count_elements(el) for el in card["body"]["elements"]), ELEMENT_BUDGET)
@@ -701,12 +692,9 @@ Sources: [TechCrunch](https://example.com/tc) | [Reuters](https://example.com/re
 信源：[A](https://example.com/a)
 
 ### N-02
-"""  # Empty title on N-02 triggers missing item check if dropped
-        # If N-02 is detected as a marker but not parsed as an item, it must raise ValueError
-        # In our implementation: 2 markers detected (N-01, N-02)
+"""
         try:
             doc = parse_digest(malformed)
-            # If parsed, it must retain both items
             self.assertEqual(len(doc.items), 2)
         except ValueError as err:
             self.assertIn("Numbered items cannot silently vanish", str(err))
@@ -731,7 +719,6 @@ Sources: [TechCrunch](https://example.com/tc) | [Reuters](https://example.com/re
 
 
     def test_summary_markdown_retains_health_lead_notice(self) -> None:
-        """The document's health lead line reaches the summary card, not only the full card."""
         content = """# 2026-10-19｜测试｜每日简报
 
 RSS 采集有 2 个信源连续失败，本期部分内容依赖运行时检索补充。

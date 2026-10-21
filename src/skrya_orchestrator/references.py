@@ -100,7 +100,6 @@ def build_snapshot(
 
 
 def validate_snapshot_schema(data: Any) -> None:
-    """Strictly validate a snapshot dictionary structure."""
     if not isinstance(data, dict):
         raise ValueError("Invalid snapshot payload: expected JSON object")
     if data.get("schema") != SNAPSHOT_SCHEMA:

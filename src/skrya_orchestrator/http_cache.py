@@ -36,7 +36,6 @@ READ_CHUNK_SIZE = 65536
 
 
 def url_hash(url: str) -> str:
-    """Compute normalized SHA-256 hex digest for a URL string."""
     return hashlib.sha256(url.strip().encode("utf-8")).hexdigest()
 
 
@@ -643,7 +642,6 @@ class HttpCache:
                     pass
 
     def _tmp_file_age(self, child: Path, now: datetime) -> timedelta | None:
-        """Return a .tmp.* file's age, or None when it cannot be determined."""
         try:
             mtime = datetime.fromtimestamp(child.stat().st_mtime, tz=timezone.utc)
         except OSError:
@@ -745,7 +743,6 @@ class HttpCache:
         return removed_count
 
     def clear(self) -> int:
-        """Remove owned HTTP cache entries and return their count."""
         if _has_symlink_ancestor(self._cache_dir) or not self._cache_dir.is_dir():
             return 0
 
@@ -762,7 +759,6 @@ class HttpCache:
 
 
     def get_metadata(self, url: str) -> HttpCacheMetadata | None:
-        """Retrieve cached metadata for inspection or testing."""
         h = url_hash(url.strip())
         entry = self._read_entry(h, expected_url=url.strip())
         if entry is None:

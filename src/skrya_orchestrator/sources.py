@@ -77,8 +77,6 @@ SEARCH_QUERY_PARAMS = {
 
 @dataclass
 class SourceRef:
-    """Lightweight view of a source reference with name, optional URL, and extra metadata."""
-
     name: str
     url: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
@@ -100,7 +98,6 @@ def clean_source_name(name: str) -> str:
 
 
 def host_name(url: str) -> str:
-    """Derive a friendly display name from a URL's hostname."""
     try:
         host = urlsplit(url).hostname or ""
     except ValueError:

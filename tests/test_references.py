@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""Unit tests for digest reference snapshot building and resolution."""
-
 import json
 from pathlib import Path
 import sys
@@ -76,7 +72,6 @@ class ReferencesTests(unittest.TestCase):
             self.assertEqual(snapshot["artifact_path"], str(artifact.resolve()))
             self.assertTrue(snapshot["raw_archive_path"].endswith("latest-threads.json"))
 
-            # Check items mapping
             self.assertIn("N-01", snapshot["items"])
             self.assertIn("N-02", snapshot["items"])
             self.assertEqual(snapshot["items"]["N-01"]["key"], "event-alpha")
@@ -84,7 +79,6 @@ class ReferencesTests(unittest.TestCase):
             self.assertEqual(snapshot["items"]["N-02"]["key"], "event-beta")
             self.assertEqual(snapshot["items"]["N-02"]["number"], 2)
 
-            # Check threads mapping
             self.assertIn("T-01", snapshot["threads"])
             self.assertEqual(snapshot["threads"]["T-01"]["id"], "th-tariffs")
             self.assertEqual(snapshot["threads"]["T-01"]["custom_thread_tag"], "vip")
@@ -125,7 +119,6 @@ class ReferencesTests(unittest.TestCase):
             },
         }
 
-        # News resolution with normalization
         res1 = resolve_reference(snapshot, "N-01")
         self.assertEqual(res1["kind"], "news")
         self.assertEqual(res1["reference"], "N-01")
@@ -142,7 +135,6 @@ class ReferencesTests(unittest.TestCase):
         res_track = resolve_reference(snapshot, "track: N-01")
         self.assertEqual(res_track["reference"], "N-01")
 
-        # Thread resolution
         res_thread = resolve_reference(snapshot, "T-01")
         self.assertEqual(res_thread["kind"], "thread")
         self.assertEqual(res_thread["reference"], "T-01")
@@ -153,7 +145,6 @@ class ReferencesTests(unittest.TestCase):
         self.assertEqual(res_write["reference"], "T-01")
         self.assertEqual(res_write["kind"], "thread")
 
-        # Missing or invalid reference raises ValueError without guessing
         with self.assertRaises(ValueError):
             resolve_reference(snapshot, "N-99")
 
@@ -183,7 +174,6 @@ class ReferencesTests(unittest.TestCase):
             self.assertTrue(key.startswith("event-"))
             self.assertNotEqual(key, "event-1")
 
-            # Must be deterministic across calls
             snapshot2 = build_snapshot("tech", artifact, items, [])
             self.assertEqual(snapshot2["items"]["N-01"]["key"], key)
 
@@ -231,7 +221,6 @@ class ReferencesTests(unittest.TestCase):
             sidecar = snapshot_path(artifact)
             sidecar.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8")
 
-            # Mutate artifact content so sha256 no longer matches
             artifact.write_text("# Tampered Content\n", encoding="utf-8")
 
             with self.assertRaises(ValueError) as ctx:
@@ -249,7 +238,6 @@ class ReferencesTests(unittest.TestCase):
             items = [{"key": "k1", "title": "t1", "number": 1}]
             snapshot_a = build_snapshot("tech", artifact_a, items, [])
 
-            # Place snapshot_a sidecar under artifact_b
             sidecar_b = snapshot_path(artifact_b)
             sidecar_b.write_text(json.dumps(snapshot_a, ensure_ascii=False, indent=2), encoding="utf-8")
 

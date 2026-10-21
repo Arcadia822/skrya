@@ -56,18 +56,15 @@ def redact_error(error: Any) -> str:
     if not text:
         return ""
 
-    # Redact known credential patterns
     for pattern, replacement in _SECRET_REDACTION_PATTERNS:
         text = pattern.sub(replacement, text)
 
-    # Redact embedded URLs if they contain sensitive query params
     def _sanitize_url(match: re.Match[str]) -> str:
         raw_url = match.group(0)
         try:
             parts = urlsplit(raw_url)
             if not parts.scheme or not parts.netloc:
                 return raw_url
-            # Clean netloc userinfo
             netloc = parts.netloc
             if "@" in netloc:
                 userinfo, host = netloc.rsplit("@", 1)
@@ -77,7 +74,6 @@ def redact_error(error: Any) -> str:
                 else:
                     netloc = f"[REDACTED]@{host}"
 
-            # Clean query parameters
             query_pairs = parse_qsl(parts.query, keep_blank_values=True)
             if query_pairs:
                 cleaned_pairs: list[tuple[str, str]] = []
@@ -96,7 +92,6 @@ def redact_error(error: Any) -> str:
 
     text = re.sub(r"https?://\S+", _sanitize_url, text)
 
-    # Truncate overly long error messages to a concise single line (e.g. 200 chars)
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     first_line = lines[0] if lines else text
     if len(first_line) > 200:
@@ -201,7 +196,6 @@ class SourceHealthStore:
         self._clock = clock
         self._source_names: Mapping[str, str] = dict(source_names) if source_names is not None else {}
 
-        # Raw in-memory state
         self._interface_version = SCHEMA_VERSION
         self._top_level_extra: dict[str, Any] = {}
         self._sources: dict[str, SourceHealthEntry] = {}
@@ -421,7 +415,6 @@ class SourceHealthStore:
         if entry.status != "error":
             return True
 
-        # In error state: probe is allowed if at least 24h has elapsed since last error or fetch attempt
         reference_time_str = entry.last_error_at or entry.last_fetch_at
         if not reference_time_str:
             return True
@@ -588,7 +581,6 @@ class SourceHealthStore:
         self._updated_at = now_str
 
     def get_source_display_name(self, source_id: str) -> str:
-        """Resolve configured human display name, falling back to source_id."""
         return self._source_names.get(source_id) or source_id
 
     def report(self, language: str = "zh-CN") -> str:

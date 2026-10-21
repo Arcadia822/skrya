@@ -14,7 +14,6 @@ OPENCLAW_CONTEXT_ID = "openclaw-gateway-runtime"
 class AgentSkillsEvalTests(unittest.TestCase):
 
     def test_eval_bank_has_all_evaluated_journeys_with_at_least_five_evals_each(self) -> None:
-        """The durable eval bank contains every evaluated journey with at least five cases."""
         bank = json.loads((ROOT / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
 
         self.assertEqual("skrya", bank["skill_name"])
@@ -35,7 +34,6 @@ class AgentSkillsEvalTests(unittest.TestCase):
             self.assertIn(item["tier"], VALID_TIERS)
 
     def test_active_evals_are_llm_only_subset_of_bank(self) -> None:
-        """The active evals.json contains only llm-only cases from the eval bank."""
         bank = json.loads((ROOT / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
         active = json.loads((ROOT / "evals" / "evals.json").read_text(encoding="utf-8"))
 
@@ -46,7 +44,6 @@ class AgentSkillsEvalTests(unittest.TestCase):
                          "Active evals should contain exactly the llm-only cases from the eval bank")
 
     def test_non_llm_cases_excluded_from_active(self) -> None:
-        """Cases requiring agent context or runtime are not in the active bare-LLM runner."""
         bank = json.loads((ROOT / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
         active = json.loads((ROOT / "evals" / "evals.json").read_text(encoding="utf-8"))
 
@@ -58,7 +55,6 @@ class AgentSkillsEvalTests(unittest.TestCase):
                          f"Active evals should not contain non-llm-only cases, found: {overlap}")
 
     def test_eval_bank_tiers_are_well_formed(self) -> None:
-        """The eval bank has tier metadata and journey_tiers mapping."""
         bank = json.loads((ROOT / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
 
         self.assertIn("tiers", bank)
@@ -73,7 +69,6 @@ class AgentSkillsEvalTests(unittest.TestCase):
             self.assertIn(tier_val, VALID_TIERS)
 
     def test_non_llm_cases_reference_openclaw_context(self) -> None:
-        """Agent/runtime cases are tied to a concrete OpenClaw host context."""
         bank = json.loads((ROOT / "evals" / "eval-bank.json").read_text(encoding="utf-8"))
         context_path = ROOT / bank["contexts"][OPENCLAW_CONTEXT_ID]
         context = json.loads(context_path.read_text(encoding="utf-8"))

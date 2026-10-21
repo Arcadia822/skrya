@@ -797,7 +797,6 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertTrue(p1.exists())
         self.assertTrue(s1.exists())
 
-        # Update topic events to simulate different content generated in same second
         topic_dir = root / "topics" / "k-entertainment"
         (topic_dir / "sample-events.json").write_text(
             json.dumps([
@@ -814,7 +813,6 @@ class IntelligenceServiceTests(unittest.TestCase):
         p2 = r2.digest_path
         s2 = snapshot_path(p2)
 
-        # Both files must exist and not collide
         self.assertTrue(p1.exists())
         self.assertTrue(s1.exists())
         self.assertTrue(p2.exists())
@@ -822,7 +820,6 @@ class IntelligenceServiceTests(unittest.TestCase):
         self.assertNotEqual(p1, p2)
         self.assertNotEqual(s1, s2)
 
-        # Stability of old snapshot
         snap1 = load_snapshot(p1)
         snap2 = load_snapshot(p2)
         self.assertIn("N-01", snap1["items"])
@@ -897,14 +894,12 @@ class IntelligenceServiceTests(unittest.TestCase):
 
         service = IntelligenceService(root)
 
-        # 1. Preview mode must render the thread in markdown, but perform NO writes
         preview_res = service.generate_digest("new-energy-vehicles", prefer_live=False, preview=True)
         self.assertTrue(preview_res.preview)
         self.assertIn("## 事件线时间线更新", preview_res.markdown)
         self.assertIn("### T-01 比亚迪闪充站", preview_res.markdown)
         self.assertFalse((root / "runs").exists())
 
-        # 2. Real generation must render the thread in markdown AND include it in the snapshot
         real_res = service.generate_digest("new-energy-vehicles", prefer_live=False, preview=False)
         self.assertIn("## 事件线时间线更新", real_res.markdown)
         self.assertIn("### T-01 比亚迪闪充站", real_res.markdown)
@@ -959,7 +954,6 @@ class IntelligenceServiceTests(unittest.TestCase):
         self._write_new_energy_topic(root)
         topic_dir = root / "topics" / "new-energy-vehicles"
 
-        # Case 1: Thread with explicit watchpoints
         seed_with_watchpoints = {
             "threads": [
                 {
@@ -987,7 +981,6 @@ class IntelligenceServiceTests(unittest.TestCase):
         for point in seed_with_watchpoints["threads"][0]["watchpoints"]:
             self.assertIn(point, digest.markdown)
 
-        # Case 2: Thread without watchpoints falls back to callback_hint
         seed_with_callback = {
             "threads": [
                 {

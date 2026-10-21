@@ -155,7 +155,6 @@ class ThreadView:
     timeline: list[Milestone] = field(default_factory=list)
     refs: list[int] = field(default_factory=list)
     raw_thread: dict[str, Any] = field(default_factory=dict)
-    watchpoints: list[str] = field(default_factory=list)
     facts: str = ""
     comment: str = ""
     follow: str = ""
@@ -197,7 +196,6 @@ class DigestDocument:
     news_groups: list[tuple[str, str, list[DigestItem]]] = field(default_factory=list)
 
 def _split_into_sections(lines: list[str]) -> tuple[str, str, str, str, list[dict[str, Any]]]:
-    """Parse top headers, scan interval, lead text, and sections from lines."""
     title = ""
     subtitle = ""
     scan_interval = ""
@@ -238,7 +236,6 @@ def _split_into_sections(lines: list[str]) -> tuple[str, str, str, str, list[dic
 
 
 def _split_items_by_separators(lines: list[str]) -> list[str]:
-    """Split block lines into item chunks using ---, headings, or box borders."""
     txt = "\n".join(lines)
     txt = re.sub(r"(?m)^\s*---+\s*$", "\n@@ITEM_SPLIT@@\n", txt)
     parts: list[str] = []
@@ -264,11 +261,9 @@ def _parse_single_news_item(raw: str, fallback_idx: int) -> DigestItem | None:
         return None
 
     first = lines[0]
-    # Top headers are not news items
     if first.startswith("# ") or first.startswith("## "):
         return None
 
-    # Thread headers are not news items
     if "【Thread" in first or "【事件线" in first or re.match(r"^(?:###\s*T-?\d+|T-?\d+[\s.、])", first):
         return None
 
@@ -277,50 +272,40 @@ def _parse_single_news_item(raw: str, fallback_idx: int) -> DigestItem | None:
     title = ""
     is_news = False
 
-    # Check old line box
     m_box = re.match(r"^┌─\s*\*\*【(?:简讯|Brief)\s*(\d+)】(.*)$", first)
     if m_box:
         is_news = True
         idx = int(m_box.group(1))
         title = m_box.group(2).strip("* ")
     elif first.startswith("┌─"):
-        # Other line boxes (e.g. Thread) are not news items
         return None
 
-    # Check N-xx heading
     m_n = re.match(r"^###\s*N-(\d+)\s*(.*)$", first)
     if m_n:
         is_news = True
         idx = int(m_n.group(1))
         title = m_n.group(2)
-    elif re.match(r"^N-(\d+)\s+(.*)$", first):
-        m_bare = re.match(r"^N-(\d+)\s+(.*)$", first)
-        if m_bare:
-            is_news = True
-            idx = int(m_bare.group(1))
-            title = m_bare.group(2)
-    elif re.match(r"^-\s*\*\*N-(\d+)\*\*\s*(.*)$", first):
-        m_bullet = re.match(r"^-\s*\*\*N-(\d+)\*\*\s*(.*)$", first)
-        if m_bullet:
-            is_news = True
-            idx = int(m_bullet.group(1))
-            title = m_bullet.group(2)
+    elif (m_bare := re.match(r"^N-(\d+)\s+(.*)$", first)):
+        is_news = True
+        idx = int(m_bare.group(1))
+        title = m_bare.group(2)
+    elif (m_bullet := re.match(r"^-\s*\*\*N-(\d+)\*\*\s*(.*)$", first)):
+        is_news = True
+        idx = int(m_bullet.group(1))
+        title = m_bullet.group(2)
 
-    # Check checkbox / numbered heading
     m_cb = re.match(r"^###\s*(?:[☐☑]\s*)?(\d+)\s*[.｜|]\s*(.*)$", first)
     if m_cb and not is_news:
         is_news = True
         idx = int(m_cb.group(1))
         title = m_cb.group(2)
 
-    # Check bracketed numbers 【1】
     m_br = re.match(r"^【\s*(?:🥇|🥈|🥉)?\s*(\d+)\s*】\s*(.*)$", first)
     if m_br and not is_news:
         is_news = True
         idx = int(m_br.group(1))
         title = m_br.group(2)
 
-    # Generic ### heading (inside news section)
     if not is_news and first.startswith("### "):
         is_news = True
         title = first[4:].strip()
@@ -336,13 +321,11 @@ def _parse_single_news_item(raw: str, fallback_idx: int) -> DigestItem | None:
         else:
             return None
 
-    # Extract date from title row if present
     m_date = re.search(r"^(.*?)\s*[｜|]\s*((?:\d{4}[-/年])?\s*\d{1,2}[-/月]\d{1,2}日?(?:[T\s]+\d{1,2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)?)\s*$", title)
     if m_date:
         title = m_date.group(1)
         badge = extract_badge(m_date.group(2))
 
-    # Strip markdown prefixes/suffixes
     title = re.sub(r"^###\s*", "", title)
     title = re.sub(r"^\*+|\*+$", "", title).strip()
     title = re.sub(r"\s*[｜|]\s*$", "", title).strip()
@@ -355,13 +338,11 @@ def _parse_single_news_item(raw: str, fallback_idx: int) -> DigestItem | None:
 
     for raw_l in lines[1:]:
         l = raw_l.strip()
-        # Clean line box characters
         l = re.sub(r"^[│└]\s*", "", l).strip()
         l = re.sub(r"</?font[^>]*>", "", l).strip()
         if not l or l == "└":
             continue
 
-        # Look for sources
         if re.match(r"^\**(?:\s*信源|来源|Sources|Source)\**\s*[:：]", l, flags=re.I):
             parsed_srcs = parse_sources(l)
             sources.extend(parsed_srcs)
@@ -369,7 +350,6 @@ def _parse_single_news_item(raw: str, fallback_idx: int) -> DigestItem | None:
                 badge = extract_badge(l)
             continue
 
-        # Look for Why / Impact / 判断
         m_why = re.match(r"^\**(?:为何重要|判断|价值点|核心影响|态势评估|Why it matters|Impact)\**\s*[:：]\s*(.*)$", l, flags=re.I)
         if m_why:
             val = m_why.group(1)
@@ -379,7 +359,6 @@ def _parse_single_news_item(raw: str, fallback_idx: int) -> DigestItem | None:
                 why = val
             continue
 
-        # Look for summary label
         m_sum = re.match(r"^\**(?:摘要|事实|Summary|Facts)\**\s*[:：]\s*(.*)$", l, flags=re.I)
         if m_sum:
             s_val = m_sum.group(1).strip()
@@ -393,7 +372,6 @@ def _parse_single_news_item(raw: str, fallback_idx: int) -> DigestItem | None:
 
         facts_lines.append(l)
 
-    # If title itself has a markdown link [Title](url), capture it if valid
     link_m = LINK_RE.search(title)
     if link_m:
         cand_url = link_m.group(2).strip()
@@ -459,7 +437,6 @@ def _parse_thread_blocks(lines: list[str]) -> list[ThreadView]:
                 stable_id = slug.group(1)
             name = name[:slug.start()].strip()
 
-        # Gather references
         references: set[int] = set()
         for group in re.findall(r"第\s*(\d+(?:\s*[、,，]\s*\d+)*)\s*条", chunk):
             references.update(int(num) for num in re.findall(r"\d+", group))
@@ -468,7 +445,6 @@ def _parse_thread_blocks(lines: list[str]) -> list[ThreadView]:
         references.update(int(num) for num in re.findall(r"\bN-?(\d+)\b", chunk))
         progress_entries: list[ThreadProgress] = []
         timeline_entries: list[Milestone] = []
-        watchpoints: list[str] = []
         latest_state = ""
         follow = ""
         facts = ""
@@ -484,7 +460,6 @@ def _parse_thread_blocks(lines: list[str]) -> list[ThreadView]:
             if not line:
                 continue
 
-            # Check section markers
             if re.match(r"^\**(?:\s*最新进展|今日增量|Latest developments)\**\s*[:：]?", line, flags=re.I):
                 in_historical = False
                 current_progress = None
@@ -498,23 +473,19 @@ def _parse_thread_blocks(lines: list[str]) -> list[ThreadView]:
                 current_progress = None
                 continue
 
-            # Review result / no update
             if re.search(r"(?:本轮暂无可核验新增|复核结果|No verified update)", line, flags=re.I):
                 continue
 
-            # Latest state
             m_state = re.match(r"^\**(?:\s*最新状态|时间线位置|Latest state|Latest known state)\**\s*[:：]\s*(.*)$", line, flags=re.I)
             if m_state:
                 latest_state = m_state.group(1).strip()
                 continue
 
-            # Next watch / follow
             m_follow = re.match(r"^\**(?:\s*下一步观察|后续观察|Watch next)\**\s*[:：]\s*(.*)$", line, flags=re.I)
             if m_follow:
                 follow = m_follow.group(1).strip()
                 continue
 
-            # Comment / assessment
             m_comm = re.match(r"^\**(?:\s*点评|态势评估|影响判断|Comment|Impact)\**\s*[:：]\s*(.*)$", line, flags=re.I)
             if m_comm:
                 c_val = m_comm.group(1).strip()
@@ -532,7 +503,6 @@ def _parse_thread_blocks(lines: list[str]) -> list[ThreadView]:
                         pending_sources.extend(parsed_srcs)
                 continue
 
-            # Milestone / progress entry with link
             link_m = LINK_RE.search(line)
             if link_m:
                 entry_title = link_m.group(1).strip("* ")
@@ -564,7 +534,6 @@ def _parse_thread_blocks(lines: list[str]) -> list[ThreadView]:
                     current_progress = p_entry
                     continue
 
-            # If inside progress entry, accumulate facts
             if not in_historical:
                 if current_progress:
                     current_progress.facts = (current_progress.facts + " " + line).strip()
@@ -595,7 +564,6 @@ def _parse_thread_blocks(lines: list[str]) -> list[ThreadView]:
             timeline=timeline_entries,
             refs=sorted(references),
             raw_thread={},
-            watchpoints=watchpoints,
             facts=facts,
             comment=comment,
             follow=follow,
@@ -606,7 +574,6 @@ def _parse_thread_blocks(lines: list[str]) -> list[ThreadView]:
 
 
 def parse_digest(markdown: str, *, snapshot: dict[str, Any] | None = None) -> DigestDocument:
-    """Parse digest markdown into a typed DigestDocument."""
     if not markdown or not markdown.strip():
         raise ValueError("Cannot parse empty markdown document.")
 
@@ -628,7 +595,6 @@ def parse_digest(markdown: str, *, snapshot: dict[str, Any] | None = None) -> Di
     intel_blocks: list[dict[str, Any]] = []
     news_groups: list[tuple[str, str, list[DigestItem]]] = []
 
-    # If sections exist, parse by section kind
     if blocks:
         for b in blocks:
             kind = b["kind"]
@@ -665,7 +631,6 @@ def parse_digest(markdown: str, *, snapshot: dict[str, Any] | None = None) -> Di
             elif kind == "intel":
                 intel_blocks.append(b)
     else:
-        # No ## sections; parse raw content for threads and news items
         thread_lines = [l for l in lines if "Thread" in l or re.match(r"^###\s*T-?\d+", l)]
         if thread_lines:
             threads.extend(_parse_thread_blocks(lines))
@@ -675,15 +640,12 @@ def parse_digest(markdown: str, *, snapshot: dict[str, Any] | None = None) -> Di
             if parsed_it:
                 items.append(parsed_it)
 
-    # Rejection checks:
-    # 1. Did we detect numbered markers that silently vanished?
     if numbered_news_markers and len(items) < len(numbered_news_markers):
         raise ValueError(
             f"Detected {len(numbered_news_markers)} numbered news items but only parsed {len(items)}. "
             "Numbered items cannot silently vanish."
         )
 
-    # 2. If 0 news items and 0 threads, verify if it's a genuine empty digest or unknown input
     if not items and not threads:
         is_known_structure = (
             bool(title)
@@ -700,7 +662,6 @@ def parse_digest(markdown: str, *, snapshot: dict[str, Any] | None = None) -> Di
         )
         if not is_known_structure:
             raise ValueError("Unknown digest document format: no valid news items, threads, or recognized digest structure found.")
-    # Reconcile snapshot if provided
     if snapshot:
         snapshot_items = snapshot.get("items") or snapshot.get("news") or {}
         for it in items:

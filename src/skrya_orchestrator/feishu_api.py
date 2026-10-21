@@ -108,7 +108,6 @@ class DisallowRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 def _classify_error(http_status: int, code: int | None) -> FeishuAPIError:
     """Classifies Feishu API errors strictly by numeric code, never by message substrings."""
-    # 1. Thread unsupported: exact codes 230071, 230072
     if code in {230071, 230072}:
         return FeishuThreadNotSupportedError(
             f"Thread mode not supported (code={code})",
@@ -116,7 +115,6 @@ def _classify_error(http_status: int, code: int | None) -> FeishuAPIError:
             code=code,
         )
 
-    # 2. Card format error: definitive codes only, never message substring inspection
     if code in {230099, 200621, 200861}:
         return FeishuCardFormatError(
             f"Card format rejected (code={code})",
@@ -124,7 +122,6 @@ def _classify_error(http_status: int, code: int | None) -> FeishuAPIError:
             code=code,
         )
 
-    # 3. Rate limit: HTTP 429 or code 99991400
     if http_status == 429 or code == 99991400:
         return FeishuRateLimitError(
             f"Rate limit exceeded (status_code={http_status}, code={code})",
@@ -132,7 +129,6 @@ def _classify_error(http_status: int, code: int | None) -> FeishuAPIError:
             code=code,
         )
 
-    # 4. Auth error: HTTP 401 or codes 99991661, 99991668
     if http_status == 401 or code in {99991661, 99991668}:
         return FeishuAuthError(
             f"Authentication failed (status_code={http_status}, code={code})",
@@ -140,7 +136,6 @@ def _classify_error(http_status: int, code: int | None) -> FeishuAPIError:
             code=code,
         )
 
-    # 5. Permission error: HTTP 403 or specific permission codes
     if http_status == 403 or code in {
         99991663,
         99991664,
@@ -157,7 +152,6 @@ def _classify_error(http_status: int, code: int | None) -> FeishuAPIError:
             code=code,
         )
 
-    # 6. General API error
     return FeishuAPIError(
         f"Feishu API error (status_code={http_status}, code={code})",
         status_code=http_status,
@@ -205,7 +199,6 @@ class FeishuClient:
         is_write: bool = False,
         target_for_pacing: str | None = None,
     ) -> dict[str, Any]:
-        # Validate origin for this specific request
         parsed = urllib.parse.urlparse(url)
         origin = f"{parsed.scheme}://{parsed.netloc}"
         if origin not in ALLOWLISTED_ORIGINS:
@@ -278,7 +271,6 @@ class FeishuClient:
                     code=None,
                 ) from e
 
-        # Disallow HTTP redirects
         if 300 <= http_status < 400:
             raise FeishuAPIError(
                 f"HTTP redirect {http_status} disallowed",
@@ -300,7 +292,6 @@ class FeishuClient:
                 code=None,
             )
 
-        # Parse JSON response
         try:
             resp_text = resp_bytes.decode("utf-8")
             data = json.loads(resp_text)
@@ -345,7 +336,6 @@ class FeishuClient:
     def get_tenant_access_token(
         self, app_id: str, app_secret: str, origin: str | None = None
     ) -> str:
-        """Obtains internal tenant access token for the given app credentials."""
         base = self._resolve_origin(origin)
         url = f"{base}/open-apis/auth/v3/tenant_access_token/internal"
         payload = json.dumps(
@@ -402,7 +392,6 @@ class FeishuClient:
                 "reason": "Private target preflight read API unavailable without contact scopes",
             }
 
-        # Validate group target format
         if (
             not target
             or not isinstance(target, str)
@@ -572,7 +561,6 @@ class FeishuClient:
             "Content-Type": "application/json; charset=utf-8",
         }
 
-        # Shared destination pacing key: target (chat/user ID) if provided, else message_id
         pacing_target = target if target is not None else message_id
 
         resp = self._http_request(

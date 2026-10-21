@@ -152,7 +152,6 @@ class SourceCollector:
         return result
 
     def fallback_records(self, failed_source_ids: Sequence[str] | None = None) -> list[dict]:
-        """Fallback records for the given failed source ids, or currently failing ones."""
         if failed_source_ids is None:
             failed_source_ids = self.failing_source_ids()
         by_id = {self._source_id(source): source for source in self._enabled_feed_sources()}
@@ -185,7 +184,6 @@ class SourceCollector:
         return recorded
 
     def _collect_source(self, source: dict) -> tuple[list[dict], Any]:
-        """Return (events, error); error None means the source produced a parsed result."""
         try:
             if str(source.get("type") or "").strip().lower() == "rsshub":
                 body = fetch_rsshub(source, self._rsshub_fetch_callback(source))

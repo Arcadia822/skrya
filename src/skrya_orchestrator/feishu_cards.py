@@ -139,7 +139,6 @@ def news_badge(value: str) -> str:
 
 
 def _render_single_news_block(item: DigestItem, language: str = "zh-CN", suffix: str = "") -> dict[str, Any]:
-    """Render a single news item box with linked heading left/date right, and separate body."""
     title_text = item.title + (f" {suffix}" if suffix else "")
     if item.url and not item.title.startswith("["):
         title_link = f"[{title_text}]({item.url})"
@@ -213,7 +212,6 @@ def _split_overlarge_news_item(
     max_payload_bytes: int,
 ) -> list[dict[str, Any]]:
     """Split an overlarge news item by paragraph / character boundaries without losing facts, why, or sources."""
-    # Validate atomic source links first
     for s in item.sources:
         atomic_link = f"[{s.name}]({s.url})"
         if len(atomic_link.encode("utf-8")) > max_payload_bytes - 2000:
@@ -232,13 +230,11 @@ def _split_overlarge_news_item(
     why_suffix = '</font>'
     why_overhead = len((why_prefix + why_suffix).encode("utf-8"))
 
-    # Determine why chunks if why is present
     why_chunks: list[str] = []
     if why:
         avail_for_why = max(400, safe_content_bytes - why_overhead)
         why_chunks = _split_text_to_fit(why, avail_for_why)
 
-    # Determine facts chunks
     facts_chunks = _split_text_to_fit(facts, safe_content_bytes) if facts else [""]
 
     box_specs: list[dict[str, Any]] = []
@@ -410,10 +406,8 @@ def render_card_bundle(
     if estimate_request_envelope_bytes(build_card_dict(base_title, subtitle, [], 99, 99)) > max_payload_bytes:
         raise ValueError("Card header exceeds the request budget")
 
-    # Build atomic components
     components: list[dict[str, Any]] = []
 
-    # Scan interval & Lead intro
     if doc.scan_interval:
         scan_label = "扫描时间范围" if doc.language == "zh-CN" else "Scan window"
         sep = "：" if doc.language == "zh-CN" else ": "
@@ -421,7 +415,6 @@ def render_card_bundle(
     if doc.lead:
         components.append(md(f'<font color="grey">{doc.lead}</font>'))
 
-    # Threads
     if doc.threads:
         th_label = "📌 **持续追踪**" if doc.language == "zh-CN" else "📌 **Event Timeline Updates**"
         components.append(section_header(th_label))
@@ -429,26 +422,21 @@ def render_card_bundle(
             t_subblocks = _render_thread_subblocks(t, doc.language, max_payload_bytes, base_title, subtitle)
             for sb in t_subblocks:
                 components.append(sb)
-    # News
     if doc.items:
         news_label = "📰 **今日简讯**" if doc.language == "zh-CN" else "📰 **Today's Briefs**"
         components.append(section_header(news_label))
         for item in doc.items:
             news_box = _render_single_news_block(item, language=doc.language)
-            # Check if this single news box fits envelope budget by itself
             test_card = build_card_dict(base_title, subtitle, [news_box], 1, 99)
             if estimate_request_envelope_bytes(test_card) <= max_payload_bytes:
                 components.append(news_box)
             else:
-                # Decompose overlarge news item
                 split_boxes = _split_overlarge_news_item(item, doc.language, max_payload_bytes)
                 components.extend(split_boxes)
 
-    # Actions footer
     if doc.actions:
         components.extend(_build_action_footer(doc.actions, language=doc.language))
 
-    # Attempt single card first
     if card_fits_budget(base_title, subtitle, components, part_idx=1, total_parts=1, max_payload_bytes=max_payload_bytes, max_elements=ELEMENT_BUDGET):
         single_card = build_card_dict(base_title, subtitle, components, part_idx=1, total_parts=1)
         return {
@@ -458,7 +446,6 @@ def render_card_bundle(
             "title": base_title,
         }
 
-    # Greedily pack components into cards
     packed_card_element_groups: list[list[dict[str, Any]]] = []
     current_group: list[dict[str, Any]] = []
 
@@ -478,15 +465,12 @@ def render_card_bundle(
                 packed_card_element_groups.append(current_group)
                 current_group = []
 
-            # Check if comp fits alone
             solo_card = build_card_dict(base_title, subtitle, [comp], 99, 99)
             solo_elements = count_elements(comp)
             solo_bytes = estimate_request_envelope_bytes(solo_card)
             if solo_elements <= ELEMENT_BUDGET and solo_bytes <= packing_budget_bytes:
                 current_group.append(comp)
             else:
-                # Component alone exceeds budget even after prior decomposition
-                # As a last resort, if component is a box with elements, split elements
                 if "columns" in comp and comp["columns"] and "elements" in comp["columns"][0]:
                     inner_elements = comp["columns"][0]["elements"]
                     box_bg = comp.get("background_style", BG_NEWS)
@@ -542,7 +526,6 @@ def render_card_bundle(
                     repack = True
                     break
                 else:
-                    # Single component alone exceeds budget: decompose inner box
                     over_comp = grp[0]
                     if "columns" in over_comp and over_comp["columns"] and "elements" in over_comp["columns"][0]:
                         inner = over_comp["columns"][0]["elements"]

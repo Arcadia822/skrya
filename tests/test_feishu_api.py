@@ -1,4 +1,3 @@
-"""Comprehensive tests for FeishuClient API covering serialization, pacing, budget, and error handling."""
 from __future__ import annotations
 
 import json
@@ -28,7 +27,6 @@ from skrya_orchestrator.feishu_api import (
 
 
 class TestFeishuApi(unittest.TestCase):
-    """Deterministic tests for FeishuClient and related API components."""
 
     def test_malformed_error_codes_never_authorize_fallback_or_leak_provider_data(self):
         for code in (None, True, "secret-provider-value", {"secret": "value"}):
@@ -47,10 +45,6 @@ class TestFeishuApi(unittest.TestCase):
                         client.send_message("token", "oc_target", "text", '{"text":"news"}', "unique")
                     else:
                         client.reply_message("token", "om_root", "text", '{"text":"news"}', "unique", target="oc_target")
-
-    # -------------------------------------------------------------------------
-    # 1. Actual API Serialization
-    # -------------------------------------------------------------------------
 
     def test_actual_api_serialization_send_message_chat_id(self) -> None:
         captured_req: list[urllib.request.Request] = []
@@ -194,10 +188,6 @@ class TestFeishuApi(unittest.TestCase):
             captured_req[1].full_url,
         )
 
-    # -------------------------------------------------------------------------
-    # 2. Redirect Rejection
-    # -------------------------------------------------------------------------
-
     def test_redirect_rejection_302(self) -> None:
         def redirect_transport(req: urllib.request.Request, timeout: float) -> tuple[int, dict[str, str], bytes]:
             return 302, {"Location": "https://attacker.example.com/steal"}, b""
@@ -218,10 +208,6 @@ class TestFeishuApi(unittest.TestCase):
             client.get_tenant_access_token("app_id", "app_sec")
         self.assertEqual(307, ctx.exception.status_code)
 
-    # -------------------------------------------------------------------------
-    # 3. Actual Budget: No API Call on Oversized Payload
-    # -------------------------------------------------------------------------
-
     def test_actual_budget_no_apicall_on_oversized_payload(self) -> None:
         transport_calls: list[urllib.request.Request] = []
 
@@ -235,7 +221,6 @@ class TestFeishuApi(unittest.TestCase):
 
         client = FeishuClient(transport=tracking_transport)
 
-        # Build payload that exceeds MAX_PAYLOAD_BYTES (24000)
         # Envelope boilerplate for send_message is ~80 bytes.
         large_content = "X" * 24000
 
@@ -248,10 +233,8 @@ class TestFeishuApi(unittest.TestCase):
                 uuid="uuid-large",
             )
         self.assertIn("exceeds", str(ctx.exception))
-        # Ensure NO API call was dispatched over network/transport
         self.assertEqual(0, len(transport_calls))
 
-        # Test same budget enforcement on reply_message
         with self.assertRaises(FeishuCardFormatError):
             client.reply_message(
                 token="tok",
@@ -262,7 +245,6 @@ class TestFeishuApi(unittest.TestCase):
             )
         self.assertEqual(0, len(transport_calls))
 
-        # Payload within budget succeeds and executes transport
         small_content = '{"title":"Within budget"}'
         res = client.send_message(
             token="tok",
@@ -273,10 +255,6 @@ class TestFeishuApi(unittest.TestCase):
         )
         self.assertEqual("om_ok", res["message_id"])
         self.assertEqual(1, len(transport_calls))
-
-    # -------------------------------------------------------------------------
-    # 4. Malformed-Success Uncertainty
-    # -------------------------------------------------------------------------
 
     def test_malformed_success_missing_message_id_is_unknown(self) -> None:
         def missing_id_transport(req: urllib.request.Request, timeout: float) -> tuple[int, dict[str, str], bytes]:
@@ -331,10 +309,6 @@ class TestFeishuApi(unittest.TestCase):
         with self.assertRaises(FeishuUnknownError):
             client.send_message("tok", "oc_chat", "text", "{}", "u5")
 
-    # -------------------------------------------------------------------------
-    # 5. Misleading Permission Message Containing Card (Not Format Fallback)
-    # -------------------------------------------------------------------------
-
     def test_misleading_permission_message_containing_card_not_format_fallback(self) -> None:
         # Feishu returns code 230013 (permission denied) with a message mentioning "card"
         def permission_card_transport(req: urllib.request.Request, timeout: float) -> tuple[int, dict[str, str], bytes]:
@@ -345,7 +319,6 @@ class TestFeishuApi(unittest.TestCase):
 
         client = FeishuClient(transport=permission_card_transport)
 
-        # Must raise FeishuPermissionError, NOT FeishuCardFormatError
         with self.assertRaises(FeishuPermissionError) as ctx:
             client.send_message("tok", "oc_chat", "interactive", "{}", "u-perm-1")
 
@@ -402,12 +375,10 @@ class TestFeishuApi(unittest.TestCase):
 
         with patch("time.sleep", side_effect=lambda s: sleep_calls.append(s)), \
              patch("time.monotonic") as mock_time:
-            # First call at t = 100.0
             mock_time.return_value = 100.0
             client.send_message("tok", "oc_shared_chat", "text", "{}", "u-p1")
             self.assertEqual(0, len(sleep_calls))
 
-            # Second call (reply) at t = 100.1 (< 0.25s) with explicit target="oc_shared_chat"
             mock_time.return_value = 100.1
             client.reply_message(
                 "tok",
@@ -421,14 +392,9 @@ class TestFeishuApi(unittest.TestCase):
             self.assertEqual(1, len(sleep_calls))
             self.assertAlmostEqual(0.15, sleep_calls[0], places=5)
 
-            # Third call to a DIFFERENT target at t = 100.1 should NOT sleep
             mock_time.return_value = 100.1
             client.send_message("tok", "oc_other_chat", "text", "{}", "u-p3")
             self.assertEqual(1, len(sleep_calls))
-
-    # -------------------------------------------------------------------------
-    # 7. Token Retrieval Failure
-    # -------------------------------------------------------------------------
 
     def test_token_retrieval_failure_missing_token(self) -> None:
         def no_token_transport(req: urllib.request.Request, timeout: float) -> tuple[int, dict[str, str], bytes]:
@@ -467,15 +433,10 @@ class TestFeishuApi(unittest.TestCase):
         with self.assertRaises(FeishuAuthError):
             client.get_tenant_access_token("app_1", "sec_secret")
 
-    # -------------------------------------------------------------------------
-    # 8. Private Preflight Accurately Limited
-    # -------------------------------------------------------------------------
-
     def test_private_preflight_accurately_limited_without_contact_scope(self) -> None:
         transport_mock = MagicMock()
         client = FeishuClient(transport=transport_mock)
 
-        # ou_ target does NOT invoke transport
         res_ou = client.check_read_access("tok", "ou_user_123", "open_id")
         self.assertFalse(res_ou["read_access"])
         self.assertFalse(res_ou["permission_guaranteed"])
@@ -483,7 +444,6 @@ class TestFeishuApi(unittest.TestCase):
         self.assertEqual("limited", res_ou["preflight"])
         self.assertEqual(0, transport_mock.call_count)
 
-        # target_type="open_id" also does NOT invoke transport
         res_open_id = client.check_read_access("tok", "user_without_ou", "open_id")
         self.assertFalse(res_open_id["read_access"])
         self.assertFalse(res_open_id["permission_guaranteed"])
@@ -505,28 +465,21 @@ class TestFeishuApi(unittest.TestCase):
 
         client = FeishuClient(transport=group_transport)
 
-        # Succeeded group check
         ok_res = client.check_read_access("tok", "oc_allowed", "chat_id")
         self.assertTrue(ok_res["read_access"])
         self.assertFalse(ok_res["permission_guaranteed"])
         self.assertEqual("ok", ok_res["status"])
 
-        # Failed group check must NOT return status ok
         denied_res = client.check_read_access("tok", "oc_denied", "chat_id")
         self.assertFalse(denied_res["read_access"])
         self.assertFalse(denied_res["permission_guaranteed"])
         self.assertEqual("denied", denied_res["status"])
         self.assertNotEqual("ok", denied_res["status"])
 
-        # Malformed group target
         malformed_res = client.check_read_access("tok", "../escape/path", "chat_id")
         self.assertFalse(malformed_res["read_access"])
         self.assertFalse(malformed_res["permission_guaranteed"])
         self.assertEqual("malformed", malformed_res["status"])
-
-    # -------------------------------------------------------------------------
-    # 9. Origins and Allowlist
-    # -------------------------------------------------------------------------
 
     def test_origin_allowlist_enforcement(self) -> None:
         with self.assertRaises(FeishuError):
@@ -536,7 +489,6 @@ class TestFeishuApi(unittest.TestCase):
         with self.assertRaises(FeishuError):
             client.send_message("tok", "oc_chat", "text", "{}", "u", origin="https://invalid.com")
 
-        # Larksuite origin allowed
         lark_client = FeishuClient(base_url=LARK_OPEN_ORIGIN)
         self.assertEqual(LARK_OPEN_ORIGIN, lark_client.base_url)
 

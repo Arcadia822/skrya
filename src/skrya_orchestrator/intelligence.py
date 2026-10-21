@@ -218,10 +218,6 @@ class IntelligenceService:
         )
 
     @staticmethod
-    def _digest_artifact_name(execution_time: datetime) -> str:
-        return f"digest-{execution_time:%Y%m%dT%H%M%S%z}.md"
-
-    @staticmethod
     def _point_latest_artifact(latest_path: Path, target_path: Path) -> None:
         if latest_path.exists() or latest_path.is_symlink():
             latest_path.unlink()
@@ -847,7 +843,6 @@ class IntelligenceService:
     def _merge_current_source_events(
         self, topic_id: str, live_events: list[dict], ingest_events: list[dict]
     ) -> list[dict]:
-        """Overlay freshly collected sources on the current ingest source sets."""
         fresh_sources = {infer_source_id(event) for event in live_events}
         current_ingest = [
             event for event in ingest_events
@@ -1062,19 +1057,6 @@ class IntelligenceService:
         if sources:
             lines.append(sources)
         return "\n".join(lines)
-
-    @staticmethod
-    def _build_box_content_lines(text: str, width: int = 48) -> list[str]:
-        text = " ".join(str(text).split())
-        if not text:
-            return ["│"]
-        wrapped = textwrap.wrap(
-            text,
-            width=width,
-            break_long_words=True,
-            break_on_hyphens=False,
-        )
-        return [f"│ {line}" for line in (wrapped or [text])]
 
     def _build_chinese_brief(self, text: str) -> str:
         return self._build_brief(text, language="zh-CN")
