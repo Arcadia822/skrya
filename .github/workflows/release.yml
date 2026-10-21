@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  pull_request:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install PyYAML
+      - name: Run tests
+        run: PYTHONPATH=src python3 -m unittest discover -s tests
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install PyYAML
+      - name: Build skill pack
+        run: PYTHONPATH=src python3 -m skrya_orchestrator.main build-skill-pack --root . --host all
+      - name: Verify generated artifacts have no drift
+        run: git diff --exit-code
+      - name: Build versioned source zip
+        run: |
+          mkdir -p dist
+          VERSION="${GITHUB_REF_NAME#v}"
+          git archive --format=zip --prefix="skrya-${VERSION}/" -o "dist/skrya-${VERSION}.zip" "${GITHUB_SHA}"
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/skrya-*.zip
+          generate_release_notes: true
+
+  clawhub-dry-run:
+    if: github.event_name == 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        skill: [digest, topic-curation, source-curation, request-curation, deep-analysis]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install ClawHub CLI
+        run: npm i -g clawhub
+      - name: Dry-run publish ${{ matrix.skill }}
+        run: clawhub skill publish "./${{ matrix.skill }}" --dry-run --json
+
+  clawhub-publish:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        skill: [digest, topic-curation, source-curation, request-curation, deep-analysis]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install ClawHub CLI
+        run: npm i -g clawhub
+      - name: Publish ${{ matrix.skill }} to ClawHub
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: |
+          if [ -z "$CLAWHUB_TOKEN" ]; then
+            echo "::notice::CLAWHUB_TOKEN secret 未配置，跳过 ClawHub 发布"
+            exit 0
+          fi
+          clawhub login --token "$CLAWHUB_TOKEN"
+          clawhub skill publish "./${{ matrix.skill }}" --json

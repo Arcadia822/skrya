@@ -147,6 +147,22 @@ If a change affects data layout, filenames, interface versions, or installation 
 
 Examples include data-root changes, `thread` file naming, prompt-pack structure, and source schema changes.
 
+## Release Process
+
+Releases are tag-driven and run entirely in GitHub Actions (`.github/workflows/release.yml`); no local publish step is required.
+
+1. Make sure `main` is green and the working tree is clean.
+2. Tag the release: `git tag v0.1.0 && git push origin v0.1.0` (version mirrors `pyproject.toml`).
+3. The workflow then:
+   - runs the full unittest suite;
+   - rebuilds the skill pack and fails on any generated-artifact drift (`git diff --exit-code`);
+   - attaches a versioned source zip (`skrya-<version>.zip`) to the GitHub Release;
+   - publishes each bundled skill (`digest`, `topic-curation`, `source-curation`, `request-curation`, `deep-analysis`) to ClawHub via `clawhub skill publish`.
+
+ClawHub publishing requires the `CLAWHUB_TOKEN` repository secret (create an API token in ClawHub Settings → API tokens). Without the secret the ClawHub jobs are skipped with a notice and the GitHub Release still ships. Pull requests run a ClawHub `--dry-run` instead of publishing.
+
+The repository is additionally indexed by skills.sh automatically because it is public and contains `SKILL.md` files; no release action is needed for that channel.
+
 ## Pull Request Checklist
 
 - Tests pass with `PYTHONPATH=src python3 -m unittest discover -s tests`.
