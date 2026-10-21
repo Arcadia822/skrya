@@ -31,7 +31,7 @@ Preconditions:
 - **Pointer moves without rewriting old snapshots.** Run `$V skrya digest-again -- digest --root . --topic 新能源汽车 --sample` and snapshot again. A new Markdown/sidecar pair exists, latest points to it, and the first pair's bytes are unchanged. No sleep is required: same-second runs receive unique suffixes.
 - **Thread with no increment.** Run `$V skrya live-empty -- digest --root . --topic new-energy-vehicles --preview` (no `--sample`, no ingest). The active T-01 remains with an explicit no-verified-update message, latest state and next observation; no sample news is passed off as current.
 - **Empty topic without threads.** Run `$V skrya agi-empty -- digest --root . --topic agi-news --preview`. Stdout has the title, the same "暂时没有抓到足够新的真实内容" line, and no `## 事件线时间线更新`.
-- **Unknown topic.** Run `$V skrya unknown -- digest --root . --topic nope --preview`. Exit `1`; last stderr line `FileNotFoundError: Topic 'nope' not found`.
+- **Unknown topic.** Run `$V skrya unknown -- digest --root . --topic nope --preview`. Exit `1`; stderr is `Digest failed: Topic 'nope' not found`.
 
 ## Gotchas
 

@@ -46,7 +46,7 @@ Requires all `[OK]`: scratch dir owned by this run, evidence dir exists, `skrya_
 
 ```bash
 $V skrya <label> -- <cli args...>     # prints stdout, stderr tail, exit code; returns CLI exit code
-$V snapshot <label>                   # copies data/runs/, data/home tree and top-level work symlinks
+$V snapshot <label>                   # copies data/runs/; lists data/home and top-level work symlinks
 $V path data|home|work|scratch|evidence
 ```
 
@@ -75,7 +75,7 @@ Core commands (exact flags from `main.py`):
 | Delivery preflight / send | `delivery-check` / `deliver --channel feishu --topic <id> --target <bound-target> --binding <id>`; `deliver` also requires `--file` |
 | Received reference | `resolve-reference --root . --topic <id> --binding <id> [--message-id <id>] --reference N-xx\|T-xx` |
 
-Topic arguments accept the id or display name. Legacy digest/analysis/thread errors may end in a Python traceback; render/delivery/reference commands instead print a concise failure and exit 1. Inspect both exit code and captured stdout/stderr, not one assumed error format.
+Topic arguments accept the id or display name. Legacy analysis/thread errors may end in a Python traceback; digest/render/delivery/reference commands instead print a concise failure and exit 1. Inspect both exit code and captured stdout/stderr, not one assumed error format.
 
 Feature recipes with exact commands and expected observations: `features/README.md`. Open `features/source-maintenance.md` for isolated RSSHub, health, cache, lifecycle maintenance, and full-data-root preview equality.
 
